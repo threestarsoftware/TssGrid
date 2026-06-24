@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="../favicon.png">
+<link rel="apple-touch-icon" href="../favicon.png">
+<title>3社のグリッドを調べて「セル結合」の落とし所を決めた話 — TssGrid</title>
+<meta name="description" content="ag-grid / Handsontable / jspreadsheet のセル結合を見比べ、軽量グリッドのまま矩形結合を実装するために何を捨て何を残したか。">
+<link rel="canonical" href="https://tssgrid.threestarsoftware.co.jp/articles/cell-merge-3libs.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="TssGrid">
+<meta property="og:title" content="3社のグリッドを調べて「セル結合」の落とし所を決めた話">
+<meta property="og:description" content="ag-grid / Handsontable / jspreadsheet のセル結合を見比べ、軽量グリッドのまま矩形結合を実装するために何を捨て何を残したか。">
+<meta property="og:url" content="https://tssgrid.threestarsoftware.co.jp/articles/cell-merge-3libs.html">
+<meta property="og:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="3社のグリッドを調べて「セル結合」の落とし所を決めた話">
+<meta name="twitter:description" content="ag-grid / Handsontable / jspreadsheet のセル結合を見比べ、軽量のまま矩形結合を実装した判断の記録。">
+<meta name="twitter:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<link rel="stylesheet" href="../assets/lib/tssgrid.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../"><img class="logo" src="../favicon.svg" width="28" height="28" alt="">TssGrid <span class="tag">MIT</span></a>
+    <button class="nav-toggle" aria-label="メニュー">≡</button>
+    <nav class="nav">
+      <a href="../#features">機能</a>
+      <a href="../#demo">デモ</a>
+      <a href="./">記事</a>
+      <a class="gh" href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<article class="article">
+  <div class="wrap">
+    <div class="crumbs"><a href="../">TssGrid</a> ／ <a href="./">記事</a></div>
+
+    <header class="art-head">
+      <h1>3社のグリッドを調べて「セル結合」の落とし所を決めた話</h1>
+      <div class="art-meta">
+        <span class="cat">設計</span>
+        <time datetime="2026-06-16">2026-06-16</time>
+        <span>株式会社スリースターソフトウェア</span>
+      </div>
+    </header>
+
+    <div class="prose">
+      <p>
+        TssGrid は「ビルド不要・依存ゼロ」を売りにした軽量グリッドです。だからこそ、機能を1つ足すたびに
+        <b>「これは肥大化に見合うか？」</b>を毎回考えます。今回はずっと避けてきた <b>セル結合</b> に手を出すにあたって、
+        メジャーな3つのライブラリ ― <b>ag-grid</b> / <b>Handsontable</b> / <b>jspreadsheet</b> ― が
+        どう実装しているかを調べ、TssGrid としての「落とし所」を決めた記録です。
+      </p>
+
+      <div class="callout"><b>結論から:</b> 矩形（colspan×rowspan）結合は入れる。ただし<b>結合中はソートをロック</b>し、
+        <b>行移動は縦結合が無いときだけ許可</b>。auto-split のような重い割り切りはしない。これで <b>コア +71行</b> に収めました。</div>
+
+      <h2>なぜ今まで避けていたか</h2>
+      <p>
+        セル結合は「見た目だけ」の機能に見えて、実は<b>座標系の前提を壊す</b>のがやっかいです。
+        1セル＝1行1列という素直なモデルに、「このセルは3列ぶん」「この行とこの行はつながっている」という
+        例外が差し込まれる。選択・編集・コピー・行挿入・Undo ― ほぼ全機能が結合を意識し始めます。
+        ここを雑に作ると、軽量どころか一番の複雑性発生源になります。
+      </p>
+
+      <h2>3社はどう割り切っているか</h2>
+      <p>実装方針を、業務フォーム視点でざっくり並べるとこうでした。</p>
+      <table>
+        <thead><tr><th>観点</th><th>ag-grid</th><th>Handsontable</th><th>jspreadsheet</th></tr></thead>
+        <tbody>
+          <tr><td>結合の持ち方</td><td>列スパン中心（行はピン留め思想）</td><td>mergeCells 配列（矩形）</td><td>colspan/rowspan 属性</td></tr>
+          <tr><td>ソートとの関係</td><td>仮想化前提で強い</td><td>結合とソートは相性注意</td><td>基本シンプル</td></tr>
+          <tr><td>狙う規模</td><td>大規模・仮想スクロール</td><td>Excel ライク全部入り</td><td>軽量・スプレッドシート</td></tr>
+          <tr><td>重さ</td><td>大</td><td>中〜大</td><td>小</td></tr>
+        </tbody>
+      </table>
+      <p>
+        TssGrid が狙うのは「日本の業務フォーム」。<b>1万行を仮想スクロールで捌く</b>世界ではなく、
+        <b>帳票の見出しをきれいに結合したい</b>世界です。だから ag-grid 的な重武装は要らない。
+        jspreadsheet の軽さに、Handsontable の「矩形 mergeCells」の素直さを足すのが筋だと判断しました。
+      </p>
+
+      <h2>何を捨てたか</h2>
+      <ul>
+        <li><b>結合中のソート</b> ― 完全にロック。結合した帳票を並べ替える要求は実務でほぼ無く、
+          整合性コストに見合わない。</li>
+        <li><b>縦結合がある状態の行移動</b> ― 禁止。行順を崩すと縦結合が分断され、
+          それを自動で割る（auto-split）処理は重い。<b>横結合だけなら行と一緒に動く</b>ので許可。</li>
+      </ul>
+      <p>「できない」を最初に決めると、残りの実装は驚くほど素直になります。</p>
+
+      <h2>何を残したか</h2>
+      <p>
+        逆に、業務で本当に要るものは妥協しませんでした。<b>矩形結合（colspan×rowspan）</b>、
+        <b>Undo 対応</b>（結合と、結合時に消えた従属セルの値の両方を復元）、
+        <b>行/列の挿入削除での座標追従</b>。API はこれだけです。
+      </p>
+      <pre class="code"><span class="t">grid</span>.setMerge(0, 1, 3);      <span class="c">// (0,1) から3列を横結合</span>
+<span class="t">grid</span>.setMerge(1, 0, 1, 2);   <span class="c">// (1,0) から2行を縦結合</span>
+<span class="t">grid</span>.setMerge(2, 2, 2, 2);   <span class="c">// 2×2 の矩形結合</span>
+<span class="t">grid</span>.mergeSelection();       <span class="c">// 選択範囲をまとめて結合</span>
+<span class="t">grid</span>.removeMerge(0, 1);      <span class="c">// 解除（Undo 可）</span></pre>
+
+      <h2>実装の勘所：対称化で行数を抑える</h2>
+      <p>
+        横結合（colspan）と縦結合（rowspan）を<b>別々に書くと2倍に膨らむ</b>。そこで
+        「アンカー（左上）＋ 覆われた従属セル」という1つのモデルに統一し、
+        列方向・行方向を対称に扱う関数だけ用意しました。既存の選択・描画スキップの仕組みを使い回したので、
+        <b>フル矩形結合でもコアの増分は +71 行</b>に収まっています。
+      </p>
+
+      <h2>動かしてみる</h2>
+      <p>下のグリッドで<b>実際にセル結合を試せます</b>。セルを範囲選択して「選択を結合」（または<b>右クリック → セルを結合</b>）。結合セルを選んで「結合を解除」。横・縦・矩形どれもOK、Undo（Ctrl+Z）も効きます。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px">
+        <button id="m-merge" style="font:inherit;font-size:13px;padding:5px 13px;border:1px solid #1573c0;background:#1573c0;color:#fff;border-radius:6px;cursor:pointer">選択を結合</button>
+        <button id="m-unmerge" style="font:inherit;font-size:13px;padding:5px 13px;border:1px solid #cbd2dc;background:#fff;color:#1d2733;border-radius:6px;cursor:pointer">結合を解除</button>
+        <button id="m-clearall" style="font:inherit;font-size:13px;padding:5px 13px;border:1px solid #cbd2dc;background:#fff;color:#1d2733;border-radius:6px;cursor:pointer">全解除</button>
+        <span style="color:#6b7888;font-size:12.5px">またはセルを範囲選択して<b>右クリック</b></span>
+      </div>
+      <div class="embed" style="padding:14px"><div id="merge-demo"></div></div>
+
+      <div class="callout">
+        軽量ライブラリで機能を足すコツは、足す前に<b>「何を許さないか」を先に決める</b>こと。
+        セル結合では「ソート」と「縦結合中の行移動」を捨てたことで、軽さを保てました。
+      </div>
+    </div>
+
+    <footer class="art-foot">
+      <a href="./">← 記事一覧へ</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub で TssGrid を見る →</a>
+    </footer>
+  </div>
+</article>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="f-brand">TssGrid</div>
+    <nav class="f-links">
+      <a href="../#features">機能</a>
+      <a href="./">記事</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.threestarsoftware.co.jp/" target="_blank" rel="noopener">運営会社</a>
+    </nav>
+    <div class="copy">MIT License ・ © <span id="year">2026</span> 株式会社スリースターソフトウェア（ThreeStarSoftware）</div>
+  </div>
+</footer>
+
+<script src="../assets/lib/tssgrid.js"></script>
+<script src="../assets/lib/tss-merge.js" onerror="this.dataset.miss=1"></script>
+<script>
+  (function () {
+    var el = document.getElementById('merge-demo');
+    function inMerge(g, r, c) {
+      return (g.getMerges ? g.getMerges() : []).some(function (m) {
+        return r >= m.r && r < m.r + (m.rowspan || 1) && c >= m.c && c < m.c + m.colspan;
+      });
+    }
+    var opts = {
+      name: 'merge-demo', width: '100%', rowHeight: 28,
+      headers: ['品名', '数量', '単価', '金額'],
+      data: [
+        ['事務用品', '', '', ''],
+        ['コピー用紙 A4', '20', '480', '9,600'],
+        ['ボールペン 黒', '50', '120', '6,000'],
+        ['PC周辺', '', '', ''],
+        ['モニター 24型', '2', '18,000', '36,000'],
+        ['', '', '合計', '51,600'],
+      ],
+      // 右クリック＝Excel風メニュー（結合プラグインが足した mergeSelection/removeMerge を呼ぶだけ）
+      contextMenu: { items: [
+        { name: 'セルを結合', disabled: function (s) { return s.r0 === s.r1 && s.c0 === s.c1; }, callback: function () { this.mergeSelection(); } },
+        { name: '結合を解除', disabled: function () { return !inMerge(this, this.active.r, this.active.c); }, callback: function () { this.removeMerge(this.active.r, this.active.c); } },
+        '---', 'copy', 'clear', '---', 'undo', 'redo',
+      ] },
+    };
+    // 初期は分類行（事務用品 / PC周辺）を横結合した状態から。追加/解除を試せる。
+    if (window.TssMerge) opts.plugins = [TssMerge.plugin({ merges: [{ r: 0, c: 0, colspan: 4 }, { r: 3, c: 0, colspan: 4 }] })];
+    var grid = new TssGrid(el, opts);
+    var byId = function (id) { return document.getElementById(id); };
+    if (byId('m-merge')) byId('m-merge').onclick = function () { if (!grid.mergeSelection()) alert('2セル以上を範囲選択してください'); };
+    if (byId('m-unmerge')) byId('m-unmerge').onclick = function () { grid.removeMerge(grid.active.r, grid.active.c); };
+    if (byId('m-clearall')) byId('m-clearall').onclick = function () { grid.destroyMerged(); };
+  })();
+</script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

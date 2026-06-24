@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="../favicon.png">
+<link rel="apple-touch-icon" href="../favicon.png">
+<!-- ▼▼ ここを記事ごとに差し替え（FILE は自分のファイル名・TITLE/DESC は上と揃える） ▼▼ -->
+<title>記事タイトル — TssGrid</title>
+<meta name="description" content="記事の概要を1〜2文で。検索結果やSNSカードに出ます。">
+<link rel="canonical" href="https://tssgrid.threestarsoftware.co.jp/articles/FILE.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="TssGrid">
+<meta property="og:title" content="記事タイトル">
+<meta property="og:description" content="記事の概要を1〜2文で。">
+<meta property="og:url" content="https://tssgrid.threestarsoftware.co.jp/articles/FILE.html">
+<meta property="og:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="記事タイトル">
+<meta name="twitter:description" content="記事の概要を1〜2文で。">
+<meta name="twitter:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<!-- ▲▲ ここまで ▲▲ -->
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../"><img class="logo" src="../favicon.svg" width="28" height="28" alt="">TssGrid <span class="tag">MIT</span></a>
+    <button class="nav-toggle" aria-label="メニュー">≡</button>
+    <nav class="nav">
+      <a href="../#features">機能</a>
+      <a href="../#demo">デモ</a>
+      <a href="./">記事</a>
+      <a class="gh" href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<article class="article">
+  <div class="wrap">
+    <div class="crumbs"><a href="../">TssGrid</a> ／ <a href="./">記事</a></div>
+
+    <!-- ▼▼ 記事ヘッダ：タイトル・日付・カテゴリを差し替え ▼▼ -->
+    <header class="art-head">
+      <h1>記事タイトルをここに</h1>
+      <div class="art-meta">
+        <span class="cat">カテゴリ</span>
+        <time datetime="2026-01-01">2026-01-01</time>
+        <span>株式会社スリースターソフトウェア</span>
+      </div>
+    </header>
+    <!-- ▲▲ ここまで ▲▲ -->
+
+    <!-- ▼▼ 本文：以下は使える装飾の見本。要らないものは消してOK ▼▼ -->
+    <div class="prose">
+      <p>リード文。何の話か・誰に向けてかを最初の数行で。段落は <code>&lt;p&gt;</code> で囲みます。</p>
+
+      <h2>見出し（h2）</h2>
+      <p>本文。文中コードは <code>&lt;code&gt;こう&lt;/code&gt;</code>。強調は <b>太字</b>。</p>
+
+      <h3>小見出し（h3）</h3>
+      <ul>
+        <li>箇条書き 1</li>
+        <li>箇条書き 2</li>
+      </ul>
+
+      <pre class="code"><span class="c">// コードブロック（コピーボタンが自動で付く）</span>
+<span class="t">new</span> TssGrid(el, { columns: [...], data: [...] });</pre>
+
+      <blockquote>引用・補足。<code>blockquote</code> で囲むと左に緑の線。</blockquote>
+
+      <div class="callout"><b>ポイント:</b> 強調したい結論は callout に入れると目立ちます。</div>
+
+      <h2>表も使えます</h2>
+      <table>
+        <thead><tr><th>項目</th><th>A</th><th>B</th></tr></thead>
+        <tbody>
+          <tr><td>軽さ</td><td>◎</td><td>△</td></tr>
+          <tr><td>機能</td><td>○</td><td>◎</td></tr>
+        </tbody>
+      </table>
+
+      <h2>生きたデモを埋め込む（任意）</h2>
+      <p>記事内で TssGrid を実際に動かすこともできます（このサイトの強み）。</p>
+      <div class="embed" style="padding:14px"><div id="article-demo"></div></div>
+    </div>
+    <!-- ▲▲ 本文ここまで ▲▲ -->
+
+    <footer class="art-foot">
+      <a href="./">← 記事一覧へ</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub で TssGrid を見る →</a>
+    </footer>
+  </div>
+</article>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="f-brand">TssGrid</div>
+    <nav class="f-links">
+      <a href="../#features">機能</a>
+      <a href="./">記事</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.threestarsoftware.co.jp/" target="_blank" rel="noopener">運営会社</a>
+    </nav>
+    <div class="copy">MIT License ・ © <span id="year">2026</span> 株式会社スリースターソフトウェア（ThreeStarSoftware）</div>
+  </div>
+</footer>
+
+<!-- 記事内デモを使う場合だけ、この2つを残す（不要なら消す） -->
+<script src="../assets/lib/tssgrid.js"></script>
+<script>
+  var el = document.getElementById('article-demo');
+  if (el) new TssGrid(el, {
+    width: '100%', rowHeight: 28,
+    columns: [{ data: 'a', title: '列A' }, { data: 'b', title: '列B', type: 'number' }],
+    data: [{ a: 'サンプル', b: 1 }, { a: '', b: '' }],
+  });
+</script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

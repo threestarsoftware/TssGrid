@@ -1,0 +1,20 @@
+# Dependencies (dev/testing only — TssGrid itself is dependency-free)
+node_modules/
+package-lock.json
+
+# npm 認証トークン・pack 成果物（絶対にコミットしない）
+.npmrc
+*.tgz
+
+# Scratch / analysis files (e.g. user's original Excel, never commit)
+temp/
+
+# Internal AI-session handoff / design log（個人情報を含む内部メモ。公開しない＝ローカル専用）
+HANDOFF.md
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.vscode/

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 日付＋時刻 同時ピッカー（曜日つき／別フィールド結合）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-calendar.css">
+<link rel="stylesheet" href="../plugins/tss-time.css">
+<link rel="stylesheet" href="../plugins/tss-datetime.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 26px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 820px; }
+  .note b { color: #1573c0; } code { background: #eef2f6; padding: 0 4px; border-radius: 3px; }
+  .controls { margin: 10px 0; } .controls button { font: inherit; padding: 6px 16px; border: 1px solid #1573c0; background: #1573c0; color: #fff; border-radius: 6px; cursor: pointer; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 820px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 日付＋時刻を「同時に」設定するピッカー</h1>
+
+<div class="note">
+標準の日時入力で困りがちな2点を解消するカスタムエディタ（<code>plugins/tss-datetime.js</code>・無依存）。<br>
+<b>① 曜日が出る</b>：標準だと <code>2026/06/19() 15:45</code> と<b>カッコが空</b>になるが、本ピッカーは <b><code>2026/06/19(金) 15:45</code></b> と曜日を必ず埋める（編集中のポップアップにも曜日リードアウト）。<br>
+<b>② 日付と時刻を1セルで同時設定</b>：カレンダー＋時/分プルダウンが1つのポップアップに。保存値は <code>YYYY-MM-DDTHH:MM</code> の正規形。
+</div>
+
+<h2>デモ1：予定日時（曜日つき・同時設定）</h2>
+<div id="gridA"></div>
+
+<h2>デモ2：kintone風「日付フィールド＋時刻フィールド」を結合して編集</h2>
+<div class="note" style="margin-bottom:10px">
+kintone では日付と時刻が<b>別フィールド</b>のことが多い。読み込み時に <b>日付＋時刻 → 1つの日時セル</b>に結合し、<b>曜日つきで編集</b>。
+「保存」で元の<b>2フィールドに分割</b>して書き戻す（＝マッパーで束ねる）。
+</div>
+<div id="gridB"></div>
+<div class="controls"><button id="save">保存（→ 日付/時刻フィールドに分割）</button></div>
+<pre id="out">「保存」を押すと、2フィールドへ分割した結果がここに出ます。</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-datetime.js"></script>
+<script>
+  const dt = TssDatetime({ step: 5 });   // 5分刻み。休日を渡したいなら TssDatetime({ step:5, holidays })
+
+  // ── デモ1：日時を直接編集（曜日つき表示） ──
+  window.gridA = new TssGrid(document.getElementById('gridA'), {
+    name: 'dtA', width: 560,
+    columns: [
+      { data: 'task', title: '予定', width: 240 },
+      { data: 'at', title: '予定日時', width: 220, editor: dt, format: TssDatetime.format },   // ← 差すだけ。曜日つき整形
+    ],
+    data: [
+      { task: '要件ヒアリング', at: '2026-06-19T15:45' },
+      { task: '設計レビュー',   at: '2026-06-22T10:00' },
+      { task: '納品',           at: '' },
+    ],
+  });
+  gridA.buildTable();
+
+  // ── デモ2：別々の「日付」「時刻」フィールドを結合 ──
+  // kintone から来たつもりのレコード（日付と時刻がバラバラ）
+  const SRC = [
+    { 件名: '訪問A',   日付: '2026-07-10', 時刻: '13:30' },
+    { 件名: '訪問B',   日付: '2026-11-18', 時刻: '09:00' },
+    { 件名: '訪問C',   日付: '2024-07-10', 時刻: '' },     // 時刻なし → 日付のみ
+    { 件名: '随時対応', 日付: '',           時刻: '18:00' }, // 日付なし → 時刻のみ
+  ];
+  const merge = r => r.日付 ? (r.日付 + (r.時刻 ? 'T' + r.時刻 : '')) : (r.時刻 || '');   // 結合（日付/時刻 どちらか欠けても可）
+  const split = v => {                                                                    // 分割（3パターン対応）
+    const m = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?$/.exec(v || '');
+    if (m) return { 日付: m[1], 時刻: m[2] || '' };
+    const t = /^(\d{1,2}:\d{2})$/.exec(v || '');
+    return { 日付: '', 時刻: t ? t[1] : '' };
+  };
+
+  window.gridB = new TssGrid(document.getElementById('gridB'), {
+    name: 'dtB', width: 520,
+    columns: [
+      { data: '件名', title: '件名', width: 200 },
+      { data: '日時', title: '日時（結合・曜日つき）', width: 250, editor: dt, format: TssDatetime.format },
+    ],
+    data: SRC.map(r => ({ 件名: r.件名, 日時: merge(r) })),   // 読み込み時に結合
+  });
+  gridB.buildTable();
+
+  // 保存＝結合セルを2フィールドに分割して書き戻す
+  window.saveB = function () {
+    return gridB.getRows().map(r => Object.assign({ 件名: r.件名 }, split(r.日時)));
+  };
+  document.getElementById('save').onclick = () => {
+    document.getElementById('out').textContent = JSON.stringify(saveB(), null, 2);
+  };
+</script>
+</body>
+</html>

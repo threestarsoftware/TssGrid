@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 数値入力（全角→半角 / エラー化）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 880px; }
+  .note b { color: #1573c0; } code { background: #eef; padding: 0 4px; border-radius: 3px; }
+  .cols { display: flex; gap: 36px; flex-wrap: wrap; }
+  .card { } .card h2 { margin-top: 0; }
+  .tag { display: inline-block; border-radius: 10px; padding: 1px 9px; font-size: 12px; margin-left: 6px; }
+  .tag.r { background: #eef4ff; color: #2456b0; } .tag.k { background: #ffecec; color: #c0392b; }
+  .msg { min-height: 20px; color: #c0392b; font-size: 13px; font-weight: 600; margin-top: 6px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 880px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 数値入力 — 全角→半角 ＆ 入力エラー <span class="pill">IME堅牢</span></h1>
+
+<div class="note">
+業務フォームでは<b>全角数字の誤入力</b>がつきもの。TssGrid の <code>type:'number'</code> は<b>全角数字・符号を既定で半角化</b>します（<code>１２３</code>→<code>123</code>、<code>１，２３４．５</code>→<code>1234.5</code>）。<br>
+数字以外を入れたときの扱いは <code>invalidMode</code> で選べます：<br>
+・<b>revert（既定）</b>＝黙って元の値に戻す（軽快）<br>
+・<b>keep</b>＝<b>セルを赤くしてエラー表示</b>＋<code>onInvalid</code> でメッセージ（折角の入力チェックを活かす）<br>
+どちらのモードでも全角→半角の正規化は効きます。<b>「数量」列に <code>１２３</code> や <code>あ１0</code> を入れて</b>挙動を比べてください。
+</div>
+
+<div class="cols">
+  <div class="card">
+    <h2>A. 既定 revert <span class="tag r">黙って戻す</span></h2>
+    <div class="tssgrid-host"><div id="g1"></div></div>
+    <div class="msg" id="m1">&nbsp;</div>
+  </div>
+  <div class="card">
+    <h2>B. keep <span class="tag k">赤くエラー</span></h2>
+    <div class="tssgrid-host"><div id="g2"></div></div>
+    <div class="msg" id="m2">&nbsp;</div>
+  </div>
+</div>
+
+<h2>差し込み（抜粋）</h2>
+<pre>new TssGrid(host, {
+  invalidMode: 'keep',                 // 不正セルを赤く保持（既定は 'revert'）
+  onInvalid: (rej) =&gt; showMessage(rej),// 弾かれた時に呼ばれる（両モード共通）
+  columns: [
+    {},
+    { type:'number', thousands:true },             // 全角→半角は既定でON
+    { type:'number', prefix:'¥', /* zenkaku:false で無効化も可 */ },
+  ],
+});</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const cols = [{}, { type: 'number', thousands: true }, { type: 'number', prefix: '¥' }];
+  const headers = ['商品', '数量', '単価'];
+  const data = () => [['りんご', '120', '158'], ['お茶', '0', '128'], ['', '', '']];
+
+  // A: revert（既定）— onInvalid で「戻したよ」を通知（メッセージは任意）
+  new TssGrid(document.getElementById('g1'), {
+    name: 'num-revert', headers, columns: cols, data: data(), width: 360,
+    onInvalid: (rej) => {
+      document.getElementById('m1').textContent = '⟲ 数値以外なので元に戻しました（' + rej.length + '件）';
+      setTimeout(() => { document.getElementById('m1').innerHTML = '&nbsp;'; }, 1800);
+    },
+  });
+
+  // B: keep — 不正セルを赤く保持＋メッセージ
+  new TssGrid(document.getElementById('g2'), {
+    name: 'num-keep', headers, columns: cols, data: data(), width: 360,
+    invalidMode: 'keep',
+    onInvalid: (rej) => {
+      document.getElementById('m2').textContent = '⚠ 数値を入力してください（' + rej.map(x => '行' + (x.r + 1)).join(', ') + '）';
+    },
+  });
+</script>
+</body>
+</html>

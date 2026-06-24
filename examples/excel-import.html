@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — Excel(xlsx)読込（ExcelJS / データのみ）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1a8f57; } code { background: #eef; padding: 0 4px; border-radius: 3px; }
+  .bar { margin: 12px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .bar button { font-size: 13px; padding: 6px 14px; cursor: pointer; }
+  #msg { font-size: 13px; color: #1a3a6b; }
+  .pill { display: inline-block; background: #1a8f57; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 760px; }
+  .tssgrid { --tg-accent: #1a8f57; }   /* 外部ライブラリ連携＝緑テーマ */
+</style>
+</head>
+<body>
+<h1>TssGrid 例: Excel(xlsx)読込 <span class="pill">サンプル + ExcelJS</span></h1>
+
+<div class="note">
+xlsx の<b>読込</b>は <a href="https://github.com/exceljs/exceljs" target="_blank">ExcelJS</a>（MIT）がパースを全部やってくれるので、CSV と違い自前パース不要。<b>データ（セルの値）だけ</b>取り込みます（書式・数式は無視＝<b>数式はその結果値</b>を採用）。1行目を見出し、2行目以降をデータとして <code>setData</code> でグリッドに反映。<br>
+下の<b>「サンプル生成して読込」</b>で round-trip（生成→読込）を確認、または<b>実ファイルを選択</b>して取り込めます。出力は <a href="excel-export.html">excel-export.html</a> で。
+</div>
+
+<div class="bar">
+  <button id="gen">サンプルを生成して読込</button>
+  <label style="font-size:13px">またはファイル: <input type="file" id="file" accept=".xlsx"></label>
+  <span id="msg"></span>
+</div>
+<div class="tssgrid-host"><div id="host"></div></div>
+
+<h2>差し込み（要点）</h2>
+<pre>// セル値→テキスト（データのみ。数式は結果値、日付は yyyy-mm-dd）
+function cellText(v){
+  if (v == null) return '';
+  if (v instanceof Date) return v.toISOString().slice(0,10);
+  if (typeof v === 'object') {
+    if (Array.isArray(v.richText)) return v.richText.map(t=&gt;t.text).join('');
+    if ('result' in v) return cellText(v.result);     // 数式 {formula,result}
+    if ('text' in v)   return String(v.text);          // ハイパーリンク
+    return '';
+  }
+  return String(v);
+}
+const wb = new ExcelJS.Workbook();
+await wb.xlsx.load(await file.arrayBuffer());          // ← ExcelJS がパース
+const ws = wb.worksheets[0], rows = [];
+ws.eachRow({ includeEmpty:false }, (row) =&gt; {
+  const a = []; for (let c=1;c&lt;=ws.columnCount;c++) a.push(cellText(row.getCell(c).value));
+  rows.push(a);
+});
+const headers = rows.shift();                          // 1行目=見出し
+new TssGrid(host, { headers, data: rows });            // ← グリッドに反映</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"
+        integrity="sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  const host = document.getElementById('host');
+  const msg = document.getElementById('msg');
+  let grid = null;
+
+  function cellText(v) {
+    if (v == null) return '';
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    if (typeof v === 'object') {
+      if (Array.isArray(v.richText)) return v.richText.map(t => t.text).join('');
+      if ('result' in v) return cellText(v.result);     // 数式は結果値
+      if ('text' in v) return String(v.text);            // ハイパーリンク
+      if ('hyperlink' in v) return String(v.hyperlink);
+      return '';
+    }
+    return String(v);
+  }
+
+  // ArrayBuffer(xlsx) → グリッドに反映（1行目=見出し）
+  async function loadBuffer(buf) {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    const ws = wb.worksheets[0];
+    if (!ws) { msg.textContent = '⚠ シートが見つかりません'; return; }
+    const rows = [];
+    ws.eachRow({ includeEmpty: false }, (row) => {
+      const a = [];
+      for (let c = 1; c <= ws.columnCount; c++) a.push(cellText(row.getCell(c).value));
+      rows.push(a);
+    });
+    const headers = rows.shift() || [];
+    if (grid) grid.destroy();
+    grid = new TssGrid(host, { name: 'imported', headers, data: rows, height: 260 });
+    msg.textContent = `✅ 読込完了: ${headers.length} 列 × ${rows.length} 行（シート「${ws.name}」）`;
+  }
+
+  // 外部ファイル不要のデモ用: ExcelJS でサンプル xlsx を生成 → そのまま読込（round-trip）
+  document.getElementById('gen').addEventListener('click', async () => {
+    if (typeof ExcelJS === 'undefined') { msg.textContent = '⚠ ExcelJS を読み込めませんでした（CDN/ネット）'; return; }
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('在庫');
+    ws.addRow(['品番', '商品名', '数量', '単価', '金額', '入荷日']);
+    const rows = [
+      ['A-001', 'りんご', 120, 158, null, new Date(Date.UTC(2026, 5, 10))],
+      ['A-002', 'ボールペン', 500, 88, null, new Date(Date.UTC(2026, 5, 9))],
+      ['A-003', 'お茶', 0, 128, null, new Date(Date.UTC(2026, 5, 12))],
+    ];
+    rows.forEach((r, i) => { const row = ws.addRow(r); row.getCell(5).value = { formula: `C${i + 2}*D${i + 2}`, result: r[2] * r[3] }; });  // 金額=数量*単価（数式）
+    await loadBuffer(await wb.xlsx.writeBuffer());
+    msg.textContent += '（金額は数式→結果値として取り込み）';
+  });
+
+  document.getElementById('file').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    if (typeof ExcelJS === 'undefined') { msg.textContent = '⚠ ExcelJS を読み込めませんでした'; return; }
+    try { await loadBuffer(await f.arrayBuffer()); }
+    catch (err) { msg.textContent = '⚠ 読込失敗: ' + err.message; }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — フィルタUI（サンプル）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; } code { background: #eef; padding: 0 4px; border-radius: 3px; }
+  .bar { margin: 12px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .bar input, .bar select { font: inherit; padding: 5px 8px; border: 1px solid #c3ccd6; border-radius: 5px; }
+  .bar button { font-size: 13px; padding: 6px 14px; cursor: pointer; }
+  #count { font-weight: 600; color: #1a3a6b; background: #eef4ff; border-radius: 14px; padding: 3px 12px; font-size: 13px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 760px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: フィルタUI <span class="pill">サンプル（コア非搭載）</span></h1>
+
+<div class="note">
+フィルタは<b>コアに入れず</b>、並べ替え同様「<b>サンプル＋既存フック</b>」で作ります。仕組みは <b>①マスタ配列をアプリ側に保持 ②絞り込んだ部分集合を <code>setData</code> で表示 ③<code>onAfterChange</code> で編集をマスタへ同期</b>。これで<b>フィルタ中でも編集が効き、解除すると全件＋編集が残ります</b>。<br>
+下の<b>検索（全列横断）</b>と<b>部署 / 状態の絞り込み</b>を組み合わせてください。
+</div>
+
+<div class="bar">
+  <input id="q" type="search" placeholder="検索（全列）…" size="18">
+  <select id="dept"><option value="">部署（すべて）</option></select>
+  <select id="state"><option value="">状態（すべて）</option></select>
+  <button id="clear">クリア</button>
+  <span id="count"></span>
+</div>
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み（要点）</h2>
+<pre>const master = rows.slice();              // ← アプリ側がマスタ（真実の値）
+let view = master.slice();
+
+const grid = new TssGrid(host, {
+  data: view,
+  onAfterChange: (ch) =&gt; {                // 編集をマスタへ同期（view[r] はマスタ行の参照）
+    for (const c of ch) if (view[c.r]) view[c.r][c.c] = grid.getValue(c.r, c.c);
+  },
+});
+
+function applyFilter() {
+  const q = qBox.value.trim().toLowerCase();
+  view = master.filter(row =&gt;
+    (!q || row.some(v =&gt; String(v).toLowerCase().includes(q))) &&
+    (!dept.value || row[2] === dept.value) &&
+    (!state.value || row[3] === state.value));
+  grid.setData(view);                     // ← 絞り込んだ部分集合を表示
+}</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const HEADERS = ['ID', '名前', '部署', '状態', '単価'];
+  const DEPTS = ['営業', '開発', '総務', '人事'];
+  const STATES = ['稼働中', '待機', '完了'];
+  const master = [
+    ['1', '佐藤 一郎', '営業', '稼働中', '120000'],
+    ['2', '鈴木 花子', '開発', '待機', '98000'],
+    ['3', '高橋 次郎', '総務', '完了', '85000'],
+    ['4', '田中 桜', '開発', '稼働中', '110000'],
+    ['5', '渡辺 健', '営業', '稼働中', '130000'],
+    ['6', '伊藤 葵', '人事', '待機', '76000'],
+    ['7', '山本 大輔', '開発', '完了', '102000'],
+    ['8', '中村 美咲', '営業', '待機', '99000'],
+    ['9', '小林 蓮', '総務', '稼働中', '88000'],
+    ['10', '加藤 結衣', '開発', '稼働中', '115000'],
+    ['11', '吉田 翔', '人事', '完了', '79000'],
+    ['12', '山田 凛', '営業', '稼働中', '125000'],
+  ];
+  let view = master.slice();
+
+  const q = document.getElementById('q'), dept = document.getElementById('dept'),
+        state = document.getElementById('state'), count = document.getElementById('count');
+  DEPTS.forEach(d => dept.add(new Option(d, d)));
+  STATES.forEach(s => state.add(new Option(s, s)));
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'filter', width: 560, height: 300,
+    headers: HEADERS,
+    columns: [
+      { type: 'number' }, {},
+      { type: 'dropdown', options: DEPTS },
+      { type: 'dropdown', options: STATES },
+      { type: 'number', thousands: true, prefix: '¥' },
+    ],
+    data: view,
+    onAfterChange: (changes) => {
+      for (const ch of changes) if (view[ch.r]) view[ch.r][ch.c] = grid.getValue(ch.r, ch.c);   // 編集→マスタへ
+      updateCount();
+    },
+  });
+
+  function applyFilter() {
+    const s = q.value.trim().toLowerCase();
+    view = master.filter(row =>
+      (!s || row.some(v => String(v).toLowerCase().includes(s))) &&
+      (!dept.value || row[2] === dept.value) &&
+      (!state.value || row[3] === state.value));
+    grid.setData(view);
+    updateCount();
+  }
+  function updateCount() { count.textContent = `${view.length} / ${master.length} 件`; }
+
+  q.addEventListener('input', applyFilter);
+  dept.addEventListener('change', applyFilter);
+  state.addEventListener('change', applyFilter);
+  document.getElementById('clear').addEventListener('click', () => {
+    q.value = ''; dept.value = ''; state.value = ''; applyFilter();
+  });
+  updateCount();
+</script>
+</body>
+</html>

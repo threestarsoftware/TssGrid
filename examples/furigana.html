@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 氏名→フリガナ 自動入力（furigana プラグイン）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:640px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .fg .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  .fg .tssgrid td.kana { color:#1565a8; }    /* フリガナ列を控えめに色付け */
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+  .tip { font-size:12px; color:#64748b; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>氏名 → フリガナ 自動入力 <span class="pill">furigana プラグイン</span></h1>
+  <div class="note" style="margin-top:8px">
+  漢字を入力（IMEで変換）すると<b>フリガナ列が自動で埋まる</b>プラグイン（<code>plugins/tss-furigana.js</code>・<b>辞書不要</b>）。仕組みは辞書引きではなく、<b>IME変換の composition イベントから「変換前の読み（かな）」を拾う</b>だけ。TssGrid は<b>アクティブセルに本物の <code>&lt;input&gt;</code> を重ねる</b>設計なので、この composition が確実に取れます（＝「IMEに強い」という看板そのもの）。<br>
+  フリガナは<b>手修正も可</b>。<b>手入力した時だけ</b>取れる（貼り付け・既存の漢字からは取れない）のが正直な限界です。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">社員名簿（氏名を入力するとフリガナが自動。例: 「たかはし」→変換→「高橋」でフリガナに「タカハシ」）</div>
+    <div class="fg"><div id="grid"></div></div>
+    <div class="tip">※ このデモは実際の IME 入力で動きます（漢字変換してください）。貼り付けやサンプルの既存行からは読みを取得できません。</div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-furigana.js"></script>
+<script>
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'members', width: 640, rowHeight: 26, rowHeaders: false, initialCell: { r: 0, c: 'name' },
+    columns: [
+      { data: 'name', title: '氏名', width: 200 },
+      // フリガナ列＝自動入力されるが readOnly にはしない（手修正できる）。色だけ控えめに。
+      { data: 'kana', title: 'フリガナ', width: 220, cellClass: () => 'kana' },
+      { data: 'dept', title: '部署', width: 200, type: 'dropdown', options: ['営業部', '開発部', '総務部', '経理部'] },
+    ],
+    // 氏名(name) を入力すると読みを kana へ（カタカナ）。ひらがなにしたいなら katakana:false。
+    plugins: [TssFurigana({ source: 'name', target: 'kana', katakana: true })],
+    data: [
+      { name: '高橋 健太', kana: 'タカハシ ケンタ', dept: '開発部' },   // 既存行は手入力済みの例（自動では取れない）
+      { name: '', kana: '', dept: '' },
+      { name: '', kana: '', dept: '' },
+      { name: '', kana: '', dept: '' },
+    ],
+  });
+</script>
+</body>
+</html>

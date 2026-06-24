@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 条件付き書式（cellClass）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 720px; }
+  .note b { color: #1573c0; } code { background: #eef; padding: 0 4px; border-radius: 3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 720px; }
+
+  /* ▼ 条件付き書式の見た目は「業務側のCSS」で自由に（ライブラリはクラスを付けるだけ） */
+  /* 行ルールを先に書く＝後に書くセル個別ルールが勝つ（同詳細度は後勝ち） */
+  .tssgrid td.tg-row-ng  { background: #fdecea; }                         /* 行＝状態が欠品 */
+  .tssgrid td.tg-row-ok  { background: #eaf7ee; }                         /* 行＝状態が良好 */
+  .tssgrid td.tg-low     { background: #fff3cd; }                          /* 在庫少＝黄背景（行色より優先） */
+  .tssgrid td.tg-neg     { color: #c0392b; font-weight: 600; }            /* マイナス＝赤字 */
+  .tssgrid td.tg-zero    { color: #999; }                                 /* 0＝淡色 */
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 条件付き書式 <span class="pill">cellClass</span></h1>
+
+<div class="note">
+<b>値・行・列を見てセルにCSSクラスを付ける</b>フックです。<b>ルールエンジンは持たず</b>、付けるのはクラスだけ＝見た目は業務側CSSで自由（リーンコア方針）。<br>
+このデモ：<b>差分がマイナス＝赤字</b> / <b>在庫が10未満＝黄背景</b> / <b>状態で行を色分け</b>。<b>数量や状態を編集すると即座に色が変わります</b>（編集時も再評価）。
+</div>
+
+<h2>デモ（数量・状態を編集してみて）</h2>
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み（要点）</h2>
+<pre>columns: [
+  { data:'在庫', type:'number',
+    cellClass: v =&gt; +v &lt; 10 ? 'tg-low' : '' },              // 列版: 値で判定
+  { data:'差分', type:'number',
+    cellClass: v =&gt; +v &lt; 0 ? 'tg-neg' : (+v === 0 ? 'tg-zero' : '') },
+],
+// グリッド全体版（row=値の配列。他列も見られる＝grid参照不要でTDZ回避）
+cellClass: (r, c, value, row) =&gt;
+  row[3] === '欠品' ? 'tg-row-ng' : row[3] === '良好' ? 'tg-row-ok' : '',
+// 他列に依存する行ルールは、その列の編集時に再描画して反映:
+onAfterChange: () =&gt; grid.redraw(),
+
+/* CSS: .tssgrid td.tg-neg{color:#c00} .tssgrid td.tg-low{background:#fff3cd} … */</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'cond', width: 560,
+    headers: ['品名', '在庫', '差分', '状態'],
+    columns: [
+      { data: '品名' },
+      { data: '在庫', type: 'number', cellClass: v => +v < 10 ? 'tg-low' : '' },
+      { data: '差分', type: 'number', cellClass: v => +v < 0 ? 'tg-neg' : (+v === 0 ? 'tg-zero' : '') },
+      { data: '状態', type: 'dropdown', options: ['良好', '注意', '欠品'] },
+    ],
+    // 行全体を状態で色分け（row=値配列なので grid 参照不要。他列依存なので編集時は redraw で追従）
+    cellClass: (r, c, value, row) => row[3] === '欠品' ? 'tg-row-ng' : row[3] === '良好' ? 'tg-row-ok' : '',
+    onAfterChange: () => grid.redraw(),
+    data: [
+      { 品名: 'りんご', 在庫: '120', 差分: '12', 状態: '良好' },
+      { 品名: 'ボールペン', 在庫: '6', 差分: '-4', 状態: '注意' },
+      { 品名: 'お茶', 在庫: '0', 差分: '-30', 状態: '欠品' },
+      { 品名: '洗剤', 在庫: '36', 差分: '0', 状態: '良好' },
+    ],
+  });
+</script>
+</body>
+</html>

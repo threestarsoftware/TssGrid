@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 導入事例 / Used by</title>
+<style>
+  :root { --accent:#1573c0; }
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin:0; background:#fbfcfd; color:#1f2733; line-height:1.65; }
+  .wrap { max-width:1000px; margin:0 auto; padding:30px 22px 80px; }
+  h1 { font-size:22px; margin-bottom:4px; } h2 { font-size:16px; margin-top:34px; }
+  .lead { color:#445; font-size:14px; max-width:760px; }
+  .note { background:#f5f7fa; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:13px; max-width:760px; color:#445; }
+  .note b { color: var(--accent); }
+  .wall { display:flex; flex-wrap:wrap; gap:14px; margin-top:18px; }
+  .card { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+          min-width:180px; min-height:96px; padding:14px 18px; background:#fff; border:1px solid #e2e7ee;
+          border-radius:10px; box-shadow:0 1px 3px rgba(20,40,80,.05); text-decoration:none; color:#1f2733; }
+  .card:hover { border-color: var(--accent); box-shadow:0 3px 10px rgba(13,148,136,.15); }
+  .card img { max-height:44px; max-width:200px; object-fit:contain; }
+  .card .nm { font-weight:600; font-size:14px; text-align:center; }
+  .card .uc { font-size:12px; color:#667; text-align:center; }
+  .cta { display:inline-block; margin-top:14px; background:var(--accent); color:#fff; text-decoration:none;
+         padding:9px 18px; border-radius:8px; font-size:14px; box-shadow:0 2px 6px rgba(13,148,136,.3); }
+  .badge-box { background:#0b1020; color:#cfe; border-radius:8px; padding:12px 14px; font-size:12.5px; overflow:auto; max-width:760px; }
+  a.link { color:#1573c0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>導入事例 / Used by TssGrid</h1>
+<p class="lead">
+TssGrid（MIT・ノービルドの日本語業務グリッド）を使っている会社・ブランドの一覧です。
+個人・小規模でも大歓迎——<b>載るほど、次に検討する人が安心して採用できます</b>。
+</p>
+
+<div class="note">
+📣 <b>掲載は無料・承認制</b>です。ロゴ（PNG/JPG）と会社名を <a class="link" href="https://github.com/threestarsoftware/TssGrid/issues/new?template=showcase.yml">こちらのフォーム（GitHub Issue）</a> から申請してください。
+内容を確認のうえ掲載し、<b>サイトURLへリンク</b>します（被リンクになります）。取り下げはいつでも可能。
+</div>
+<a class="cta" href="https://github.com/threestarsoftware/TssGrid/issues/new?template=showcase.yml">＋ 導入事例の掲載を申請する</a>
+
+<h2>掲載中</h2>
+<div class="wall" id="wall"></div>
+
+<h2>Powered by TssGrid バッジ</h2>
+<p class="lead">採用いただいた方は、自社サイトに貼っていただけると嬉しいです（任意・相互宣伝）。</p>
+<div class="badge-box">&lt;a href="https://github.com/threestarsoftware/TssGrid"&gt;<br>
+&nbsp;&nbsp;&lt;img src="https://img.shields.io/badge/Powered%20by-TssGrid-0d9488" alt="Powered by TssGrid"&gt;<br>
+&lt;/a&gt;</div>
+<p style="margin-top:8px"><img src="https://img.shields.io/badge/Powered%20by-TssGrid-0d9488" alt="Powered by TssGrid"></p>
+
+<p style="margin-top:30px; font-size:13px; color:#667;">
+  ＜ <a class="link" href="compare.html">機能比較</a> ／ <a class="link" href="attendance.html">勤怠デモ</a> ／ <a class="link" href="inventory.html">在庫デモ</a>
+</p>
+
+</div>
+
+<script src="../showcase/adopters.js"></script>
+<script>
+  const wall = document.getElementById('wall');
+  const list = window.TSS_ADOPTERS || [];
+  for (const a of list) {
+    const el = document.createElement(a.url ? 'a' : 'div');
+    el.className = 'card';
+    if (a.url) { el.href = a.url; el.target = '_blank'; el.rel = 'noopener'; }
+    const inner = a.logo
+      ? `<img src="../${a.logo}" alt="${a.name}">`
+      : `<div class="nm">${a.name}</div>`;
+    el.innerHTML = inner + (a.useCase ? `<div class="uc">${a.useCase}</div>` : '');
+    wall.appendChild(el);
+  }
+  if (!list.length) wall.innerHTML = '<div class="card"><div class="uc">まだ掲載はありません。最初の一社になりませんか？</div></div>';
+</script>
+</body>
+</html>

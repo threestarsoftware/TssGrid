@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — Chart.js 連携（編集でグラフがライブ更新）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<!-- Chart.js（MIT）を CDN+SRI で。コアには積まない＝これは "サンプル"（excel-export と同じ位置づけ） -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+        integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4"
+        crossorigin="anonymous"></script>
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1a8f57; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:760px; color:#445; line-height:1.7; }
+  .note b{ color:#1a8f57; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .ch .tssgrid { --tg-accent:#1a8f57; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 6px; font-weight:600; }
+  .chartbox { height: 300px; margin-top: 6px; }
+  .seg { display:inline-flex; border:1px solid #cfd7e0; border-radius:7px; overflow:hidden; margin-left:10px; vertical-align:middle; }
+  .seg button { font:inherit; font-size:12px; padding:3px 12px; border:0; background:#fff; cursor:pointer; color:#475569; }
+  .seg button.on { background:#1a8f57; color:#fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Chart.js 連携 <span class="pill">編集でライブ更新</span></h1>
+  <div class="note" style="margin-top:8px">
+  <b>TssGrid を編集すると、隣の Chart.js グラフが即更新</b>。データの持ち主はグリッド、グラフはその"ビュー"。連携は <code>onAfterChange</code> で <code>grid.getRows()</code> → <code>chart.data</code> → <code>chart.update()</code> するだけ。<br>
+  <b>Chart.js は MIT</b>。コアには積まず <b>CDN+SRI</b> で読み込む"サンプル"です（本体は変えません）。セル内の <code>sparkline</code> プラグインが"ミニ版"なら、これは"フルサイズ版"。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">店舗別 月次売上（数字を編集するとグラフが動きます）
+      <span class="seg"><button id="line" class="on">折れ線</button><button id="bar">棒</button></span>
+    </div>
+    <div class="ch"><div id="grid"></div></div>
+    <div class="chartbox"><canvas id="chart"></canvas></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const MONTHS = ['m4', 'm5', 'm6', 'm7', 'm8', 'm9'];
+  const LABELS = MONTHS.map((_, i) => (i + 4) + '月');
+  const PALETTE = ['#1a8f57', '#2563eb', '#e8638f', '#f59e0b'];
+  const num = v => (v === '' || v == null) ? '' : Number(v).toLocaleString('ja-JP');
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'sales', width: 800, rowHeight: 28, rowHeaders: false,
+    columns: [
+      { data: 'shop', title: '店舗', width: 90 },
+      ...MONTHS.map((k, i) => ({ data: k, title: (i + 4) + '月', width: 110, type: 'number', align: 'right', format: num })),
+    ],
+    onAfterChange: () => { if (chart) { chart.data = chartData(); chart.update(); } },   // ← これだけでライブ更新
+    data: [
+      { shop: '神田',   m4: '388070', m5: '329299', m6: '220057', m7: '348073', m8: '323343', m9: '165449' },
+      { shop: '品川',   m4: '388835', m5: '329299', m6: '220057', m7: '348073', m8: '274477', m9: '106903' },
+      { shop: '新宿',   m4: '269245', m5: '360263', m6: '368486', m7: '286489', m8: '358885', m9: '207269' },
+      { shop: '八王子', m4: '283675', m5: '308499', m6: '125730', m7: '275528', m8: '355067', m9: '291454' },
+    ],
+  });
+
+  // グリッド → Chart.js のデータ（店舗ごとに1系列）
+  function chartData() {
+    return {
+      labels: LABELS,
+      datasets: grid.getRows().filter(r => r.shop).map((r, i) => ({
+        label: r.shop,
+        data: MONTHS.map(k => Number(r[k]) || 0),
+        borderColor: PALETTE[i % PALETTE.length],
+        backgroundColor: PALETTE[i % PALETTE.length] + (chartType === 'bar' ? 'cc' : '22'),
+        borderWidth: 2, tension: .3, fill: chartType === 'line', pointRadius: 3,
+      })),
+    };
+  }
+  let chart = null, chartType = 'line';
+  function render() {
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById('chart'), {
+      type: chartType, data: chartData(),
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        scales: { y: { ticks: { callback: v => '¥' + Number(v).toLocaleString('ja-JP') } } } },
+    });
+  }
+  // 折れ線/棒 切替（Chart.js v4 は type 変更に再生成が要る）
+  document.getElementById('line').addEventListener('click', () => { chartType = 'line'; setSeg('line'); render(); });
+  document.getElementById('bar').addEventListener('click', () => { chartType = 'bar'; setSeg('bar'); render(); });
+  function setSeg(t) { line.classList.toggle('on', t === 'line'); bar.classList.toggle('on', t === 'bar'); }
+  render();
+</script>
+</body>
+</html>

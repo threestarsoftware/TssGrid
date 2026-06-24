@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — セル内 横棒グラフ（bar プラグイン）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:640px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .br .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  .br .tssgrid td.bar { padding:2px 8px; }
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>セル内 横棒グラフ <span class="pill">bar プラグイン</span></h1>
+  <div class="note" style="margin-top:8px">
+  セルの数値を<b>横棒</b>で描く（<code>plugins/tss-bar.js</code>）。<code>columns[c].html:true</code> ＋ <code>format</code> seam（format が返す <code>&lt;div&gt;</code> バーがセルに）。<br>
+  <b>バーのまま値を編集できます</b>（セルをダブルクリック→数値を打つとバーが伸びる）。<code>color</code> に関数を渡すと<b>閾値で色分け</b>（下の「現在使用率」は40%未満を赤に）。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">ブランド調査（ブランドA・% を直接編集できます。値に応じてバーが伸縮）</div>
+    <div class="br"><div id="grid"></div></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-bar.js"></script>
+<script>
+  // 値そのまま（type:number）＝バーのまま編集可。表示は format でバー化。
+  const barFmt = TssBar({ max: 100, suffix: '%', decimals: 1, color: '#e8638f', height: 13 });
+  // 閾値で色分け（40%未満は赤）
+  const barFmtThresh = TssBar({ max: 100, suffix: '%', decimals: 1, height: 13, color: v => v < 40 ? '#dc2626' : '#1573c0' });
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'survey', width: 660, rowHeight: 30, rowHeaders: false, initialCell: { r: 0, c: 'a' },
+    columns: [
+      { data: 'metric', title: '指標', width: 150, readOnly: true },
+      { data: 'a', title: 'ブランドA', width: 280, type: 'number', html: true, cellClass: () => 'bar', format: barFmt },
+      { data: 'cur', title: '現在使用率', width: 200, type: 'number', html: true, cellClass: () => 'bar', format: barFmtThresh },
+    ],
+    data: [
+      { metric: '認知率',         a: '82.0', cur: '39.5' },
+      { metric: '購入経験率',     a: '75.2', cur: '52.1' },
+      { metric: '1年以内の使用率', a: '61.9', cur: '33.0' },
+      { metric: '現在の使用率',   a: '39.5', cur: '28.4' },
+    ],
+  });
+</script>
+</body>
+</html>

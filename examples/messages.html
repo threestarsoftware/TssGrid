@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — エラーをコード/レベル/メッセージで管理（messages カタログ）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:760px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .ms .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; --tg-invalid-bg:#fde8e8; --tg-invalid-fg:#c0392b; }
+  /* level 別トーン（data-err-level）。error=赤 / warn=アンバー */
+  .ms .tssgrid td.tg-invalid[data-err-level="warn"] { background:#fef3c7 !important; color:#92670c; }
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+  .errs { margin-top:12px; border:1px solid #e2e7ee; border-radius:8px; overflow:hidden; font-size:12.5px; }
+  .errs .head { background:#334155; color:#fff; padding:6px 12px; font-weight:600; }
+  .errs.ok .head { background:#1573c0; }
+  .errs ul { margin:0; padding:6px 12px; list-style:none; }
+  .errs li { padding:3px 0; border-bottom:1px solid #f0f3f7; display:flex; gap:8px; align-items:baseline; }
+  .errs li:last-child { border-bottom:0; }
+  .badge { font-size:11px; font-weight:700; border-radius:4px; padding:0 6px; }
+  .badge.error { background:#fde8e8; color:#c0392b; } .badge.warn { background:#fef3c7; color:#92670c; }
+  .errs .code { font-family:monospace; color:#64748b; min-width:84px; }
+  .cat { background:#0f172a; color:#cbd5e1; border-radius:8px; padding:10px 12px; font-size:12px; white-space:pre; overflow:auto; margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>エラーをコード/レベル/メッセージで管理 <span class="pill">messages カタログ</span></h1>
+  <div class="note" style="margin-top:8px">
+  <code>validator</code> は <b>コードを返すだけ</b>（<code>{ code:'E_RANGE', params:{min,max} }</code>）。<b>本文は外部のメッセージカタログ</b>（システム共通メッセージ）で一元管理＝<b>トーン統一・差し替え・多言語</b>が容易。<br>
+  カタログは <b>CSV/JSON/XML</b> など設定系に置けます（ここでは <code>TssMessages.fromCSV()</code> で読込）。各エラーは <b>コード・レベル・解決済み本文</b>を持ち、<code>getInvalidCells()</code> でまとめて取得。レベルで色も変わります（error=赤 / warn=アンバー）。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">メッセージカタログ（CSV ＝ 設定ファイルのイメージ。ここを直すと全エラー文が一括で変わる）</div>
+    <div id="catview" class="cat"></div>
+    <div class="lbl" style="margin-top:14px">社員登録（わざとNGを入れると、コードに対応する共通メッセージで赤く＋一覧に）</div>
+    <div class="ms"><div id="grid"></div></div>
+    <div id="errs" class="errs"></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-messages.js"></script>
+<script>
+  // ── システム共通メッセージ（本来は messages.csv 等を fetch。ここでは文字列で代用）──
+  const CSV = `code,level,text
+E_CODE,error,{label}は英数字（大文字）5桁以内で入力してください
+E_RANGE,error,{label}は {min}〜{max} の範囲で入力してください
+E_EMAIL,error,{label}の形式が正しくありません（例: {example}）
+E_REQUIRED,error,{label}は必須です
+W_LONG,warn,{label}がやや長めです（{value}）`;
+  const messages = TssMessages.fromCSV(CSV);
+  document.getElementById('catview').textContent = CSV;
+
+  const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'reg', width: 820, rowHeight: 26, rowHeaders: false, invalidMode: 'keep',
+    messages,   // ← カタログを渡すだけ。validator はコードを返す
+    columns: [
+      { data: 'code', title: 'コード', width: 130, maxLength: 5,
+        validator: v => v === '' || /^[A-Z0-9]{1,5}$/.test(v) || { code: 'E_CODE' } },
+      { data: 'name', title: '氏名', width: 180, placeholder: '氏名',
+        validator: v => v.length <= 10 || { code: 'W_LONG' } },     // warn（アンバー）
+      { data: 'age', title: '年齢', width: 90, type: 'number', align: 'right',
+        validator: v => v === '' || (Number(v) >= 0 && Number(v) <= 120) || { code: 'E_RANGE', params: { min: 0, max: 120 } } },
+      { data: 'email', title: 'メール', width: 240, placeholder: 'name@example.com',
+        validator: v => v === '' || reEmail.test(v) || { code: 'E_EMAIL', params: { example: 'name@example.com' } } },
+    ],
+    onAfterChange: () => renderErrors(),
+    data: [
+      { code: 'A1234', name: '三星 太郎', age: '34', email: 'taro@example.com' },
+      { code: 'b99',   name: '彩瀬 花子はとても長い名前です', age: '200', email: 'hanako(at)x' },  // 複数NG（warn含む）
+      { code: '', name: '', age: '', email: '' },
+    ],
+  });
+
+  // 値はユーザー入力（message に {value} が混ざる）なので innerHTML 前に必ずエスケープ（XSS対策）
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function renderErrors() {
+    const errs = grid.getInvalidCells();
+    const box = document.getElementById('errs');
+    const title = c => (grid.columns[c].title || grid.columns[c].data);
+    if (!errs.length) { box.className = 'errs ok'; box.innerHTML = '<div class="head">✓ エラーなし</div>'; return; }
+    box.className = 'errs';
+    box.innerHTML = '<div class="head">指摘 ' + errs.length + ' 件</div><ul>'
+      + errs.map(e => '<li><span class="badge ' + esc(e.level || 'error') + '">' + esc(e.level || 'error') + '</span>'
+        + '<span class="code">' + esc(e.code || '-') + '</span>'
+        + '<span>' + (e.r + 1) + '行 ' + esc(title(e.c)) + '：' + esc(e.message || '入力が不正') + '</span></li>').join('') + '</ul>';
+  }
+  renderErrors();
+</script>
+</body>
+</html>

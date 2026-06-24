@@ -1,0 +1,40 @@
+/* TssCalendar — スタイル。業務側は下の CSS 変数を上書きするだけでテーマを変えられる。
+   例: .tss-cal { --cal-accent:#c0392b; --cal-radius:10px; } / 特定業務だけ .myapp .tss-cal { ... } */
+.tss-cal {
+  /* ▼ テーマ変数（上書きポイント） */
+  --cal-bg: #fff;
+  --cal-fg: #222;
+  --cal-border: #c3ccd6;
+  --cal-accent: #2aa0d8;          /* 選択日 */
+  --cal-hover: #eef4ff;
+  --cal-sun: #d61f2b;             /* 日曜・祝日の文字 */
+  --cal-sat: #2456b0;             /* 土曜の文字 */
+  --cal-holiday-bg: #fff0f1;      /* 祝日セルの背景 */
+  --cal-muted: #b6bdc6;           /* 前後月・無効日 */
+  --cal-radius: 8px;
+  --cal-font: 13px "Segoe UI", "Meiryo", sans-serif;
+
+  position: fixed; z-index: 10000; background: var(--cal-bg); color: var(--cal-fg);
+  border: 1px solid var(--cal-border); border-radius: var(--cal-radius);
+  box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 8px; font: var(--cal-font); user-select: none; outline: none;
+}
+.tss-cal-head { display: flex; align-items: center; justify-content: space-between; margin: 2px 2px 6px; }
+.tss-cal-title { font-weight: 600; }
+.tss-cal-sels { display: flex; gap: 4px; }
+.tss-cal-sels select { font: inherit; padding: 2px 4px; border: 1px solid var(--cal-border); border-radius: 5px; background: var(--cal-bg); color: var(--cal-fg); cursor: pointer; }
+.tss-cal-sels select:focus { outline: 2px solid var(--cal-accent); outline-offset: -1px; }
+.tss-cal-nav { border: 1px solid var(--cal-border); background: var(--cal-bg); color: var(--cal-fg); border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 15px; line-height: 1; }
+.tss-cal-nav:hover { background: var(--cal-hover); }
+.tss-cal-grid { display: grid; grid-template-columns: repeat(7, 32px); gap: 2px; }
+.tss-cal-wl { text-align: center; font-size: 11px; color: #889; padding: 2px 0; }
+.tss-cal-wl.tss-cal-sun { color: var(--cal-sun); } .tss-cal-wl.tss-cal-sat { color: var(--cal-sat); }
+.tss-cal-day { text-align: center; padding: 6px 0; border-radius: 6px; cursor: pointer; }
+.tss-cal-day:hover { background: var(--cal-hover); }
+.tss-cal-day.tss-cal-sun { color: var(--cal-sun); }
+.tss-cal-day.tss-cal-sat { color: var(--cal-sat); }
+.tss-cal-day.tss-cal-holiday { color: var(--cal-sun); background: var(--cal-holiday-bg); }
+.tss-cal-day.tss-cal-other { color: var(--cal-muted); }
+.tss-cal-day.tss-cal-today { box-shadow: inset 0 0 0 1px var(--cal-accent); }
+.tss-cal-day.tss-cal-focus { box-shadow: inset 0 0 0 2px var(--cal-accent); }
+.tss-cal-day.tss-cal-sel { background: var(--cal-accent); color: #fff; }
+.tss-cal-day.tss-cal-disabled { color: var(--cal-muted); background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,.04) 4px, rgba(0,0,0,.04) 8px); cursor: not-allowed; }

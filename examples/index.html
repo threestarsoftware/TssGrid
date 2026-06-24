@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例一覧 / Examples</title>
+<meta name="description" content="TssGrid の動くサンプル一覧。業務ショーケース・入力/セルタイプ・表示操作・フィルタ・外部ライブラリ連携などをカテゴリ別に。">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; background:#eef2f6; color:#1d2733;
+    font-family:'Segoe UI','Hiragino Kaku Gothic ProN','Noto Sans JP',system-ui,sans-serif; line-height:1.6; }
+  a { color:inherit; text-decoration:none; }
+  .top { position:sticky; top:0; z-index:50; background:#1573c0; color:#fff;
+    padding:11px 26px; display:flex; align-items:center; gap:12px; box-shadow:0 1px 6px rgba(0,0,0,.18); }
+  .top a.home { color:#fff; font-weight:700; }
+  .top .ttl { opacity:.9; font-size:14px; }
+  .wrap { max-width:1000px; margin:0 auto; padding:30px 20px 70px; }
+  h1 { font-size:24px; margin:6px 0 4px; }
+  .lead { color:#5a6b7d; margin:0 0 26px; font-size:14px; }
+  h2 { font-size:16px; margin:34px 0 12px; padding-bottom:7px; border-bottom:2px solid #d7e2ec; color:#1573c0; }
+  .ex-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(248px,1fr)); gap:13px; }
+  .ex-card { display:block; background:#fff; border:1px solid #e1e8f0; border-radius:9px; padding:14px 16px;
+    transition:transform .14s, box-shadow .14s, border-color .14s; }
+  .ex-card:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(20,60,110,.12); border-color:#1573c0; }
+  .ex-name { font-weight:700; font-size:14.5px; color:#1d2733; display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+  .ex-desc { font-size:12.5px; color:#667; margin-top:4px; }
+  .tag { font-size:10px; font-weight:700; border-radius:999px; padding:1px 8px; }
+  .tag-lib { color:#1a8f57; background:#e8f6ee; border:1px solid #b8e3cc; }
+  .tag-star { color:#1573c0; background:#e8f3fb; border:1px solid #bcd9f0; }
+  .foot { margin-top:46px; padding-top:18px; border-top:1px solid #dce4ec; font-size:13px; color:#667; }
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="home" href="../">← TssGrid</a>
+  <span class="ttl">例一覧 / Examples</span>
+</div>
+
+<div class="wrap">
+  <h1>TssGrid 例一覧</h1>
+  <p class="lead">動くサンプルをカテゴリ別に。各ページはそのまま編集して試せます（Excel からの貼り付けは <code>http://</code> 推奨）。<span class="tag tag-lib">外部lib</span> は外部ライブラリ（ExcelJS/PapaParse/Chart.js）を併用するサンプルです。</p>
+
+  <h2>業務ショーケース（まず見るなら）</h2>
+  <div class="ex-grid">
+    <a class="ex-card" href="inventory.html"><div class="ex-name">在庫管理 <span class="tag tag-star">★</span></div><div class="ex-desc">ドロップダウン・計算列・チェック・休日カレンダー全部入りのミニアプリ</div></a>
+    <a class="ex-card" href="attendance.html"><div class="ex-name">勤怠表 <span class="tag tag-star">★</span></div><div class="ex-desc">入力フロー制御（Enter/Tabで入力セルだけ巡回）・隠しフィールドで土日色</div></a>
+    <a class="ex-card" href="gantt.html"><div class="ex-name">方眼ガント <span class="tag tag-star">★</span></div><div class="ex-desc">予定/実績2段バー・遅延・期間・進捗データバー・曜日土日色</div></a>
+    <a class="ex-card" href="invoice.html"><div class="ex-name">請求書（インボイス） <span class="tag tag-star">★</span></div><div class="ex-desc">条件付き合計(tss-sum)で金額列に整列・分類見出し(結合)・行コピー/切取り挿入・ページマタギ印刷</div></a>
+    <a class="ex-card" href="running.html"><div class="ex-name">現金出納帳</div><div class="ex-desc">「前の行＋増減」で縦に積む残高（縦方向の連鎖）</div></a>
+    <a class="ex-card" href="furigana.html"><div class="ex-name">氏名→フリガナ自動入力</div><div class="ex-desc">IMEの変換前かなを composition から拾う（辞書不要）</div></a>
+  </div>
+
+  <h2>入力・セルタイプ</h2>
+  <div class="ex-grid">
+    <a class="ex-card" href="number-input.html"><div class="ex-name">数値入力</div><div class="ex-desc">全角→半角の自動正規化・不正値を赤くエラー化</div></a>
+    <a class="ex-card" href="validation.html"><div class="ex-name">入力検証</div><div class="ex-desc">型＋関数バリデータ・全エラー一覧パネル</div></a>
+    <a class="ex-card" href="calendar.html"><div class="ex-name">休日カレンダー</div><div class="ex-desc">会社の休日（JSON）対応の日付ピッカー</div></a>
+    <a class="ex-card" href="time.html"><div class="ex-name">時刻ピッカー</div><div class="ex-desc">時/分プルダウン（保存は24h HH:MM）</div></a>
+    <a class="ex-card" href="autocomplete.html"><div class="ex-name">オートコンプリート</div><div class="ex-desc">自由入力＋候補の絞り込み（取引先・商品名向け）</div></a>
+    <a class="ex-card" href="toggle.html"><div class="ex-name">トグル（2択）</div><div class="ex-desc">有効｜無効 をセグメントで表示・クリック切替</div></a>
+    <a class="ex-card" href="calc.html"><div class="ex-name">セル内計算式</div><div class="ex-desc">=12*3+5 を確定時に計算（自前パーサ・CSP安全）</div></a>
+    <a class="ex-card" href="formula.html"><div class="ex-name">派生列（formula）</div><div class="ex-desc">金額＝数量×単価 のような計算列を宣言的に</div></a>
+    <a class="ex-card" href="html-cells.html"><div class="ex-name">画像/SVG/HTMLセル</div><div class="ex-desc">html:true で表示だけ生HTML（値はテキストのまま）</div></a>
+    <a class="ex-card" href="messages.html"><div class="ex-name">検証メッセージ管理</div><div class="ex-desc">エラーメッセージのカタログをCSVから管理</div></a>
+  </div>
+
+  <h2>表示・操作</h2>
+  <div class="ex-grid">
+    <a class="ex-card" href="sort.html"><div class="ex-name">並べ替え</div><div class="ex-desc">ヘッダクリックで昇降（▲▼インジケータ）</div></a>
+    <a class="ex-card" href="frozen-rows.html"><div class="ex-name">行固定</div><div class="ex-desc">frozenRows。列固定と併用で四隅固定</div></a>
+    <a class="ex-card" href="nested-headers.html"><div class="ex-name">ヘッダ結合</div><div class="ex-desc">複数段の見出し（nestedHeaders）</div></a>
+    <a class="ex-card" href="merge.html"><div class="ex-name">セル結合</div><div class="ex-desc">データセルの横/縦/矩形結合（右クリックで結合/解除）</div></a>
+    <a class="ex-card" href="conditional-format.html"><div class="ex-name">条件付き書式</div><div class="ex-desc">値/行を見て cellClass を付与・編集で即追従</div></a>
+    <a class="ex-card" href="heatmap.html"><div class="ex-name">ヒートマップ</div><div class="ex-desc">連続色＋背景データバー（cellStyle）</div></a>
+    <a class="ex-card" href="bar.html"><div class="ex-name">セル内バー</div><div class="ex-desc">数値を横棒で表示・バーのまま編集</div></a>
+    <a class="ex-card" href="sparkline.html"><div class="ex-name">スパークライン</div><div class="ex-desc">セルにミニ折れ線/棒（SVG自前描画）</div></a>
+    <a class="ex-card" href="row-reorder.html"><div class="ex-name">行ドラッグ移動</div><div class="ex-desc">行頭のつまみで並べ替え（複数行まとめて可）</div></a>
+  </div>
+
+  <h2>フィルタ・大規模ワークフロー</h2>
+  <div class="ex-grid">
+    <a class="ex-card" href="filter-live.html"><div class="ex-name">非破壊フィルタ（コア）</div><div class="ex-desc">全行は保持し可視部分集合だけ描画＝10万行も軽い</div></a>
+    <a class="ex-card" href="filter-ui.html"><div class="ex-name">フィルタUI</div><div class="ex-desc">ヘッダの絞り込み（Excel風オートフィルタ・複数列AND）</div></a>
+    <a class="ex-card" href="filter.html"><div class="ex-name">フィルタ（旧サンプル）</div><div class="ex-desc">setData差し替え方式の素朴版</div></a>
+    <a class="ex-card" href="sync-scroll.html"><div class="ex-name">同期スクロール</div><div class="ex-desc">左右2表を並べて突き合わせ・連動スクロール</div></a>
+    <a class="ex-card" href="shared-master.html"><div class="ex-name">共有マスタ</div><div class="ex-desc">1つのデータを複数グリッドで共有・編集が即反映</div></a>
+  </div>
+
+  <h2>外部ライブラリ連携</h2>
+  <div class="ex-grid">
+    <a class="ex-card" href="chart-chartjs.html"><div class="ex-name">グラフ連携 <span class="tag tag-lib">外部lib</span></div><div class="ex-desc">Chart.js と連携（グリッド＝データ、グラフ＝ビュー）</div></a>
+    <a class="ex-card" href="excel-export.html"><div class="ex-name">Excel(xlsx)出力 <span class="tag tag-lib">外部lib</span></div><div class="ex-desc">ExcelJS で書式付き出力（コア非搭載のサンプル）</div></a>
+    <a class="ex-card" href="excel-import.html"><div class="ex-name">Excel(xlsx)読込 <span class="tag tag-lib">外部lib</span></div><div class="ex-desc">ExcelJS でデータ取り込み（生成→読込 round-trip）</div></a>
+    <a class="ex-card" href="csv-import.html"><div class="ex-name">CSV読込 <span class="tag tag-lib">外部lib</span></div><div class="ex-desc">PapaParse で RFC4180 / Shift_JIS 対応の取り込み</div></a>
+  </div>
+
+  <h2>比較・事例</h2>
+  <div class="ex-grid">
+    <a class="ex-card" href="compare.html"><div class="ex-name">機能比較</div><div class="ex-desc">主要グリッド（Handsontable/AG Grid/jspreadsheet/SpreadJS）との立ち位置</div></a>
+    <a class="ex-card" href="showcase.html"><div class="ex-name">導入事例 / Used by</div><div class="ex-desc">TssGrid を使っている会社・ブランド（掲載は承認制）</div></a>
+  </div>
+
+  <div class="foot">
+    <div><a href="../" style="color:#1573c0;font-weight:600">← TssGrid メインサイト</a>
+    ／ <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener" style="color:#1573c0">GitHub</a></div>
+    <div style="margin-top:6px">© 2026 株式会社スリースターソフトウェア（ThreeStarSoftware） · MIT License</div>
+  </div>
+</div>
+</body>
+</html>

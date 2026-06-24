@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — ヘッダ結合（ネストヘッダ）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 720px; }
+  .note b { color: #1573c0; } code { background: #eef; padding: 0 4px; border-radius: 3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 720px; }
+  #msg { font-size: 13px; color: #1a3a6b; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: ヘッダ結合（ネストヘッダ） <span class="pill">nestedHeaders</span></h1>
+
+<div class="note">
+<b>複数段の見出し</b>を作り、上段で複数列を<b>結合（colspan）</b>できます。最下段が<b>リーフ＝実列</b>で、<b>並べ替え・全選択チェック・列リサイズ等はそのまま機能</b>します。<br>
+上段のグループ見出しを<b>クリックすると、その範囲の列をまとめて選択</b>します。スクロールしてもヘッダ全段が固定されます。
+</div>
+
+<h2>デモ（グループ見出しクリックで範囲選択 / 「姓」などのヘッダクリックで並べ替え）</h2>
+<div class="tssgrid-host"><div id="grid"></div></div>
+<div id="msg">&nbsp;</div>
+
+<h2>差し込み</h2>
+<pre>new TssGrid(host, {
+  nestedHeaders: [
+    ['', { label:'氏名', colspan:2 }, { label:'住所', colspan:2 }, ''],   // 上段（結合）
+    ['ID', '姓', '名', '都道府県', '市区町村', '備考'],                     // 下段＝実列（リーフ）
+  ],
+  data: rows,
+});</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const base = ['ID', '姓', '名', '都道府県', '市区町村', '備考'];
+  let sortCol = -1, dir = 'asc';
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'nested', width: 640,
+    headers: base.slice(),
+    nestedHeaders: [
+      ['', { label: '氏名', colspan: 2 }, { label: '住所', colspan: 2 }, ''],
+      base.slice(),
+    ],
+    columns: [{ type: 'number' }, {}, {}, {}, {}, {}],
+    onHeaderClick: (c) => {                              // リーフ列は並べ替え（▲▼）
+      dir = (sortCol === c && dir === 'asc') ? 'desc' : 'asc'; sortCol = c;
+      const lab = base.map((h, i) => i === c ? h + (dir === 'asc' ? ' ▲' : ' ▼') : h);
+      grid.nestedHeaders = [['', { label: '氏名', colspan: 2 }, { label: '住所', colspan: 2 }, ''], lab];
+      grid.redraw(); grid.sortBy(c, dir);
+      document.getElementById('msg').textContent = '並べ替え: ' + base[c] + ' (' + dir + ')';
+      return false;
+    },
+    data: [
+      ['1', '佐藤', '一郎', '東京都', '千代田区', ''],
+      ['2', '鈴木', '花子', '大阪府', '北区', ''],
+      ['3', '高橋', '次郎', '愛知県', '中区', ''],
+      ['4', '田中', '桜', '福岡県', '博多区', ''],
+    ],
+  });
+</script>
+</body>
+</html>

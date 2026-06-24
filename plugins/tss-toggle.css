@@ -1,0 +1,7 @@
+/* TssToggle — 2択セグメント。色は変数で上書き可。 */
+.tg-toggle { display: inline-flex; border: 1px solid var(--tg-toggle-border, #cfd7e0); border-radius: 999px; overflow: hidden; font-size: .92em; line-height: 1.7; vertical-align: middle; }
+.tg-toggle .tg-seg { padding: 0 11px; cursor: pointer; color: var(--tg-toggle-fg, #64748b); user-select: none; transition: background .12s; }
+.tg-toggle .tg-seg + .tg-seg { border-left: 1px solid var(--tg-toggle-border, #cfd7e0); }
+.tg-toggle .tg-seg:hover { background: var(--tg-toggle-hover, #f0f3f7); }
+.tg-toggle .tg-seg.active { background: var(--tg-toggle-accent, #0d9488); color: #fff; }
+.tg-toggle .tg-seg.active:hover { background: var(--tg-toggle-accent, #0d9488); }

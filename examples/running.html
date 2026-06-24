@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 残高／累計（running プラグイン）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 800px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:720px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .run .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  .run .tssgrid td.tg-readonly { background:#f8fafc; color:#5b6573; }       /* 残高列を上品なグレーに */
+  .run .tssgrid td.bal-neg { color:#dc2626; font-weight:700; }              /* マイナス残高は赤 */
+  #sumgrid .tssgrid td { background:#1573c0; color:#fff; font-weight:700; }
+  #sumgrid .tssgrid td.sum-lbl { background:#0d5d57; }
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>出納帳（残高） <span class="pill">running プラグイン</span></h1>
+  <div class="note" style="margin-top:8px">
+  「前の行の残高 ＋ 入金 − 出金」で<b>縦に積む残高列</b>を作るプラグイン（<code>plugins/tss-running.js</code>）。<br>
+  入金・出金を編集したり、途中の行を挿入・削除すると<b>残高が上から全部引き直し</b>（右クリックで行挿入/削除）。残高列は<b>自動 readOnly</b>、書き込みは履歴に積まないので <b>Undo/Redo も追従</b>。下の<b>合計</b>は <code>tss-totals.js</code>（入金計・出金計）。行内の formula(横)・全体の totals(集計) では出せない<b>縦の連鎖</b>がこれ。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">現金出納帳（日付・摘要・入金・出金が入力できます。残高は自動）／前月繰越 ¥10,000</div>
+    <div class="run"><div id="grid"></div></div>
+    <div class="run" style="margin-top:3px"><div id="sumgrid"></div></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-running.js"></script>
+<script src="../plugins/tss-totals.js"></script>
+<script>
+  const yen = v => (v === '' || v == null) ? '' : '¥' + Number(v).toLocaleString('ja-JP');
+  const OPENING = 10000;   // 前月繰越（期首残高）
+  const W = { date: 110, memo: 240, deposit: 120, withdraw: 120, balance: 130 };
+
+  // 合計表示用グリッド（入金計・出金計）。列幅を本体と揃える。
+  const sumGrid = new TssGrid(document.getElementById('sumgrid'), {
+    name: 'sum', width: 720, rowHeight: 26, rowHeaders: false, colHeaders: false, cursor: false, contextMenu: ['copy'],
+    columns: [
+      { data: 'label',    width: W.date + W.memo, readOnly: true, align: 'center' },
+      { data: 'deposit',  width: W.deposit,  readOnly: true, align: 'right', format: yen },
+      { data: 'withdraw', width: W.withdraw, readOnly: true, align: 'right', format: yen },
+      { data: 'balance',  width: W.balance,  readOnly: true, align: 'right', format: yen },
+    ],
+    cellClass: (r, c) => c === 0 ? 'sum-lbl' : '',
+    data: [{ label: '合計', deposit: '', withdraw: '', balance: '' }],
+  });
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'cashbook', width: 720, rowHeight: 26, rowHeaders: false,
+    columns: [
+      { data: 'date',     title: '日付', width: W.date, align: 'center' },
+      { data: 'memo',     title: '摘要', width: W.memo },
+      { data: 'deposit',  title: '入金', width: W.deposit,  type: 'number', align: 'right', format: yen },
+      { data: 'withdraw', title: '出金', width: W.withdraw, type: 'number', align: 'right', format: yen },
+      // ↓ 残高列: running プラグインが「前残＋入金−出金」で縦に積む（自動 readOnly）。マイナスは赤。
+      { data: 'balance',  title: '残高', width: W.balance,  type: 'number', align: 'right', format: yen,
+        cellClass: (v) => (v !== '' && Number(v) < 0) ? 'bal-neg' : '' },
+    ],
+    plugins: [
+      TssRunningTotal({ column: 'balance', initial: OPENING,
+        step: (prev, row) => prev + Number(row.deposit || 0) - Number(row.withdraw || 0) }),
+      TssTotals({ columns: { deposit: 'sum', withdraw: 'sum' },
+        onTotals: (t) => { sumGrid.setValueRaw(0, 'deposit', t.deposit); sumGrid.setValueRaw(0, 'withdraw', t.withdraw); } }),
+    ],
+    data: [
+      { date: '06/01', memo: '前月繰越',     deposit: '', withdraw: '' },   // 残高=期首10,000
+      { date: '06/03', memo: '売上入金',     deposit: '50000', withdraw: '' },
+      { date: '06/05', memo: '仕入支払',     deposit: '', withdraw: '32000' },
+      { date: '06/10', memo: '備品購入',     deposit: '', withdraw: '8500' },
+      { date: '06/18', memo: '売上入金',     deposit: '23000', withdraw: '' },
+      { date: '06/25', memo: '家賃',         deposit: '', withdraw: '45000' },
+      { date: '', memo: '', deposit: '', withdraw: '' },
+    ],
+  });
+  // 残高は最後に sumGrid へも反映（期末残高＝最終行の残高）。
+  const lastBalance = () => { for (let r = grid.ROWS - 1; r >= 0; r--) { const v = grid.getValue(r, 'balance'); if (v !== '') return v; } return OPENING; };
+  const syncEndBal = () => sumGrid.setValueRaw(0, 'balance', lastBalance());
+  const _after = grid.onAfterChange;
+  grid.onAfterChange = (ch, src) => { if (_after) _after(ch, src); syncEndBal(); };
+  syncEndBal();
+</script>
+</body>
+</html>

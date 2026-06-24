@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="../favicon.png">
+<link rel="apple-touch-icon" href="../favicon.png">
+<title>なぜ Web グリッドは日本語入力で「Enter を奪う」のか — TssGrid</title>
+<meta name="description" content="業務グリッドで日本語を打つと変換確定の Enter でセルが飛ぶ・最初の一文字が落ちる。その原因と、TssGrid が「本物の input を重ねる＋composition を見る」で解いた設計の話。">
+<link rel="canonical" href="https://tssgrid.threestarsoftware.co.jp/articles/ime-input.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="TssGrid">
+<meta property="og:title" content="なぜ Web グリッドは日本語入力で「Enter を奪う」のか">
+<meta property="og:description" content="変換確定の Enter でセルが飛ぶ・最初の一文字が落ちる。その原因と、TssGrid が「本物の input を重ねる＋composition を見る」で解いた設計の話。">
+<meta property="og:url" content="https://tssgrid.threestarsoftware.co.jp/articles/ime-input.html">
+<meta property="og:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="なぜ Web グリッドは日本語入力で「Enter を奪う」のか">
+<meta name="twitter:description" content="変換確定の Enter でセルが飛ぶ問題の原因と、TssGrid の IME 設計（本物の input ＋ composition）。">
+<meta name="twitter:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<link rel="stylesheet" href="../assets/lib/tssgrid.css">
+<link rel="stylesheet" href="../assets/site.css">
+<style>
+  /* 記事内デモのフリガナ列を控えめに色付け */
+  #fg-demo .tssgrid td.kana { color:#1565a8; }
+</style>
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../"><img class="logo" src="../favicon.svg" width="28" height="28" alt="">TssGrid <span class="tag">MIT</span></a>
+    <button class="nav-toggle" aria-label="メニュー">≡</button>
+    <nav class="nav">
+      <a href="../#features">機能</a>
+      <a href="../#demo">デモ</a>
+      <a href="./">記事</a>
+      <a class="gh" href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<article class="article">
+  <div class="wrap">
+    <div class="crumbs"><a href="../">TssGrid</a> ／ <a href="./">記事</a></div>
+
+    <header class="art-head">
+      <h1>なぜ Web グリッドは日本語入力で「Enter を奪う」のか</h1>
+      <div class="art-meta">
+        <span class="cat">設計</span>
+        <time datetime="2026-06-19">2026-06-19</time>
+        <span>株式会社スリースターソフトウェア</span>
+      </div>
+    </header>
+
+    <div class="prose">
+      <p>
+        TssGrid の看板の1つに <b>「日本語 IME に強い」</b> があります。地味な売り文句ですが、
+        日本の業務システムで Excel ライクな入力画面を作ると、ここが一番<b>ハマる</b>ところです。
+        「変換を確定しただけなのにセルが下に飛ぶ」「打ち始めの1文字目が消える」――
+        グリッド系のライブラリで日本語を入力したことがある人なら、一度は見た光景だと思います。
+        この記事は、その<b>原因</b>と、TssGrid がどう設計でそれを避けたかの記録です。
+      </p>
+
+      <div class="callout"><b>結論から:</b> 編集セルを <b>本物の <code>&lt;input&gt;</code></b> にして、
+        <b>IME 変換中（<code>isComposing</code> / <code>keyCode === 229</code>）はキー処理を一切しない</b>。
+        この2つだけで「Enter を奪う」「1文字目が落ちる」はほぼ消えます。</div>
+
+      <h2>症状：日本語を打つと何が起きるか</h2>
+      <p>たとえば氏名欄に「高橋」と入れたいとき、人はこう打ちます。</p>
+      <ol>
+        <li><code>t a k a h a s i</code> と打つ（「たかはし」と表示される）</li>
+        <li><b>スペース</b>で変換 → 「高橋」になる</li>
+        <li><b>Enter</b>で<b>変換を確定</b>する</li>
+      </ol>
+      <p>
+        この最後の <b>Enter は「変換の確定」</b>であって、「入力を終えて次のセルへ」ではありません。
+        ところが多くのグリッドは、セルの上で押された Enter を<b>無条件に「次のセルへ移動」</b>と解釈します。
+        結果、<b>変換を確定したつもりがセルが下に飛び</b>、もう一度 Enter を押す羽目になる。
+        1セルにつき毎回これが起きると、名簿を100行打つ頃には指が覚えるほどのストレスです。
+      </p>
+      <p>
+        もう1つの定番が <b>「1文字目が落ちる」</b>。セルを選んだ状態（編集モードに入る前）でいきなり
+        日本語を打ち始めると、編集用の入力欄にフォーカスが移るより先に最初のキーが捨てられ、
+        「<ruby>橋<rt>はし</rt></ruby>」と打ったはずが「し」だけ残る、といった取りこぼしです。
+      </p>
+
+      <h2>原因：IME 変換中のキーは「ふつうのキー」ではない</h2>
+      <p>
+        ブラウザは IME で変換している最中、<code>keydown</code> を<b>特別な形</b>で送ってきます。
+        具体的には <code>event.isComposing === true</code>、古い判定では <code>event.keyCode === 229</code>。
+        この「変換中サイン」を見ずに <code>key === 'Enter'</code> だけで分岐すると、
+        <b>確定の Enter と移動の Enter が区別できません</b>。だからセルが飛ぶ。
+      </p>
+      <p>
+        さらに根が深いのが<b>「セルをどう作っているか」</b>です。セルを <code>&lt;div&gt;</code> や
+        <code>contenteditable</code> で組み、キー入力をコンテナ要素でまとめて拾う設計だと、
+        IME の <b>composition（変換）をブラウザのネイティブ機構に正しく預けられず</b>、
+        変換途中の状態管理を自前で抱え込むことになります。ここを丁寧にやらないと、
+        前述の取りこぼしや「変換候補ウィンドウが変な位置に出る」が起きます。
+      </p>
+
+      <h2>TssGrid の解法①：アクティブセルに本物の <code>&lt;input&gt;</code> を重ねる</h2>
+      <p>
+        TssGrid は、いま選んでいるセルの上に<b>本物の <code>&lt;input&gt;</code> 要素を1枚重ねて</b>フォーカスを当てます。
+        IME は OS／ブラウザのネイティブな仕組みで、この <code>&lt;input&gt;</code> に対して動く――
+        つまり<b>変換も候補ウィンドウの位置も composition イベントも、全部ブラウザ任せで“正しく”</b>なります。
+        自前で変換状態を管理しないのが、いちばん堅い。
+      </p>
+      <p>
+        この設計だと「選択中にいきなり打ち始める」も素直に扱えます。<b>変換が始まった瞬間（<code>compositionstart</code>）に編集モードへ切り替える</b>ので、
+        最初の打鍵が落ちません。
+      </p>
+      <pre class="code"><span class="c">// 変換が始まった瞬間に nav → edit へ。最初の打鍵を落とさない。</span>
+<span class="t">this</span>.editor.addEventListener(<span class="s">'compositionstart'</span>, () =&gt; {
+  <span class="t">if</span> (<span class="t">this</span>.mode !== <span class="s">'nav'</span>) <span class="t">return</span>;
+  <span class="t">this</span>.toEdit(<span class="t">null</span>, <span class="t">false</span>);   <span class="c">// 同じ &lt;input&gt; で変換が続くのでシームレス</span>
+});</pre>
+
+      <h2>TssGrid の解法②：変換中はキー処理を「全部やめる」</h2>
+      <p>
+        キーハンドラの先頭で<b>変換中かどうかを判定</b>し、変換中なら Enter も Tab もショートカットも
+        <b>一切横取りしません</b>。確定の Enter はブラウザ（IME）にそのまま渡り、セルは飛びません。
+      </p>
+      <pre class="code">_onKey(e) {
+  <span class="t">const</span> composing = e.isComposing || e.keyCode === <span class="s">229</span>;   <span class="c">// ← 変換中サイン</span>
+
+  <span class="t">if</span> (!composing &amp;&amp; <span class="t">this</span>._runShortcuts(e)) <span class="t">return</span>;        <span class="c">// 変換中はショートカットも無効</span>
+
+  <span class="t">if</span> (<span class="t">this</span>.mode === <span class="s">'edit'</span>) {
+    <span class="t">if</span> (composing) <span class="t">return</span>;                              <span class="c">// ★ 変換中は Enter / Tab を奪わない</span>
+    <span class="t">if</span> (e.key === <span class="s">'Enter'</span>) { e.preventDefault(); <span class="t">this</span>.commit(); <span class="t">this</span>._advance(<span class="s">'enter'</span>); <span class="t">return</span>; }
+    <span class="c">// …Tab / Escape も同様</span>
+  }
+}</pre>
+      <p>「<b>変換中サインを見て、見たら手を引く</b>」――やっていることはこれだけです。
+        派手な仕掛けはありません。が、グリッドの全キー操作（移動・確定・コピペ・Undo）が
+        この1つのガードの内側にあるので、<b>例外なく</b>効きます。</p>
+
+      <h2>副産物：辞書なしで「フリガナ」が取れる</h2>
+      <p>
+        本物の <code>&lt;input&gt;</code> に composition が正しく届く、ということは
+        <b>変換前の「読み（かな）」がイベントから取れる</b>ということです。
+        <code>compositionupdate</code> で変換前のかなを覚えておき、<code>compositionend</code> で確定された漢字とペアにすれば、
+        <b>辞書を一切持たずにフリガナ列を自動入力</b>できます（漢字→読みの辞書引きではなく、
+        ユーザーが実際に打った読みをそのまま使う方式）。
+      </p>
+      <p>
+        これは <code>plugins/tss-furigana.js</code> という<b>30行ほどのプラグイン</b>で、コア本体は一切いじっていません。
+        重要なのは、<b>composition を確実に取れる土台があるから、この機能が“あとから載せられる”</b>という点です。
+        セルを <code>&lt;div&gt;</code> で組んで composition を取りこぼす設計では、そもそも作れません。
+        「IME に強い」が機能ではなく<b>設計の帰結</b>だ、というのはこういう意味です。
+      </p>
+
+      <h2>動かしてみる</h2>
+      <p>
+        下のグリッドの<b>氏名欄に、漢字を IME で変換して入力</b>してみてください
+        （例: <code>たかはし</code> → 変換 → <b>高橋</b>）。
+        <b>フリガナ列（カタカナ）が自動で埋まり</b>、変換確定の Enter でセルが飛ばないことが確かめられます。
+        フリガナは手修正も可能です。
+      </p>
+      <p class="tip" style="color:#6b7888;font-size:13px">
+        ※ このデモは<b>実際の IME 入力</b>で動きます。コピー＆ペーストや、最初から入っている見本行からは読みを取得できません（実際に打った読みだけが取れる、という正直な仕様です）。
+      </p>
+      <div class="embed" style="padding:14px"><div id="fg-demo"></div></div>
+
+      <div class="callout">
+        「日本語入力に強い」は、特別な日本語処理を足したからではありません。
+        <b>編集を本物の <code>&lt;input&gt;</code> に任せ、変換中はブラウザの邪魔をしない</b>――
+        この2つの設計判断の<b>結果</b>として、Enter は奪われず、1文字目も落ちず、フリガナまで取れる。
+        軽量グリッドのまま日本の業務フォームで戦える理由が、ここにあります。
+      </div>
+    </div>
+
+    <footer class="art-foot">
+      <a href="./">← 記事一覧へ</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub で TssGrid を見る →</a>
+    </footer>
+  </div>
+</article>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="f-brand">TssGrid</div>
+    <nav class="f-links">
+      <a href="../#features">機能</a>
+      <a href="./">記事</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.threestarsoftware.co.jp/" target="_blank" rel="noopener">運営会社</a>
+    </nav>
+    <div class="copy">MIT License ・ © <span id="year">2026</span> 株式会社スリースターソフトウェア（ThreeStarSoftware）</div>
+  </div>
+</footer>
+
+<script src="../assets/lib/tssgrid.js"></script>
+<script src="../assets/lib/tss-furigana.js" onerror="this.dataset.miss=1"></script>
+<script>
+  (function () {
+    var el = document.getElementById('fg-demo');
+    var opts = {
+      name: 'fg-demo', width: '100%', rowHeight: 28, rowHeaders: false, initialCell: { r: 0, c: 'name' },
+      columns: [
+        { data: 'name', title: '氏名（漢字をIME変換で入力）', width: 240 },
+        // フリガナ列＝自動入力されるが readOnly にはしない（手修正できる）
+        { data: 'kana', title: 'フリガナ（自動）', width: 220, cellClass: function () { return 'kana'; } },
+        { data: 'dept', title: '部署', width: 160, type: 'dropdown', options: ['営業部', '開発部', '総務部', '経理部'] },
+      ],
+      data: [
+        { name: '高橋 健太', kana: 'タカハシ ケンタ', dept: '開発部' },   // 見本（手入力済み・自動では取れない）
+        { name: '', kana: '', dept: '' },
+        { name: '', kana: '', dept: '' },
+        { name: '', kana: '', dept: '' },
+      ],
+    };
+    // 氏名を入力すると読みを kana へ（カタカナ）。プラグイン未読込でもグリッドは動く。
+    if (window.TssFurigana) opts.plugins = [TssFurigana({ source: 'name', target: 'kana', katakana: true })];
+    new TssGrid(el, opts);
+  })();
+</script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

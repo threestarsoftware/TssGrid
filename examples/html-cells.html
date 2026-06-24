@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — セルに画像/SVG/HTML（html:true）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; } code { background: #eef; padding: 0 4px; border-radius: 3px; }
+  .warn { background: #fff8e8; border: 1px solid #f0e0b0; border-radius: 6px; padding: 8px 12px; font-size: 12.5px; color: #6a5a20; max-width: 760px; margin-top: 8px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 760px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: セルに画像 / SVG / HTML <span class="pill">html:true</span></h1>
+
+<div class="note">
+列に <code>html:true</code> を付けると、その列は<b>表示だけ生HTML</b>になります（値 or <code>format</code> の戻りを innerHTML）。<b>値はテキスト保存のまま</b>なので <code>getData()</code>・コピペ・CSV は無傷——<b>見た目だけ</b>HTML化します。画像・SVGアイコン・状態バッジ・進捗バー・評価★などに。
+</div>
+<div class="warn">⚠️ エスケープを外す＝<b>XSSの責任は format/値の提供側</b>。外部由来の文字列をそのまま埋めないこと。表示用途なので各列は <code>readOnly</code> 推奨。</div>
+
+<h2>デモ（表示専用）</h2>
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み（要点）</h2>
+<pre>columns: [
+  { data:'名前' },
+  { data:'状態',   html:true, readOnly:true, format: badge },   // SVGドット＋ラベル
+  { data:'達成率', html:true, readOnly:true, format: bar },     // 進捗バー（div）
+  { data:'評価',   html:true, readOnly:true, format: stars },   // ★レーティング
+  { data:'アイコン', html:true, readOnly:true },                 // 値に inline SVG をそのまま
+]</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const COLOR = { '良好': '#1a9d54', '注意': '#e6a700', '欠品': '#c0392b' };
+  const badge = (v) => `<span style="display:inline-flex;align-items:center;gap:5px">`
+    + `<svg width="11" height="11"><circle cx="5.5" cy="5.5" r="5" fill="${COLOR[v] || '#999'}"/></svg>${v}</span>`;
+  const bar = (v) => { const p = Math.max(0, Math.min(100, +v || 0));
+    return `<div style="background:#e9edf2;border-radius:5px;height:11px;width:100%;overflow:hidden">`
+      + `<div style="background:#2b7;height:11px;width:${p}%"></div></div>`; };
+  const stars = (v) => { const n = Math.max(0, Math.min(5, +v || 0));
+    return `<span style="color:#f5b301;letter-spacing:1px">${'★'.repeat(n)}<span style="color:#d4d8de">${'★'.repeat(5 - n)}</span></span>`; };
+  const heart = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#e25563"><path d="M12 21s-7-4.6-9.3-9C1 8.8 2.6 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.4 0 5 3.3 3.3 6.5C19 16.4 12 21 12 21z"/></svg>';
+  const gear = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#4a6fa5"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4l-2-1 .3-2.2-2-1.2-1.7 1.4-2-.8L12 3h-2l-.9 2.2-2 .8L5.4 4.6l-2 1.2L3.7 8l-2 1v2l2 1-.3 2.2 2 1.2L7 14.9l2 .8L10 18h2l.9-2.2 2-.8 1.7 1.4 2-1.2-.3-2.2 2-1z"/></svg>';
+
+  new TssGrid(document.getElementById('grid'), {
+    name: 'html',                       // width 未指定＝中身に合わせて枠が広がる（横スクロールを出さない）
+    headers: ['名前', '状態', '達成率', '評価', 'アイコン'],
+    rowHeights: [30, 30, 30, 30],
+    colWidths: [120, 110, 150, 110, 90],
+    columns: [
+      { data: '名前' },
+      { data: '状態', html: true, readOnly: true, format: badge },
+      { data: '達成率', html: true, readOnly: true, format: bar },
+      { data: '評価', html: true, readOnly: true, format: stars },
+      { data: 'アイコン', html: true, readOnly: true, align: 'center' },
+    ],
+    data: [
+      { 名前: 'りんご', 状態: '良好', 達成率: '85', 評価: '4', アイコン: heart },
+      { 名前: 'ボールペン', 状態: '注意', 達成率: '40', 評価: '3', アイコン: gear },
+      { 名前: 'お茶', 状態: '欠品', 達成率: '10', 評価: '2', アイコン: heart },
+      { 名前: '洗剤', 状態: '良好', 達成率: '70', 評価: '5', アイコン: gear },
+    ],
+  });
+</script>
+</body>
+</html>

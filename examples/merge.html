@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — セル結合（横・縦・矩形・merge プラグイン）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; }
+  .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:700px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .tg .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  /* 結合セルは見出し帯として中央寄せ＋淡い背景にする例（任意） */
+  .tg .tssgrid td.tg-merged { text-align:center; font-weight:600; background:#f3effc; }
+  .bar { margin:12px 0 0; display:flex; gap:8px; flex-wrap:wrap; }
+  .bar button { font:inherit; font-size:12.5px; padding:5px 12px; border:1px solid #cbd2dc; background:#fff; border-radius:6px; cursor:pointer; }
+  .bar button:hover { border-color:#1573c0; color:#1573c0; }
+  .lbl { font-size:12px; color:#64748b; margin:0 0 8px; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>セル結合（横・縦・矩形） <span class="pill">merge プラグイン</span></h1>
+  <div class="note" style="margin-top:8px">
+  <b>矩形のセル結合</b>（<code>colspan</code>×<code>rowspan</code>）。<code>plugins/tss-merge.js</code>。左上の<b>アンカーが値・編集・選択の対象</b>で、覆われたセルは<b>描画スキップ＋読取専用</b>。<br>
+  範囲を選んで <b>結合</b> ボタン（または<b>右クリック → セルを結合</b>）、もしくは <code>grid.setMerge(r,c,colspan,rowspan)</code>（rowspan 省略=横結合）。<b>既存結合を含めて選択すれば飲み込んで1つに</b>（Excel流）。<b>ソートは結合中ロック</b>。<b>行移動は横結合のみ可</b>（縦結合があるとロック＝分断回避）。行/列の挿入削除は座標が追従し、すべて <b>Undo 対応</b>。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">チーム表（チーム列を縦結合・連続作業を横結合・選択範囲を矩形結合できる）</div>
+    <div class="tg"><div id="grid"></div></div>
+    <div class="bar">
+      <button id="merge">選択範囲を結合</button>
+      <button id="unmerge">アクティブセルの結合を解除</button>
+      <button id="clear">全結合を解除</button>
+      <button id="list">結合一覧をログ</button>
+    </div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-merge.js"></script>
+<script>
+  const inMerge = (g, r, c) => (g.getMerges ? g.getMerges() : []).some(m => r >= m.r && r < m.r + (m.rowspan || 1) && c >= m.c && c < m.c + m.colspan);
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'team', width: 660, rowHeight: 30, rowHeaders: true,
+    headers: ['チーム', 'メンバー', '9:00', '10:00', '11:00'],
+    colWidths: [90, 110, 110, 110, 110],
+    // 右クリックでも結合/解除（Excel風。ボタンと同じ mergeSelection/removeMerge を呼ぶだけ）
+    contextMenu: { items: [
+      { name: 'セルを結合', disabled: function (s) { return s.r0 === s.r1 && s.c0 === s.c1; }, callback: function () { this.mergeSelection(); } },
+      { name: '結合を解除', disabled: function () { return !inMerge(this, this.active.r, this.active.c); }, callback: function () { this.removeMerge(this.active.r, this.active.c); } },
+      '---', 'copy', 'paste', 'clear', '---', 'undo', 'redo',
+    ] },
+    data: [
+      ['開発', '佐藤', '設計', '設計', '実装'],
+      ['開発', '鈴木', 'レビュー', '実装', '実装'],
+      ['営業', '田中', '訪問', '訪問', '帰社'],
+      ['営業', '高橋', '資料', '商談', '商談'],
+    ],
+    plugins: [TssMerge.plugin({
+      merges: [
+        { r: 0, c: 0, colspan: 1, rowspan: 2 },   // 「開発」を2行ぶん縦結合
+        { r: 2, c: 0, colspan: 1, rowspan: 2 },   // 「営業」を2行ぶん縦結合
+        { r: 0, c: 2, colspan: 2 },               // 佐藤の 9:00〜10:00「設計」を横結合
+        { r: 2, c: 2, colspan: 2 },               // 田中の 9:00〜10:00「訪問」を横結合
+      ],
+    })],
+  });
+
+  document.getElementById('merge').onclick   = () => { if (!grid.mergeSelection()) alert('2セル以上を選択してください'); };
+  document.getElementById('unmerge').onclick = () => grid.removeMerge(grid.active.r, grid.active.c);
+  document.getElementById('clear').onclick   = () => grid.destroyMerged();
+  document.getElementById('list').onclick    = () => console.log('merges:', JSON.stringify(grid.getMerges()));
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 休日カレンダー対応の日付ピッカー</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-calendar.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 24px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 780px; }
+  .note b { color: #1573c0; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 780px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  /* 業務側テーマ上書きの例（コメントを外すと赤系テーマに） */
+  /* .theme-red .tss-cal { --cal-accent:#c0392b; --cal-holiday-bg:#ffe9ea; --cal-radius:12px; } */
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 休日カレンダー対応の日付ピッカー</h1>
+
+<div class="note">
+<b>会社の休日カレンダーを JSON で渡す</b>日付ピッカー（<code>plugins/tss-calendar.js</code>）。ネイティブ <code>&lt;input type=date&gt;</code> では出来ない、<b>祝日/会社休日のハイライト＋名称表示</b>ができ、勤怠・シフト・予約などで便利です。<br>
+「納品日」セルは右端に <b>📅</b> が出て、<b>シングルクリックで開閉</b>（もう一度押すと閉じる＝トグル）。開いている間も<b>フィルハンドルで下へコピー</b>できます（ドロップダウンと同じ操作感）。<b>年・月はプルダウン</b>で直接ジャンプ（年送りが速い）。<b>祝日は赤＋名称ツールチップ</b>、土日は色分け。キーボード（矢印/Enter/Esc/PageUp・Down）も可。<br>
+見た目は <b>CSS変数（<code>--cal-accent</code> 等）を上書きするだけ</b>で業務ごとに統一できます（依存ゼロ）。
+</div>
+
+<h2>デモ</h2>
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>休日 JSON と差し込み（抜粋）</h2>
+<pre>const holidays = {
+  '2026-01-01': '元日', '2026-01-12': '成人の日', '2026-05-03': '憲法記念日',
+  '2026-05-04': 'みどりの日', '2026-05-05': 'こどもの日',
+  '2026-08-13': { name: '夏季休業', type: 'company' },   // 会社休日（type で色分けも可）
+};
+const cal = TssCalendar({ holidays });          // ← CSS は tss-calendar.css
+
+new TssGrid(host, {
+  columns: [ /* … */ { type:'date', editor: cal, format:'yyyy/mm/dd' } ],  // ← カスタムエディタに差すだけ
+  data: rows,
+});</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-calendar.js"></script>
+<script>
+  const holidays = {
+    '2026-01-01': '元日', '2026-01-12': '成人の日', '2026-02-11': '建国記念の日', '2026-02-23': '天皇誕生日',
+    '2026-05-03': '憲法記念日', '2026-05-04': 'みどりの日', '2026-05-05': 'こどもの日', '2026-05-06': '振替休日',
+    '2026-08-11': '山の日', '2026-08-13': { name: '夏季休業', type: 'company' }, '2026-08-14': { name: '夏季休業', type: 'company' },
+  };
+  const cal = TssCalendar({ holidays });
+  new TssGrid(document.getElementById('grid'), {
+    name: 'cal', showDump: true, width: 560,
+    headers: ['担当', '区分', '納品日', '数量'],
+    columns: [
+      {},
+      { type: 'dropdown', options: ['通常', '至急', '保留'] },
+      { type: 'date', editor: cal, format: 'yyyy/mm/dd' },   // 休日カレンダー対応ピッカー
+      { type: 'number', thousands: true },
+    ],
+    data: [
+      ['彩瀬', '通常', '2026-05-01', '12'],
+      ['二宮', '至急', '2026-08-12', '5'],
+      ['', '通常', '', ''],
+    ],
+  });
+</script>
+</body>
+</html>

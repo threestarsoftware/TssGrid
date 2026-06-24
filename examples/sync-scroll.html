@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 同期スクロール（左右2表を並べて比較）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; }
+  .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:900px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .bar { margin:12px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12.5px; }
+  .bar label { display:flex; gap:4px; align-items:center; }
+  .cols { display:flex; gap:16px; align-items:flex-start; }
+  .col { flex:1; min-width:0; }
+  .lbl { font-size:12px; color:#64748b; margin:0 0 6px; font-weight:600; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:12px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .col:nth-child(1) .tssgrid { --tg-accent:#1573c0; }
+  .col:nth-child(2) .tssgrid { --tg-accent:#9333ea; }
+  .tssgrid .tg-wrap { max-height: 300px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>同期スクロール <span class="pill">syncscroll プラグイン</span></h1>
+  <div class="note" style="margin-top:8px">
+  左右の表を<b>並べて比較しながら編集</b>する用途向け（Excel「並べて比較＋同時にスクロール」相当・<code>plugins/tss-syncscroll.js</code>）。<br>
+  <b>ピクセル同期</b>＝スクロール量を揃える（行が1:1対応しなくても効く）。<b>行同期</b>＝相手の同じ行を先頭に揃える（実測行高 <code>_rowTops</code> を使うので<b>左右で行高が違っても揃う</b>）。下のトグルで切替えて、左右の行高が違う表で違いを体感できます。
+  </div>
+
+  <div class="bar">
+    <b>連動:</b>
+    <label><input type="radio" name="by" value="pixel" checked> ピクセル同期</label>
+    <label><input type="radio" name="by" value="row"> 行同期</label>
+    <span style="width:12px"></span>
+    <label><input type="radio" name="rel" value="rel" checked> 相対（位置差を保つ・Excel流）</label>
+    <label><input type="radio" name="rel" value="abs"> 絶対（スナップ）</label>
+    <span style="width:12px"></span>
+    <label><input type="radio" name="axis" value="both" checked> 縦横</label>
+    <label><input type="radio" name="axis" value="vertical"> 縦のみ</label>
+    <label><input type="checkbox" id="enabled" checked> 連動ON</label>
+  </div>
+  <div class="note" style="margin:0 0 4px;background:#f0f7ff;border-color:#cfe3f7">
+  <b>相対</b>を選び、<b>連動OFF→片方だけスクロール→連動ON</b>→スクロールすると、<b>ズレた位置関係を保ったまま</b>一緒に動きます（その場から同期）。<b>絶対</b>は常に相手をこちらに合わせてスナップ。
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <div class="lbl">A系（受注・行高 28px）</div>
+      <div class="panel"><div id="gridA"></div></div>
+    </div>
+    <div class="col">
+      <div class="lbl">B系（出荷・行高 40px）— 行同期だと A と同じ行が並ぶ</div>
+      <div class="panel"><div id="gridB"></div></div>
+    </div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-syncscroll.js"></script>
+<script>
+  const rows = 60;
+  const dataA = Array.from({ length: rows }, (_, r) => ['A' + String(r + 1).padStart(3, '0'), '受注品 ' + (r + 1), (r * 7 % 50) + 1, ((r * 13 % 90) + 10) * 100]);
+  const dataB = Array.from({ length: rows }, (_, r) => ['A' + String(r + 1).padStart(3, '0'), '出荷 ' + (r + 1), (r * 5 % 40) + 1, (r % 3 === 0) ? '保留' : '済']);
+
+  const gridA = new TssGrid(document.getElementById('gridA'), {
+    name: 'A', width: 470, height: '300px', defaultRowHeight: 28, rowHeaders: true,
+    headers: ['コード', '品名', '数量', '金額'],
+    colWidths: [90, 150, 80, 110], data: dataA,
+  });
+  const gridB = new TssGrid(document.getElementById('gridB'), {
+    name: 'B', width: 470, height: '300px', defaultRowHeight: 40, rowHeaders: true,   // ← 行高を変えて行同期の効果を見せる
+    headers: ['コード', '内容', '数量', '状態'],
+    colWidths: [90, 150, 80, 110], data: dataB,
+  });
+
+  let link = null;
+  function relink() {
+    if (link) { link.unlink(); link = null; }
+    if (!document.getElementById('enabled').checked) return;
+    const by = document.querySelector('input[name=by]:checked').value;
+    const axis = document.querySelector('input[name=axis]:checked').value;
+    const relative = document.querySelector('input[name=rel]:checked').value === 'rel';
+    link = TssSyncScroll.link([gridA, gridB], { by, axis, relative });
+  }
+  document.querySelectorAll('input[name=by],input[name=axis],input[name=rel],#enabled').forEach(el => el.addEventListener('change', relink));
+  relink();
+</script>
+</body>
+</html>

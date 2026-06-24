@@ -1,0 +1,44 @@
+name: 導入事例の掲載申請 / Showcase submission
+description: TssGrid を使っている会社・ブランドを「導入事例」ページに掲載します（掲載は承認制です）
+title: "[Showcase] 会社名・ブランド名をここに"
+labels: ["showcase"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        TssGrid をご利用ありがとうございます！ 下記をご記入のうえ送信してください。
+        内容を確認のうえ、こちらで承認した申請のみ導入事例ページに掲載します（掲載後の取り下げもいつでも可能です）。
+  - type: input
+    id: name
+    attributes:
+      label: 会社名 / ブランド名
+      placeholder: 例）株式会社スリースター
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: サイトURL（任意）
+      description: 掲載時にロゴ・社名からこのURLへリンクします（被リンクになります）。
+      placeholder: https://example.com/
+  - type: textarea
+    id: logo
+    attributes:
+      label: ロゴ画像（PNG または JPG）
+      description: |
+        この欄に画像を**ドラッグ＆ドロップ**して添付してください（GitHub が自動でアップロードします）。
+        ・形式: PNG または JPG　・サイズ目安: 横長なら 240×80px 程度 / 正方形なら 120px 程度・200KB 以下
+        ・ロゴが無い場合は空欄でOK（社名テキストで掲載します）
+      placeholder: ここに画像をドラッグ＆ドロップ
+  - type: input
+    id: usecase
+    attributes:
+      label: 用途（任意・一言）
+      placeholder: 例）勤怠管理システムの入力画面で利用
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: 掲載への同意
+      options:
+        - label: ロゴ・会社名・URL を TssGrid の導入事例ページに掲載することに同意します（取り下げはいつでも申し出可能）
+          required: true

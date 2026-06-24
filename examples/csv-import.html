@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — CSV読込（PapaParse）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 820px; }
+  .note b { color: #1a8f57; } code { background: #eef; padding: 0 4px; border-radius: 3px; }
+  .bar { margin: 12px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .bar button { font-size: 13px; padding: 6px 14px; cursor: pointer; }
+  .bar label { font-size: 13px; }
+  .bar select { font: inherit; padding: 4px 6px; }
+  #msg { font-size: 13px; color: #1a3a6b; }
+  #msg.err { color: #c0392b; }
+  .pill { display: inline-block; background: #1a8f57; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  /* ドロップゾーン（host を点線枠で囲い、ドラッグ中だけ強調） */
+  .drop { border: 2px dashed #c3ccd6; border-radius: 8px; padding: 8px; transition: border-color .15s, background .15s; }
+  .drop.over { border-color: #2456b0; background: #f0f6ff; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 820px; }
+  .tssgrid { --tg-accent: #1a8f57; }   /* 外部ライブラリ連携＝緑テーマ */
+</style>
+</head>
+<body>
+<h1>TssGrid 例: CSV読込 <span class="pill">サンプル + PapaParse</span></h1>
+
+<div class="note">
+CSV の<b>読込</b>は <a href="https://www.papaparse.com/" target="_blank">PapaParse</a>（MIT）が定番。素朴な <code>split(',')</code> では壊れる<b>クォート内のカンマ・改行・<code>""</code> エスケープ</b>（RFC4180）を正しく解き、<b>文字コード指定</b>（Excel が吐く <b>Shift_JIS</b> もそのまま読める）・<b>巨大ファイルのストリーミング/Worker</b>まで面倒を見てくれます。TssGrid コアは CSV <b>入力</b>を内蔵しません（出力は <code>downloadCSV</code> 内蔵 / 簡単な取り込みは Excel からの貼り付けで足りるため）ので、パースは PapaParse に委譲。<br>
+1行目を見出し、2行目以降をデータとして <code>setData</code> でグリッドに反映します。下の<b>「サンプルCSVを読込」</b>でクォート/改行入りの round-trip を確認、または<b>実ファイルを選択（D&D可）</b>して取り込めます。出力は <a href="inventory.html">inventory.html</a> の「CSV出力」で。
+</div>
+
+<div class="bar">
+  <button id="gen">サンプルCSVを読込</button>
+  <label>またはファイル: <input type="file" id="file" accept=".csv,.txt,text/csv"></label>
+  <label>文字コード:
+    <select id="enc">
+      <option value="">UTF-8（既定）</option>
+      <option value="shift-jis">Shift_JIS（Excelの.csv）</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="hasHeader" checked> 1行目を見出しにする</label>
+  <span id="msg"></span>
+</div>
+<div class="drop" id="drop"><div class="tssgrid-host"><div id="host"></div></div></div>
+
+<h2>差し込み（要点）</h2>
+<pre>// PapaParse が RFC4180 を解く（クォート内カンマ/改行/"" を正しく分割）
+Papa.parse(file, {                       // file は File でも 文字列でもOK
+  encoding: 'shift-jis',                 // Excelの.csv（無指定=UTF-8）。Fileのみ有効
+  skipEmptyLines: 'greedy',              // 空行・空白だけの行を捨てる
+  complete: (res) =&gt; {                   // res.data = 行の配列（各行は列の配列）
+    const rows = res.data;
+    const headers = rows.shift();        // 1行目=見出し
+    new TssGrid(host, { headers, data: rows });   // ← グリッドに反映
+  },
+});
+// 大容量は worker:true / step:(row)=&gt;... でストリーミング。
+// 1行目をキーにオブジェクト配列で欲しい時は header:true（res.data=[{列名:値,...}]）。</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"
+        integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  const host = document.getElementById('host');
+  const msg = document.getElementById('msg');
+  const encSel = document.getElementById('enc');
+  const hasHeader = document.getElementById('hasHeader');
+  let grid = null;
+
+  function show(text, isErr) { msg.textContent = text; msg.className = isErr ? 'err' : ''; }
+
+  // PapaParse の結果（行配列）→ グリッドに反映。1行目を見出しにするかは hasHeader 次第。
+  function render(rows, srcLabel) {
+    rows = rows.filter(r => r.length && r.some(v => String(v).trim() !== ''));   // 念のため空行除去
+    if (!rows.length) { show('⚠ 取り込める行がありません', true); return; }
+    let headers;
+    if (hasHeader.checked) headers = rows.shift().map(h => String(h).trim());
+    else headers = rows[0].map((_, i) => '列' + (i + 1));   // 見出しなし＝列1,列2,…
+    const cols = Math.max(headers.length, ...rows.map(r => r.length));
+    while (headers.length < cols) headers.push('列' + (headers.length + 1));     // 行が見出しより長い場合に補完
+    if (grid) grid.destroy();
+    grid = new TssGrid(host, { name: 'csv', headers, data: rows, height: 280, minSpareRows: 1 });
+    show(`✅ 読込完了: ${headers.length} 列 × ${rows.length} 行${srcLabel ? '（' + srcLabel + '）' : ''}`);
+  }
+
+  // 文字列 or File を PapaParse でパース（encoding は File のときだけ効く）
+  function parse(input, opts) {
+    Papa.parse(input, {
+      encoding: opts.encoding || undefined,
+      skipEmptyLines: 'greedy',
+      complete: (res) => {
+        if (res.errors && res.errors.length) {
+          // パースエラーは警告として出すが、取れた行は反映する（壊れた1行で全滅させない）
+          const e = res.errors[0];
+          show(`⚠ ${res.errors.length}件の警告（例: ${e.message}${e.row != null ? ' @行' + (e.row + 1) : ''}）。読める範囲を表示します`, true);
+        }
+        render(res.data, opts.srcLabel);
+      },
+      error: (err) => show('⚠ 読込失敗: ' + err.message, true),
+    });
+  }
+
+  // 外部ファイル不要のデモ用サンプル: クォート内カンマ・"" エスケープ・セル内改行を含む“難しい”CSV
+  const SAMPLE_CSV =
+`品番,商品名,数量,単価,備考
+A-001,"りんご, 青森産",120,158,"特売
+（2日間限定）"
+A-002,ボールペン,500,88,
+A-003,"お""特""茶",0,128,在庫切れ
+A-004,洗剤,36,398,日用品`;
+
+  document.getElementById('gen').addEventListener('click', () => {
+    if (typeof Papa === 'undefined') { show('⚠ PapaParse を読み込めませんでした（CDN/ネット）', true); return; }
+    parse(SAMPLE_CSV, { srcLabel: 'サンプル：カンマ/改行/"" 入りでも崩れない' });
+  });
+
+  // ファイル選択
+  document.getElementById('file').addEventListener('change', (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    loadFile(f);
+  });
+  function loadFile(f) {
+    if (typeof Papa === 'undefined') { show('⚠ PapaParse を読み込めませんでした', true); return; }
+    parse(f, { encoding: encSel.value, srcLabel: f.name });
+  }
+
+  // ドラッグ&ドロップ（host をドロップゾーンに）
+  const drop = document.getElementById('drop');
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); if (ev === 'dragleave' && drop.contains(e.relatedTarget)) return; drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+
+  // 初期表示としてサンプルを読み込んでおく
+  window.addEventListener('DOMContentLoaded', () => document.getElementById('gen').click());
+</script>
+</body>
+</html>

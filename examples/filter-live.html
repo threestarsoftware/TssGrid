@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 非破壊フィルタ（filter / clearFilter・編集が消えない）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; }
+  .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:680px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .bar { margin:12px 0; display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12.5px; }
+  .bar button, .bar input { font:inherit; font-size:12.5px; }
+  .bar button { padding:5px 12px; border:1px solid #cbd2dc; background:#fff; border-radius:6px; cursor:pointer; }
+  .bar button:hover { border-color:#1573c0; color:#1573c0; }
+  .bar input[type=text] { padding:5px 8px; border:1px solid #cbd2dc; border-radius:6px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .tg .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  .stat { font-size:12px; color:#64748b; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>非破壊フィルタ <span class="pill">filter / clearFilter</span></h1>
+  <div class="note" style="margin-top:8px">
+  <code>grid.filter(...)</code> は<b>マスタ全行を保持したまま</b>可視部分集合だけ表示（コアの行インデックスマッパ）。<b>フィルタ中に編集した値も消えません</b>（<code>clearFilter()</code> で全戻し＝非破壊）。10万行でも<b>絞り込んだ数百行だけ描画</b>＝仮想スクロール無しで軽い。
+  </div>
+
+  <div class="bar">
+    <b>絞り込み:</b>
+    <button data-cat="営業">営業</button>
+    <button data-cat="開発">開発</button>
+    <button data-cat="総務">総務</button>
+    <input type="text" id="q" placeholder="氏名で検索（部分一致）">
+    <button id="clear">解除（全表示）</button>
+    <span class="stat" id="stat"></span>
+  </div>
+
+  <div class="panel"><div class="tg"><div id="grid"></div></div></div>
+  <div class="note" style="margin-top:12px;font-size:12px">
+  試す: ①「営業」で絞る → ②見えてるセルを編集 → ③「解除」→ <b>編集が残ったまま全行表示</b>される（非破壊）。氏名検索も部分一致で。
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const cats = ['営業', '開発', '総務'];
+  const data = Array.from({ length: 300 }, (_, r) => [
+    'E' + String(r + 1).padStart(4, '0'),
+    ['佐藤', '鈴木', '高橋', '田中', '伊藤', '渡辺', '山本', '中村'][r % 8] + (r + 1),
+    cats[r % 3],
+    String((r * 37 % 90 + 10) * 1000),
+  ]);
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'staff', width: 700, height: '360px', rowHeaders: true,
+    headers: ['社員番号', '氏名', '部署', '給与'],
+    colWidths: [110, 160, 100, 120],
+    columns: [{ data: 'id' }, { data: 'name' }, { data: 'dept' }, { data: 'salary', type: 'number', format: { thousands: true } }],
+    data,
+    onFilter: ({ count, total, cleared }) => {
+      document.getElementById('stat').textContent = cleared ? `全 ${total} 件` : `${count} / ${total} 件`;
+    },
+  });
+  document.getElementById('stat').textContent = `全 ${grid.ROWS} 件`;
+
+  document.querySelectorAll('button[data-cat]').forEach(b =>
+    b.onclick = () => { document.getElementById('q').value = ''; grid.filter({ 部署: b.dataset.cat }); });
+  document.getElementById('q').oninput = e => {
+    const q = e.target.value.trim();
+    if (!q) return grid.clearFilter();
+    grid.filter(row => String(row[1]).indexOf(q) >= 0);   // 氏名（col1）部分一致
+  };
+  document.getElementById('clear').onclick = () => { document.getElementById('q').value = ''; grid.clearFilter(); };
+</script>
+</body>
+</html>

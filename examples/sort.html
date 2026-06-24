@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — ヘッダクリックで並べ替え</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 26px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; }
+  code, pre { font-family: Consolas, "Courier New", monospace; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 760px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  /* ソート可能ヘッダを指し示す（任意の見た目。外部CSSで自由に） */
+  .tssgrid thead th[data-c] { cursor: pointer; }
+  .tssgrid thead th[data-c]:hover { background: #e6edf6; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: ヘッダクリックで並べ替え <span class="pill">A方式 + 外部UI</span></h1>
+
+<div class="note">
+コア（TssGrid 本体）に<b>ソート機能は入っていません</b>。並べ替えは <b>外から数行</b>で組めます。<br>
+このページは <b>onHeaderClick フック</b>（ヘッダのクリック検出）＋ <b>sortBy(列, 'asc'|'desc')</b>（状態を保ったままデータを並べ替え）＋ <b>ヘッダ文字に ▲▼ を足すだけ</b>で、HTML も依存も増やさずに「クリックで並べ替え＋インジケータ」を実現しています。<br>
+<b>列ヘッダをクリック</b>してください（同じ列を再クリックで昇順⇄降順）。編集・チェック・行ヘッダ選択はそのまま動きます。
+</div>
+
+<h2>デモ</h2>
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>これだけ（抜粋）</h2>
+<pre>const base = ['品番', '商品名', '数量', '単価', '在庫'];
+let sortCol = -1, dir = 'asc';
+
+const grid = new TssGrid(host, {
+  headers: base.slice(),
+  columns: [{}, {}, { type:'number', thousands:true }, { type:'number', thousands:true, prefix:'¥' }, { type:'checkbox' }],
+  data: rows,
+  // ★ ヘッダクリックを横取りして並べ替え（return false で列選択は抑止）
+  onHeaderClick(c) {
+    dir = (sortCol === c &amp;&amp; dir === 'asc') ? 'desc' : 'asc';
+    sortCol = c;
+    grid.headers = base.map((h, i) =&gt; i === c ? h + (dir === 'asc' ? ' ▲' : ' ▼') : h); // ★ ▲▼ は文字を足すだけ
+    grid.sortBy(c, dir);   // ★ 状態を保ったまま並べ替え＋再描画
+    return false;
+  },
+});</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const base = ['品番', '商品名', '数量', '単価', '在庫'];
+  let sortCol = -1, dir = 'asc';
+  const rows = [
+    ['P-103', 'ワッシャー', '2400', '12', '1'],
+    ['P-101', 'ナット M6', '350', '98', ''],
+    ['P-100', 'ボルト M6', '1200', '158', '1'],
+    ['P-104', 'スプリング', '80', '1280', ''],
+    ['P-102', 'プレート', '640', '540', '1'],
+  ];
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'sortdemo', showDump: true, width: 620,
+    headers: base.slice(),
+    columns: [{}, {}, { type: 'number', thousands: true }, { type: 'number', thousands: true, prefix: '¥' }, { type: 'checkbox' }],
+    data: rows,
+    onHeaderClick(c) {
+      dir = (sortCol === c && dir === 'asc') ? 'desc' : 'asc';
+      sortCol = c;
+      grid.headers = base.map((h, i) => i === c ? h + (dir === 'asc' ? ' ▲' : ' ▼') : h);
+      grid.sortBy(c, dir);
+      return false;   // 列選択は抑止（クリック＝並べ替えに専念）
+    },
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — セル内ミニ計算式（calc プラグイン）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 700px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:620px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .cl .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  .cl .tssgrid td.tg-readonly { background:#f8fafc; color:#5b6573; }
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>セル内ミニ計算式 <span class="pill">calc プラグイン</span></h1>
+  <div class="note" style="margin-top:8px">
+  セルに <code>=12*3+5</code> と打って確定すると <b>41</b> に。四則 <code>+ - * /</code>・括弧・小数に対応（<code>plugins/tss-calc.js</code>・<b>eval/Function 不使用の自前パーサ</b>＝CSP安全）。<code>=</code> 無しの素の式（<code>120*1.1</code>）も計算、ただの数値や文字は素通り。仕組みは <b><code>columns[c].parse</code></b>（入力変換）に乗せるだけ。<br>
+  数量・単価で計算式が使え、金額は <code>formula</code> プラグインで <b>数量 × 単価</b>。「電卓を別に開かず、その場で計算して入れる」感覚。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">見積（数量・単価に <code>=10*12</code> のような式が打てます。金額は自動）</div>
+    <div class="cl"><div id="grid"></div></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-calc.js"></script>
+<script src="../plugins/tss-formula.js"></script>
+<script>
+  const yen = v => (v === '' || v == null) ? '' : '¥' + Number(v).toLocaleString('ja-JP');
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'estimate', width: 620, rowHeight: 26, rowHeaders: false, initialCell: { r: 0, c: 'quantity' },
+    columns: [
+      { data: 'name',     title: '品名', width: 200 },
+      // ↓ parse: TssCalc() ＝ このセルで式が打てる（=12*3 や 12*3 → 36）
+      { data: 'quantity', title: '数量', width: 110, type: 'number', align: 'right', parse: TssCalc() },
+      { data: 'price',    title: '単価', width: 130, type: 'number', align: 'right', format: yen, parse: TssCalc() },
+      { data: 'amount',   title: '金額', width: 150, type: 'number', align: 'right', format: yen,
+        formula: (row) => (row.quantity && row.price) ? row.quantity * row.price : '' },
+    ],
+    plugins: [TssFormula],   // calc は列の parse に直接乗せたので plugins には不要
+    data: [
+      { name: 'A4 コピー用紙', quantity: '10',  price: '380' },
+      { name: 'ボールペン',    quantity: '24',  price: '95' },
+      { name: 'クリアファイル', quantity: '100', price: '12' },
+      { name: '', quantity: '', price: '' },
+    ],
+  });
+</script>
+</body>
+</html>

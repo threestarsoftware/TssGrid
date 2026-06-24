@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<title>API リファレンス — TssGrid</title>
+<meta name="description" content="TssGrid の API リファレンス。オプション・イベント・メソッド・列オプションを一覧で（tssgrid.d.ts から自動生成）。">
+<link rel="canonical" href="https://tssgrid.threestarsoftware.co.jp/api.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TssGrid">
+<meta property="og:title" content="API リファレンス — TssGrid">
+<meta property="og:description" content="オプション・イベント・メソッド・列オプションの一覧（tssgrid.d.ts から自動生成）。">
+<meta property="og:url" content="https://tssgrid.threestarsoftware.co.jp/api.html">
+<meta property="og:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .docs-wrap { display:flex; gap:36px; max-width:1240px; margin:0 auto; padding:0 22px; align-items:flex-start; }
+  .docs-nav { flex:none; width:262px; position:sticky; top:14px; align-self:flex-start; max-height:calc(100vh - 28px); overflow:auto; padding:14px 4px 30px; }
+  .docs-nav summary { display:none; }
+  #nav { display:flex; flex-direction:column; }
+  #nav a { display:block; color:#5a6b7d; text-decoration:none; font-size:13px; line-height:1.45; padding:5px 12px; border-left:2px solid transparent; }
+  #nav a:hover { color:#1573c0; background:#f0f6fc; }
+  #nav a.lv3 { padding-left:26px; font-size:12.5px; color:#778698; }
+  #nav a.active { color:#1573c0; border-left-color:#1573c0; background:#eaf3fb; font-weight:700; }
+  .nav-head { font-size:11px; font-weight:800; letter-spacing:.08em; color:#9aa7b5; padding:6px 12px; }
+  #doc { flex:1; min-width:0; max-width:900px; padding:24px 0 80px; }
+  #doc h1 { font-size:30px; margin:6px 0 10px; }
+  #doc h2 { font-size:22px; margin:42px 0 12px; padding-top:16px; border-top:1px solid #e3e9f0; scroll-margin-top:76px; }
+  #doc h3 { font-size:16px; margin:26px 0 10px; color:#1573c0; scroll-margin-top:76px; }
+  #doc p, #doc li { font-size:14px; line-height:1.8; color:#33414f; }
+  #doc a { color:#1573c0; }
+  #doc code { background:#eef2f7; color:#1d4e7a; padding:1px 6px; border-radius:4px; font-size:.9em; font-family:'SFMono-Regular',Consolas,Menlo,monospace; }
+  #doc table { border-collapse:collapse; width:100%; margin:12px 0; font-size:13px; display:block; overflow:auto; }
+  #doc th, #doc td { border:1px solid #dce4ec; padding:7px 11px; text-align:left; vertical-align:top; }
+  #doc th { background:#f3f7fb; font-weight:700; white-space:nowrap; }
+  #doc td code.ty { background:#f4f0fb; color:#6b3fa0; white-space:pre-wrap; }
+  #doc td:first-child code { white-space:nowrap; }
+  .api-list { display:flex; flex-direction:column; gap:2px; }
+  .api-m { padding:10px 0; border-bottom:1px solid #eef2f6; }
+  .api-m .sig { display:inline-block; background:#0f2233; color:#d6e4f0; padding:5px 11px; border-radius:6px; font-size:13px; font-family:'SFMono-Regular',Consolas,Menlo,monospace; }
+  .api-m p { margin:7px 0 0; color:#475569; font-size:13.5px; }
+  @media (max-width:900px) {
+    .docs-wrap { flex-direction:column; gap:0; }
+    .docs-nav { width:auto; position:static; max-height:none; padding:8px 0; border-bottom:1px solid #e3e9f0; margin-bottom:10px; }
+    .docs-nav summary { display:block; cursor:pointer; font-weight:700; color:#1573c0; padding:8px 12px; }
+    #nav { max-height:50vh; overflow:auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./"><img class="logo" src="favicon.svg" width="28" height="28" alt="">TssGrid <span class="tag">MIT</span></a>
+    <button class="nav-toggle" aria-label="メニュー">≡</button>
+    <nav class="nav">
+      <a href="./#features">機能</a>
+      <a href="./#demo">デモ</a>
+      <a href="docs.html">ガイド</a>
+      <a href="api.html">API</a>
+      <a href="articles/">記事</a>
+      <a class="gh" href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<section style="padding:26px 0 0">
+  <div class="docs-wrap">
+    <aside class="docs-nav">
+      <details id="toc" open>
+        <summary>📑 目次</summary>
+        <div class="nav-head">API</div>
+        <nav id="nav">
+<a href="#options" class="lv2">グリッド オプション</a>
+<a href="#events" class="lv2">イベント / コールバック</a>
+<a href="#columns" class="lv2">列オプション columns[c]</a>
+<a href="#methods" class="lv2">メソッド</a><a href="#m-0" class="lv3">データ</a><a href="#m-1" class="lv3">並べ替え / フィルタ</a><a href="#m-2" class="lv3">選択 / カーソル</a><a href="#m-3" class="lv3">行 / 列 構造</a><a href="#m-4" class="lv3">列の表示 / 幅 / 固定 / 行高</a><a href="#m-5" class="lv3">セル状態 / 検証</a><a href="#m-6" class="lv3">出力 / 再描画 / 破棄</a><a href="#m-7" class="lv3">拡張</a><a href="#m-8" class="lv3">低レベル（公開はするが通常は上位APIを推奨）</a>
+<a href="#history" class="lv2">HistoryManager</a>
+        </nav>
+      </details>
+    </aside>
+    <article id="doc">
+<h1>API リファレンス</h1>
+<p class="lead">公開API（オプション・イベント・メソッド）の一覧。<b><code>src/tssgrid.d.ts</code> を正本に自動生成</b>しています。使い方・サンプルは <a href="docs.html">ドキュメント（ガイド）</a> をどうぞ。</p>
+<h2 id="options">グリッド オプション</h2>
+<p>54 項目（<code>new TssGrid(el, options)</code>）。</p>
+<table>
+<thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
+<tbody>
+<tr><td><code>headers</code></td><td><code class="ty">string[]</code></td><td></td></tr>
+<tr><td><code>data</code></td><td><code class="ty">any[][] | Record&lt;string, any&gt;[]</code></td><td>初期データ。2次元配列 or オブジェクト配列。</td></tr>
+<tr><td><code>history</code></td><td><code class="ty">HistoryManager</code></td><td>渡すと複数グリッドで Undo を共有。</td></tr>
+<tr><td><code>name</code></td><td><code class="ty">string</code></td><td></td></tr>
+<tr><td><code>showDump</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>enterMoves</code></td><td><code class="ty">MoveDir</code></td><td>Enter 確定後の移動方向（既定 'down'）。Shift で逆。実行時に書換可。</td></tr>
+<tr><td><code>tabMoves</code></td><td><code class="ty">MoveDir</code></td><td>Tab 確定後の移動方向（既定 'right'）。Shift で逆。実行時に書換可。</td></tr>
+<tr><td><code>initialCell</code></td><td><code class="ty">[number, number] | { r: number; c: number | string }</code></td><td></td></tr>
+<tr><td><code>nextCell</code></td><td><code class="ty">(a: { r: number; c: number; key: string; shift: boolean }) =&gt; { r: number; c: number } | null</code></td><td>入力フロー制御。Enter/Tab の移動先を上書き（null で既定方向）。入力セルだけ巡回できる。</td></tr>
+<tr><td><code>columns</code></td><td><code class="ty">ColumnDef[]</code></td><td></td></tr>
+<tr><td><code>invalidMode</code></td><td><code class="ty">'revert' | 'keep'</code></td><td>検証NG時。'revert'=元に戻す / 'keep'=赤く警告して残す。</td></tr>
+<tr><td><code>invalidTitle</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>messages</code></td><td><code class="ty">Record&lt;string, any&gt; | ((info: { code: string; params?: any; level?: string }) =&gt; string)</code></td><td>エラーの共通メッセージカタログ。</td></tr>
+<tr><td><code>pasteOverflow</code></td><td><code class="ty">'clip' | 'error'</code></td><td></td></tr>
+<tr><td><code>colWidths</code></td><td><code class="ty">number[] | Record&lt;string, number&gt;</code></td><td></td></tr>
+<tr><td><code>rowHeights</code></td><td><code class="ty">number[] | Record&lt;string, number&gt;</code></td><td></td></tr>
+<tr><td><code>defaultColWidth</code></td><td><code class="ty">number</code></td><td></td></tr>
+<tr><td><code>defaultRowHeight</code></td><td><code class="ty">number</code></td><td></td></tr>
+<tr><td><code>minColWidth</code></td><td><code class="ty">number</code></td><td></td></tr>
+<tr><td><code>minRowHeight</code></td><td><code class="ty">number</code></td><td></td></tr>
+<tr><td><code>resizeMode</code></td><td><code class="ty">'preview' | 'live'</code></td><td></td></tr>
+<tr><td><code>frozenCols</code></td><td><code class="ty">number</code></td><td>左から固定する列数。freezeCols(n) でも変更可。</td></tr>
+<tr><td><code>frozenRows</code></td><td><code class="ty">number</code></td><td>上から固定する行数。freezeRows(n) でも変更可。frozenCols 併用で四隅固定。</td></tr>
+<tr><td><code>nestedHeaders</code></td><td><code class="ty">Array&lt;Array&lt;string | { label: string; colspan?: number }&gt;&gt;</code></td><td>ヘッダ結合（複数段見出し）。最下段がリーフ＝実列。</td></tr>
+<tr><td><code>width</code></td><td><code class="ty">number | string</code></td><td></td></tr>
+<tr><td><code>height</code></td><td><code class="ty">number | string</code></td><td></td></tr>
+<tr><td><code>resizeCols</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>resizeRows</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>cursor</code></td><td><code class="ty">boolean</code></td><td>false で選択カーソルを非表示（表示専用グリッド向け・内部選択は保持）。</td></tr>
+<tr><td><code>stretchH</code></td><td><code class="ty">'none' | 'last' | 'all'</code></td><td></td></tr>
+<tr><td><code>rowHeaders</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>colHeaders</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>hiddenColumns</code></td><td><code class="ty">number[]</code></td><td></td></tr>
+<tr><td><code>wordWrap</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>placeholder</code></td><td><code class="ty">string</code></td><td></td></tr>
+<tr><td><code>className</code></td><td><code class="ty">string</code></td><td></td></tr>
+<tr><td><code>fillHandle</code></td><td><code class="ty">boolean | { direction?: 'vertical' | 'horizontal' | 'both'; autoInsertRow?: boolean }</code></td><td>false でフィル完全OFF。詳細指定も可。</td></tr>
+<tr><td><code>autoColumnSize</code></td><td><code class="ty">boolean | number</code></td><td></td></tr>
+<tr><td><code>copyPaste</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>minSpareRows</code></td><td><code class="ty">number</code></td><td></td></tr>
+<tr><td><code>autoWrapRow</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>autoWrapCol</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>minRows</code></td><td><code class="ty">number</code></td><td></td></tr>
+<tr><td><code>maxRows</code></td><td><code class="ty">number</code></td><td></td></tr>
+<tr><td><code>minCols</code></td><td><code class="ty">number</code></td><td></td></tr>
+<tr><td><code>maxCols</code></td><td><code class="ty">number</code></td><td></td></tr>
+<tr><td><code>readOnly</code></td><td><code class="ty">boolean</code></td><td>グリッド全体を読み取り専用（ビューア用途）。</td></tr>
+<tr><td><code>contextMenu</code></td><td><code class="ty">boolean | any[] | { items: any[] }</code></td><td></td></tr>
+<tr><td><code>allowInsertRows</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>allowDeleteRows</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>allowInsertCols</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>allowDeleteCols</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>shortcuts</code></td><td><code class="ty">any[]</code></td><td></td></tr>
+<tr><td><code>plugins</code></td><td><code class="ty">any[]</code></td><td>プラグイン（関数 or 登録名）。init(grid) で初期化。</td></tr>
+</tbody>
+</table>
+<h2 id="events">イベント / コールバック</h2>
+<p>21 個。値変更系（onBeforeChange/onAfterChange）は編集・貼付・フィル・Delete の全経路を通ります。</p>
+<table>
+<thead><tr><th>イベント</th><th>シグネチャ</th><th>説明</th></tr></thead>
+<tbody>
+<tr><td><code>onBeforeChange</code></td><td><code class="ty">(changes: ChangeItem[], source: ChangeSource) =&gt; boolean | void</code></td><td>確定の直前。検証・自動整形。false で全取消、change.newValue 書換で整形。</td></tr>
+<tr><td><code>onAfterChange</code></td><td><code class="ty">(changes: ChangeItem[], source: ChangeSource) =&gt; void</code></td><td>確定の直後（undo/redo 含む）。保存・再計算に。</td></tr>
+<tr><td><code>onEditStart</code></td><td><code class="ty">(info: { r: number; c: number; value: any }) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onEditEnd</code></td><td><code class="ty">(info: { r: number; c: number; oldValue: any; newValue: any; canceled: boolean }) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onSelectionChange</code></td><td><code class="ty">(info: SelectionInfo) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onBeforeSelectionChange</code></td><td><code class="ty">(info: SelectionInfo) =&gt; boolean | void</code></td><td></td></tr>
+<tr><td><code>onBeforePaste</code></td><td><code class="ty">(data: string[][]) =&gt; boolean | string[][] | void</code></td><td></td></tr>
+<tr><td><code>onAfterPaste</code></td><td><code class="ty">(data: string[][], info: { range: SelectionRange }) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onBeforeCopy</code></td><td><code class="ty">(data: string[][], info: { range: SelectionRange }) =&gt; boolean | string[][] | void</code></td><td></td></tr>
+<tr><td><code>onBeforeCut</code></td><td><code class="ty">(data: string[][], info: { range: SelectionRange }) =&gt; boolean | string[][] | void</code></td><td></td></tr>
+<tr><td><code>onAfterCopy</code></td><td><code class="ty">(data: string[][], info: { range: SelectionRange; cut: boolean }) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onBeforeStructureChange</code></td><td><code class="ty">(info: StructureInfo) =&gt; boolean | void</code></td><td></td></tr>
+<tr><td><code>onStructureChange</code></td><td><code class="ty">(info: StructureInfo) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onBeforeAutofill</code></td><td><code class="ty">(src: SelectionRange, target: SelectionRange) =&gt; boolean | void</code></td><td></td></tr>
+<tr><td><code>onAfterAutofill</code></td><td><code class="ty">(src: SelectionRange, target: SelectionRange) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onBeforeKeyDown</code></td><td><code class="ty">(e: KeyboardEvent) =&gt; boolean | void</code></td><td></td></tr>
+<tr><td><code>onHeaderClick</code></td><td><code class="ty">(c: number, e: MouseEvent) =&gt; boolean | void</code></td><td></td></tr>
+<tr><td><code>onInvalid</code></td><td><code class="ty">(rejections: Rejection[], source: ChangeSource) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onReadOnly</code></td><td><code class="ty">(blocked: ReadOnlyBlock[], source: ChangeSource) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onChange</code></td><td><code class="ty">(grid: TssGrid) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onPasteOverflow</code></td><td><code class="ty">(info: { anchor: CellCoord; height: number; width: number; rows: number; cols: number; overRows: number; overCols: number }) =&gt; void</code></td><td></td></tr>
+</tbody>
+</table>
+<h2 id="columns">列オプション（<code>columns[c]</code>）</h2>
+<p>列ごとのセルタイプ・検証・書式など。</p>
+<table>
+<thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
+<tbody>
+<tr><td><code>data</code></td><td><code class="ty">string | number</code></td><td>data オブジェクトのキー。配列データなら省略可（位置で対応）。</td></tr>
+<tr><td><code>title</code></td><td><code class="ty">string</code></td><td>ヘッダ見出し（headers より優先）。</td></tr>
+<tr><td><code>type</code></td><td><code class="ty">CellType</code></td><td>セルタイプ。既定 'text'。</td></tr>
+<tr><td><code>options</code></td><td><code class="ty">Array&lt;string | { value: string; label?: string }&gt;</code></td><td>dropdown の選択肢。</td></tr>
+<tr><td><code>width</code></td><td><code class="ty">number</code></td><td>列ごとの初期幅(px)。列定義に同居＝並べ替え/コピペで幅が追従。</td></tr>
+<tr><td><code>resizable</code></td><td><code class="ty">boolean</code></td><td>false でこの列だけリサイズ禁止。</td></tr>
+<tr><td><code>align</code></td><td><code class="ty">'left' | 'center' | 'right'</code></td><td>列既定の水平/垂直整列。</td></tr>
+<tr><td><code>valign</code></td><td><code class="ty">'top' | 'middle' | 'bottom'</code></td><td></td></tr>
+<tr><td><code>readOnly</code></td><td><code class="ty">boolean | ((value: any, cell: CellCoord) =&gt; boolean)</code></td><td>列単位の読み取り専用。関数でセル単位判定も可。</td></tr>
+<tr><td><code>validator</code></td><td><code class="ty">(value: any, cell: CellCoord) =&gt; ValidatorResult</code></td><td>入力検証。編集/貼付/フィルの全経路に効く。</td></tr>
+<tr><td><code>editor</code></td><td><code class="ty">object | (() =&gt; object)</code></td><td>カスタム編集UI（薄いオブジェクト契約 or それを返す関数）。</td></tr>
+<tr><td><code>parse</code></td><td><code class="ty">(input: string, cell: CellCoord) =&gt; any</code></td><td>入力の正規化（保存値へ変換）。</td></tr>
+<tr><td><code>format</code></td><td><code class="ty">string | object | ((value: any, cell: CellCoord) =&gt; string)</code></td><td>表示の整形（保存値→表示）。文字列 or 宣言的 CellFormat。</td></tr>
+<tr><td><code>thousands</code></td><td><code class="ty">boolean</code></td><td>数値型: 千区切り表示。</td></tr>
+<tr><td><code>prefix</code></td><td><code class="ty">string</code></td><td>数値型: 接頭辞（例 '¥'）。</td></tr>
+<tr><td><code>cellClass</code></td><td><code class="ty">(r: number, c: number, value: any, row: any) =&gt; string</code></td><td>値/行を見てセルに付与する CSS クラス（条件付き書式）。</td></tr>
+<tr><td><code>cellStyle</code></td><td><code class="ty">(r: number, c: number, value: any, row: any) =&gt; Partial&lt;CSSStyleDeclaration&gt; | Record&lt;string, string&gt;</code></td><td>セル単位のインラインスタイル（連続色・データバー等）。</td></tr>
+<tr><td><code>html</code></td><td><code class="ty">boolean</code></td><td>true で表示だけ生HTML（値はテキスト保存のまま）。</td></tr>
+<tr><td><code>wordWrap</code></td><td><code class="ty">boolean</code></td><td>列単位の折り返し。</td></tr>
+<tr><td><code>placeholder</code></td><td><code class="ty">string</code></td><td>空セルの薄いヒント文字。</td></tr>
+</tbody>
+</table>
+<h2 id="methods">メソッド</h2>
+<p>公開メソッド 57 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
+<h3 id="m-0">データ</h3>
+<div class="api-list">
+<div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
+<div class="api-m"><code class="sig">getRows(): Record&lt;string, any&gt;[]</code><p>全行をオブジェクト配列で取得（columns[c].data キー基準）。</p></div>
+<div class="api-m"><code class="sig">getRow(r: number): Record&lt;string, any&gt;</code><p>r 行目をオブジェクトで取得。</p></div>
+<div class="api-m"><code class="sig">getColumn(cOrKey: number | string): any[] | undefined</code><p>列を縦に取得（index か data キー）。</p></div>
+<div class="api-m"><code class="sig">getColumns(): any[][]</code><p>全列を配列の配列で取得。</p></div>
+<div class="api-m"><code class="sig">getValue(r: number, cOrKey: number | string): any</code><p>1セルの値を取得（c は index か data キー）。</p></div>
+<div class="api-m"><code class="sig">setData(rows: any[][] | Record&lt;string, any&gt;[]): void</code><p>データを差し替え（履歴・フィルタ・整列状態はリセット）。</p></div>
+<div class="api-m"><code class="sig">setValue(r: number, cOrKey: number | string, val: any, force?: boolean): void</code><p>1セルに書き込み（履歴あり・検証/onBeforeChange 経由）。force=true で readOnly 貫通。</p></div>
+<div class="api-m"><code class="sig">setValueRaw(r: number, cOrKey: number | string, val: any): void</code><p>履歴に積まず・検証も通さず直接書き込み（計算列など派生値用。readOnly 貫通）。</p></div>
+</div>
+<h3 id="m-1">並べ替え / フィルタ</h3>
+<div class="api-list">
+<div class="api-m"><code class="sig">sortBy(cOrKey: number | string, dir?: 'asc' | 'desc'): void</code><p>列で並べ替え（c は index か data キー）。</p></div>
+<div class="api-m"><code class="sig">sortRows(cmp: (a: any[], b: any[]) =&gt; number): void</code><p>比較関数で並べ替え。</p></div>
+<div class="api-m"><code class="sig">clearSort(): void</code><p>並べ替え解除（入力順に戻す）。</p></div>
+<div class="api-m"><code class="sig">isSorted(): boolean</code></div>
+<div class="api-m"><code class="sig">filter(pred: ((row: any[], masterIndex: number, src: any) =&gt; boolean) | Record&lt;string, any&gt;): void</code><p>非破壊フィルタ。pred(row, masterIndex, src)=&gt;boolean、または { col: 値|fn }。</p></div>
+<div class="api-m"><code class="sig">clearFilter(): void</code><p>フィルタ解除（フィルタ中に編集/追加した行も含め全部戻る）。</p></div>
+<div class="api-m"><code class="sig">isFiltered(): boolean</code></div>
+<div class="api-m"><code class="sig">getAllRows(): Record&lt;string, any&gt;[]</code><p>フィルタ中でも全行（マスタ）を取得。</p></div>
+</div>
+<h3 id="m-2">選択 / カーソル</h3>
+<div class="api-list">
+<div class="api-m"><code class="sig">setActive(r: number, c: number): void</code></div>
+<div class="api-m"><code class="sig">setExtent(r: number, c: number): void</code></div>
+<div class="api-m"><code class="sig">selectRect(r0: number, c0: number, r1: number, c1: number): void</code></div>
+<div class="api-m"><code class="sig">selectRow(r: number): void</code></div>
+<div class="api-m"><code class="sig">selectCol(c: number): void</code></div>
+<div class="api-m"><code class="sig">selectAll(): void</code></div>
+</div>
+<h3 id="m-3">行 / 列 構造</h3>
+<div class="api-list">
+<div class="api-m"><code class="sig">insertRow(ri: number, where?: 'above' | 'below'): void</code></div>
+<div class="api-m"><code class="sig">deleteRows(r0: number, r1?: number): void</code></div>
+<div class="api-m"><code class="sig">insertCol(ci: number, where?: 'left' | 'right'): void</code></div>
+<div class="api-m"><code class="sig">deleteCols(c0: number, c1?: number): void</code></div>
+<div class="api-m"><code class="sig">moveRow(from: number, to: number): void</code><p>1行を移動（Undo 対応）。</p></div>
+<div class="api-m"><code class="sig">moveRows(r0: number, r1: number, to: number): void</code><p>複数行をまとめて移動（Undo 対応）。</p></div>
+</div>
+<h3 id="m-4">列の表示 / 幅 / 固定 / 行高</h3>
+<div class="api-list">
+<div class="api-m"><code class="sig">hideColumn(c: number): void</code></div>
+<div class="api-m"><code class="sig">showColumn(c: number): void</code></div>
+<div class="api-m"><code class="sig">toggleColumn(c: number): void</code></div>
+<div class="api-m"><code class="sig">isColumnHidden(c: number): boolean</code></div>
+<div class="api-m"><code class="sig">getHiddenColumns(): number[]</code></div>
+<div class="api-m"><code class="sig">setColWidth(c: number, px: number): void</code></div>
+<div class="api-m"><code class="sig">autoSizeColumn(c: number): void</code></div>
+<div class="api-m"><code class="sig">autoSizeAllColumns(): void</code></div>
+<div class="api-m"><code class="sig">freezeCols(n: number): void</code></div>
+<div class="api-m"><code class="sig">freezeRows(n: number): void</code></div>
+<div class="api-m"><code class="sig">setRowHeight(r: number, px: number): void</code></div>
+</div>
+<h3 id="m-5">セル状態 / 検証</h3>
+<div class="api-list">
+<div class="api-m"><code class="sig">setAlignment(align: string, range?: SelectionRange): void</code></div>
+<div class="api-m"><code class="sig">getAlignment(r: number, c: number): string</code></div>
+<div class="api-m"><code class="sig">setCellReadOnly(flag: boolean, range?: SelectionRange): void</code></div>
+<div class="api-m"><code class="sig">getInvalidCells(): Rejection[]</code><p>今の全セルを検証し、NG を一覧で返す（保存前チェック等）。</p></div>
+</div>
+<h3 id="m-6">出力 / 再描画 / 破棄</h3>
+<div class="api-list">
+<div class="api-m"><code class="sig">toCSV(opts?: CsvOptions): string</code></div>
+<div class="api-m"><code class="sig">downloadCSV(filename: string, opts?: CsvOptions): void</code></div>
+<div class="api-m"><code class="sig">redraw(): void</code><p>列定義変更後などの再描画（データ・選択は保持）。</p></div>
+<div class="api-m"><code class="sig">refreshGeometry(): void</code><p>画像/フォント等の遅延レイアウト後に幾何キャッシュを再構築する保険。</p></div>
+<div class="api-m"><code class="sig">destroy(): void</code><p>グリッドを破棄（リスナ除去・DOM 撤去・idempotent）。フレームワークの teardown で呼ぶ。</p></div>
+</div>
+<h3 id="m-7">拡張</h3>
+<div class="api-list">
+<div class="api-m"><code class="sig">addShortcut(s: { name: string; keys: string; handler: (grid: TssGrid, e: KeyboardEvent) =&gt; void }): void</code></div>
+<div class="api-m"><code class="sig">removeShortcut(name: string): void</code></div>
+<div class="api-m"><code class="sig">usePlugin(plugin: ((grid: TssGrid, opts?: any) =&gt; any) | string, opts?: any): any</code></div>
+<div class="api-m"><code class="sig">getPlugin(name: string): any</code></div>
+</div>
+<h3 id="m-8">低レベル（公開はするが通常は上位APIを推奨）</h3>
+<div class="api-list">
+<div class="api-m"><code class="sig">clearRange(): void</code><p>選択範囲（または range）をクリア。※通常は値消去なら setValue('') を推奨。一括の低レベル手段。</p></div>
+<div class="api-m"><code class="sig">copy(cut?: boolean): void</code><p>選択範囲をクリップボードへ。cut=true で切り取り。</p></div>
+<div class="api-m"><code class="sig">buildTable(): void</code><p>テーブルDOMを再構築（低レベル）。※通常は redraw() を推奨。主にプラグイン拡張者向け。</p></div>
+<div class="api-m"><code class="sig">cellEl(r: number, c: number): HTMLTableCellElement | null</code><p>セルの DOM 要素を返す（低レベル・内部DOM構造に依存）。結合セルはアンカーに解決。</p></div>
+</div>
+<h2 id="history">HistoryManager</h2>
+<p>Undo/Redo 履歴。複数グリッドで共有すると Undo タイムラインが繋がります。</p>
+<div class="api-list">
+<div class="api-m"><code class="sig">push(cmd: { apply: () =&gt; void; revert: () =&gt; void }): void</code></div>
+<div class="api-m"><code class="sig">undo(): void</code></div>
+<div class="api-m"><code class="sig">redo(): void</code></div>
+<div class="api-m"><code class="sig">clear(): void</code></div>
+<div class="api-m"><code class="sig">canUndo(): boolean</code></div>
+<div class="api-m"><code class="sig">canRedo(): boolean</code></div>
+</div>
+    </article>
+  </div>
+</section>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="f-brand">TssGrid</div>
+    <nav class="f-links">
+      <a href="docs.html">ガイド</a>
+      <a href="api.html">API</a>
+      <a href="articles/">記事</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.threestarsoftware.co.jp/" target="_blank" rel="noopener">運営会社</a>
+    </nav>
+    <div class="copy">MIT License ・ © <span id="year">2026</span> 株式会社スリースターソフトウェア（ThreeStarSoftware）</div>
+  </div>
+</footer>
+
+<script src="assets/site.js"></script>
+<script>
+(function () {
+  var heads = document.querySelectorAll('#doc h2, #doc h3');
+  var links = Array.prototype.slice.call(document.querySelectorAll('#nav a'));
+  function spy() {
+    var cur = null;
+    heads.forEach(function (h) { if (h.getBoundingClientRect().top <= 96) cur = h.id; });
+    links.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + cur); });
+  }
+  window.addEventListener('scroll', spy, { passive: true }); spy();
+  if (window.matchMedia('(max-width:900px)').matches) { var t = document.getElementById('toc'); if (t) t.open = false; }
+})();
+</script>
+</body>
+</html>

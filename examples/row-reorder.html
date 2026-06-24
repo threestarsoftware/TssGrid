@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 行のドラッグ移動（つまみ）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 640px; }
+  .note b { color: #1573c0; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 640px; }
+  #log { font-size: 13px; color: #1a3a6b; min-height: 20px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 行のドラッグ移動 <span class="pill">rowReorder</span></h1>
+
+<div class="note">
+行ヘッダ左の<b>つまみ「⠿」をドラッグ</b>すると行を並べ替えられます。ドロップ位置に<b>緑のガイド線</b>が出ます。<br>
+<b>複数行の移動</b>も可：行ヘッダで<b>範囲選択</b>（クリック→Shift＋クリック、または行ヘッダをドラッグ）してから、選択内のつまみを掴むと<b>まとめて移動</b>します。<br>
+データ実体ごと移動するので、<b>セルの値・整列・読み取り専用・隠しフィールドも追従</b>します（並べ替えと同じ仕組み）。行番号は自動で振り直し。
+</div>
+
+<h2>デモ（⠿ をドラッグ）</h2>
+<div class="tssgrid-host"><div id="grid"></div></div>
+<div id="log">&nbsp;</div>
+
+<h2>差し込み（抜粋）</h2>
+<pre>new TssGrid(host, {
+  rowReorder: true,                       // 行ヘッダに「つまみ」を出してドラッグ移動
+  onAfterRowMove: (from, to) =&gt; { ... },  // 確定後に呼ばれる（任意）
+  data: rows,
+});
+// プログラムからは grid.moveRow(from, to) でも移動可</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'reorder', width: 460,
+    headers: ['順位', '名前', '部署', '備考'],
+    rowReorder: true,
+    onAfterRowMove: (from, to, count) => {
+      const what = count > 1 ? `${from + 1}〜 の ${count} 行` : `${from + 1} 行目`;
+      document.getElementById('log').textContent = `移動: ${what} → ${to + 1} 行目へ`;
+    },
+    data: [
+      ['1', '佐藤 一郎', '営業', ''],
+      ['2', '鈴木 花子', '開発', ''],
+      ['3', '高橋 次郎', '総務', ''],
+      ['4', '田中 三郎', '開発', ''],
+      ['5', '渡辺 桜', '営業', ''],
+    ],
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+/* TssAutocomplete — 候補サジェスト ポップアップ。見た目は変数とクラスで自由に。 */
+.tss-ac {
+  position: absolute; z-index: 9999; background: #fff;
+  border: 1px solid var(--ac-border, #c3ccd6); border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(20, 40, 80, .18); padding: 4px;
+  font: inherit; box-sizing: border-box;
+}
+.tss-ac-input {
+  width: 100%; box-sizing: border-box; font: inherit; padding: 4px 6px;
+  border: 1px solid var(--ac-input-border, #cfd7e0); border-radius: 4px; outline: none;
+}
+.tss-ac-input:focus { border-color: var(--ac-accent, #0d9488); }
+.tss-ac-list { max-height: 220px; overflow-y: auto; margin-top: 4px; }
+.tss-ac-item { padding: 5px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+.tss-ac-item:hover { background: var(--ac-hover, #eef2f6); }
+.tss-ac-item.hi { background: var(--ac-accent, #0d9488); color: #fff; }

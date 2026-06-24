@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<link rel="apple-touch-icon" href="favicon.png">
+<title>ドキュメント — TssGrid</title>
+<meta name="description" content="TssGrid のドキュメント。オプション・イベント・セルタイプ・同梱プラグインなどを左ナビから引けます（README を正本に自動生成）。">
+<link rel="canonical" href="https://tssgrid.threestarsoftware.co.jp/docs.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TssGrid">
+<meta property="og:title" content="ドキュメント — TssGrid">
+<meta property="og:description" content="TssGrid のドキュメント。オプション・イベント・セルタイプ・同梱プラグインを左ナビから。">
+<meta property="og:url" content="https://tssgrid.threestarsoftware.co.jp/docs.html">
+<meta property="og:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .docs-wrap { display:flex; gap:36px; max-width:1240px; margin:0 auto; padding:0 22px; align-items:flex-start; }
+  /* 左ナビ */
+  .docs-nav { flex:none; width:262px; position:sticky; top:14px; align-self:flex-start;
+    max-height:calc(100vh - 28px); overflow:auto; padding:14px 4px 30px; }
+  .docs-nav details { border:0; }
+  .docs-nav summary { display:none; }
+  #nav { display:flex; flex-direction:column; }
+  #nav a { display:block; color:#5a6b7d; text-decoration:none; font-size:13px; line-height:1.45;
+    padding:5px 12px; border-left:2px solid transparent; border-radius:0 5px 5px 0; }
+  #nav a:hover { color:#1573c0; background:#f0f6fc; }
+  #nav a.lv3 { padding-left:26px; font-size:12.5px; color:#778698; }
+  #nav a.active { color:#1573c0; border-left-color:#1573c0; background:#eaf3fb; font-weight:700; }
+  .nav-head { font-size:11px; font-weight:800; letter-spacing:.08em; color:#9aa7b5; padding:6px 12px; }
+  /* 本文（README レンダリング） */
+  #doc { flex:1; min-width:0; max-width:840px; padding:24px 0 80px; }
+  #doc h1 { font-size:30px; margin:6px 0 10px; }
+  #doc h2 { font-size:22px; margin:40px 0 14px; padding-top:16px; border-top:1px solid #e3e9f0; scroll-margin-top:76px; }
+  #doc h3 { font-size:17px; margin:28px 0 10px; color:#1d2733; scroll-margin-top:76px; }
+  #doc h4 { font-size:15px; margin:20px 0 8px; }
+  #doc p, #doc li { font-size:14.5px; line-height:1.85; color:#33414f; }
+  #doc a { color:#1573c0; }
+  #doc ul, #doc ol { padding-left:1.4em; }
+  #doc li { margin:4px 0; }
+  #doc code { background:#eef2f7; color:#1d4e7a; padding:1px 6px; border-radius:4px; font-size:.9em;
+    font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace; }
+  #doc pre { background:#0f2233; color:#d6e4f0; padding:16px 18px; border-radius:9px; overflow:auto; font-size:13px; line-height:1.6; }
+  #doc pre code { background:none; color:inherit; padding:0; }
+  #doc table { border-collapse:collapse; width:100%; margin:14px 0; font-size:13px; display:block; overflow:auto; }
+  #doc th, #doc td { border:1px solid #dce4ec; padding:7px 11px; text-align:left; vertical-align:top; }
+  #doc th { background:#f3f7fb; font-weight:700; white-space:nowrap; }
+  #doc blockquote { margin:14px 0; padding:10px 16px; background:#f6f9fc; border-left:4px solid #bcd9f0; color:#475569; border-radius:0 6px 6px 0; }
+  #doc blockquote p { font-size:13.5px; }
+  #doc img { max-width:100%; }
+  #doc hr { border:0; border-top:1px solid #e3e9f0; margin:30px 0; }
+  .doc-load { color:#8595a8; padding:40px 0; }
+  @media (max-width:900px) {
+    .docs-wrap { flex-direction:column; gap:0; }
+    .docs-nav { width:auto; position:static; max-height:none; padding:8px 0; border-bottom:1px solid #e3e9f0; margin-bottom:10px; }
+    .docs-nav summary { display:block; cursor:pointer; font-weight:700; color:#1573c0; padding:8px 12px; }
+    #nav { max-height:50vh; overflow:auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./"><img class="logo" src="favicon.svg" width="28" height="28" alt="">TssGrid <span class="tag">MIT</span></a>
+    <button class="nav-toggle" aria-label="メニュー">≡</button>
+    <nav class="nav">
+      <a href="./#features">機能</a>
+      <a href="./#demo">デモ</a>
+      <a href="docs.html">ガイド</a>
+      <a href="api.html">API</a>
+      <a href="articles/">記事</a>
+      <a class="gh" href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<section style="padding:26px 0 0">
+  <div class="docs-wrap">
+    <aside class="docs-nav">
+      <details id="toc" open>
+        <summary>📑 目次</summary>
+        <div class="nav-head">CONTENTS</div>
+        <nav id="nav"></nav>
+      </details>
+    </aside>
+    <article id="doc"><p class="doc-load">ドキュメントを読み込み中…</p></article>
+  </div>
+</section>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="f-brand">TssGrid</div>
+    <nav class="f-links">
+      <a href="./#features">機能</a>
+      <a href="docs.html">ガイド</a>
+      <a href="api.html">API</a>
+      <a href="articles/">記事</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.threestarsoftware.co.jp/" target="_blank" rel="noopener">運営会社</a>
+    </nav>
+    <div class="copy">MIT License ・ © <span id="year">2026</span> 株式会社スリースターソフトウェア（ThreeStarSoftware）</div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous"></script>
+<script src="assets/site.js"></script>
+<script>
+(function () {
+  var doc = document.getElementById('doc');
+
+  // README を取得（ライブは /README.md、ローカル開発は ../README.md にフォールバック）
+  async function fetchReadme() {
+    for (var _i = 0, urls = ['README.md', '../README.md']; _i < urls.length; _i++) {
+      try { var r = await fetch(urls[_i]); if (r.ok) return await r.text(); } catch (e) {}
+    }
+    return null;
+  }
+
+  async function render() {
+    var md = await fetchReadme();
+    if (md == null || !window.marked) {
+      doc.innerHTML = '<p class="doc-load">ドキュメントを読み込めませんでした。<a href="https://github.com/threestarsoftware/TssGrid#readme">GitHub の README</a> をご覧ください。</p>';
+      return;
+    }
+    doc.innerHTML = marked.parse(md, { gfm: true });
+    buildNav();
+    // 初回ロードで #hash があればそこへ
+    if (location.hash) { var t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+  }
+
+  function buildNav() {
+    var heads = doc.querySelectorAll('h2, h3');
+    var nav = document.getElementById('nav');
+    var links = [];
+    heads.forEach(function (h, i) {
+      h.id = 'sec-' + i;
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent;
+      a.className = (h.tagName === 'H3') ? 'lv3' : 'lv2';
+      nav.appendChild(a);
+      links.push(a);
+    });
+    // スクロール追従（今読んでいる見出しをハイライト）
+    function spy() {
+      var cur = null;
+      heads.forEach(function (h) { if (h.getBoundingClientRect().top <= 96) cur = h.id; });
+      links.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + cur); });
+    }
+    window.addEventListener('scroll', spy, { passive: true });
+    spy();
+    // モバイルは目次を畳む
+    if (window.matchMedia('(max-width:900px)').matches) { var toc = document.getElementById('toc'); if (toc) toc.open = false; }
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

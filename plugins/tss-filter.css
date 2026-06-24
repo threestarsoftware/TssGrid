@@ -1,0 +1,32 @@
+/* TssFilter — ヘッダのオートフィルタUI（plugins/tss-filter.js）。色は --tg-accent を流用。 */
+.tssgrid .tg-table thead th .tg-filter-btn {
+  display: inline-flex; align-items: center; margin-left: 4px; line-height: 1; cursor: pointer;
+  color: #b9bfcc; user-select: none; padding: 1px 2px; border-radius: 3px;
+}
+.tssgrid .tg-table thead th .tg-filter-btn .tg-filter-ico { display: block; }
+.tssgrid .tg-table thead th .tg-filter-btn:hover { color: #fff; background: rgba(255,255,255,.18); }
+.tssgrid .tg-table thead th .tg-filter-btn.on { color: var(--tg-accent, #2f6fed); background: #fff; }   /* 適用中はロートがアクセント色＋白地で明確 */
+
+.tg-filter-pop {
+  position: fixed; z-index: 1000; width: 220px; background: #fff; color: #1f2733;
+  border: 1px solid #c4ccd6; border-radius: 8px; box-shadow: 0 6px 22px rgba(20,40,80,.22);
+  font: 12.5px "Meiryo UI", "Segoe UI", sans-serif; padding: 8px; box-sizing: border-box;
+}
+.tg-filter-pop .tg-filter-search input {
+  width: 100%; box-sizing: border-box; padding: 4px 7px; border: 1px solid #cbd2dc; border-radius: 5px; font: inherit;
+}
+.tg-filter-pop .tg-filter-tools { font-size: 11.5px; color: #6b7280; margin: 6px 2px 4px; }
+.tg-filter-pop .tg-filter-tools a { color: var(--tg-accent, #2f6fed); cursor: pointer; text-decoration: none; }
+.tg-filter-pop .tg-filter-tools a:hover { text-decoration: underline; }
+.tg-filter-pop .tg-filter-list { max-height: 200px; overflow: auto; border: 1px solid #eef1f5; border-radius: 5px; padding: 3px; }
+.tg-filter-pop .tg-filter-list label {
+  display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+.tg-filter-pop .tg-filter-list label:hover { background: #f0f4fb; }
+.tg-filter-pop .tg-filter-list label span { overflow: hidden; text-overflow: ellipsis; }
+.tg-filter-pop .tg-filter-btns { display: flex; gap: 6px; margin-top: 8px; }
+.tg-filter-pop .tg-filter-btns button {
+  flex: 1; padding: 5px 0; border: 1px solid #cbd2dc; background: #fff; border-radius: 5px; font: inherit; cursor: pointer;
+}
+.tg-filter-pop .tg-filter-btns button[data-act=apply] { background: var(--tg-accent, #2f6fed); border-color: var(--tg-accent, #2f6fed); color: #fff; }
+.tg-filter-pop .tg-filter-btns button:hover { filter: brightness(.97); }

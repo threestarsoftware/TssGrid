@@ -1,0 +1,155 @@
+/* TssGrid サイト 共通スタイル（ノービルド・1ファイル）
+   ブランド: 会社カラーの青 #1573c0→水色 #41c4e8 ＋ slate。記事/LP 共用。 */
+:root {
+  --accent:   #1573c0;   /* 主役（会社カラー＝青） */
+  --accent-d: #115f9e;   /* hover */
+  --accent-l: #e7f4fb;   /* 薄い水色 背景 */
+  --blue:     #2aa0d8;   /* 副アクセント */
+  --green:    #41c4e8;   /* グラデ端／“動く”表現＝水色（旧:緑） */
+  --ink:    #1d2733;     /* 本文 */
+  --ink-2:  #45566a;     /* 副文 */
+  --ink-3:  #6b7888;     /* 補助 */
+  --line:   #e3e9ef;     /* 罫線 */
+  --line-2: #eef2f6;
+  --bg:     #ffffff;
+  --bg-2:   #f7f9fb;     /* セクション交互 */
+  --bg-3:   #eef3f7;     /* チップ */
+  --code-bg:#0f1722;     /* コードブロック */
+  --code-fg:#e6edf3;
+  --radius: 12px;
+  --maxw:   1080px;
+  --sans: "Segoe UI", "Hiragino Kaku Gothic ProN", "Meiryo", system-ui, -apple-system, sans-serif;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; font-family: var(--sans); color: var(--ink);
+  line-height: 1.75; background: var(--bg); -webkit-font-smoothing: antialiased;
+  font-size: 16px;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-d); text-decoration: underline; }
+img { max-width: 100%; }
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 22px; }
+
+/* ---------- ヘッダ ---------- */
+.site-head {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255,255,255,.86); backdrop-filter: saturate(160%) blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.site-head .wrap { display: flex; align-items: center; gap: 18px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 18px; color: var(--ink); letter-spacing: .2px; }
+.brand:hover { text-decoration: none; }
+.brand .logo { width: 28px; height: 28px; display: block; }   /* favicon.svg（TG＋グリッド）をそのままロゴに */
+.brand .tag { font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-l); padding: 2px 7px; border-radius: 999px; }
+.nav { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.nav a { color: var(--ink-2); font-size: 14.5px; font-weight: 600; padding: 8px 12px; border-radius: 8px; }
+.nav a:hover { color: var(--ink); background: var(--bg-2); text-decoration: none; }
+.nav a.gh { color: #fff; background: var(--ink); }
+.nav a.gh:hover { background: #000; color: #fff; }
+.nav-toggle { display: none; margin-left: auto; background: none; border: 1px solid var(--line); border-radius: 8px; width: 40px; height: 36px; font-size: 18px; cursor: pointer; }
+
+/* ---------- ヒーロー ---------- */
+.hero { background: radial-gradient(1200px 400px at 70% -10%, var(--accent-l), transparent 60%), var(--bg); padding: 64px 0 40px; border-bottom: 1px solid var(--line); }
+.hero h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.2; margin: 0 0 14px; letter-spacing: -.5px; }
+.hero h1 .hl { background: linear-gradient(transparent 62%, rgba(65,196,232,.38) 0); }
+.hero .lead { font-size: clamp(16px, 2.2vw, 19px); color: var(--ink-2); max-width: 660px; margin: 0 0 26px; }
+.hero .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; padding: 12px 22px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-d); color: #fff; text-decoration: none; }
+.btn-ghost { background: var(--bg); color: var(--ink); border-color: var(--line); }
+.btn-ghost:hover { border-color: var(--ink-3); text-decoration: none; color: var(--ink); }
+.hero .pills { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { font-size: 12.5px; font-weight: 600; color: var(--ink-2); background: var(--bg-2); border: 1px solid var(--line); padding: 5px 11px; border-radius: 999px; }
+.pill b { color: var(--accent); }
+
+/* ---------- セクション ---------- */
+section { padding: 56px 0; }
+section.alt { background: var(--bg-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.sec-head { text-align: center; max-width: 680px; margin: 0 auto 36px; }
+.sec-head .kicker { color: var(--accent); font-weight: 800; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; }
+.sec-head h2 { font-size: clamp(24px, 3.5vw, 32px); margin: 8px 0 10px; letter-spacing: -.3px; }
+.sec-head p { color: var(--ink-2); margin: 0; }
+
+/* 機能グリッド */
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.card { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; transition: border-color .15s, transform .15s, box-shadow .15s; }
+.card:hover { border-color: #cfdbe6; transform: translateY(-2px); box-shadow: 0 10px 30px -18px rgba(20,45,70,.35); }
+.card .ico { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-l); color: var(--accent); font-size: 20px; margin-bottom: 14px; }
+.card h3 { margin: 0 0 6px; font-size: 17px; }
+.card p { margin: 0; color: var(--ink-2); font-size: 14.5px; }
+
+/* デモ枠 */
+.demo-shell { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: 0 24px 60px -34px rgba(20,40,60,.4); }
+.demo-bar { display: flex; align-items: center; gap: 6px; padding: 2px 4px 12px; }
+.demo-bar i { width: 11px; height: 11px; border-radius: 50%; background: #dde3ea; display: inline-block; }
+.demo-bar span { margin-left: 10px; font-size: 12px; color: var(--ink-3); font-family: var(--mono); }
+.demo-note { text-align: center; color: var(--ink-3); font-size: 13px; margin-top: 12px; }
+/* 埋め込みデモのグリッドも会社カラー（選択枠の緑→青）に揃える */
+.demo-shell .tssgrid, .embed .tssgrid { --tg-accent: #1573c0; }
+
+/* コードブロック */
+pre.code { background: var(--code-bg); color: var(--code-fg); border-radius: var(--radius); padding: 18px 20px; overflow-x: auto; font-family: var(--mono); font-size: 13.5px; line-height: 1.7; margin: 0; }
+pre.code .c { color: #7d8da3; }      /* comment */
+pre.code .t { color: #8fdcc0; }      /* tag/keyword */
+pre.code .s { color: #f0b07a; }      /* string */
+:not(pre) > code { background: var(--bg-3); color: #0c6fb5; padding: 1.5px 6px; border-radius: 5px; font-family: var(--mono); font-size: .9em; }
+
+/* 記事リスト */
+.posts { display: grid; gap: 14px; max-width: 820px; margin: 0 auto; }
+.post-row { display: flex; align-items: baseline; gap: 16px; padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); transition: border-color .15s, background .15s; }
+.post-row:hover { border-color: #cfdbe6; background: #fcfdfe; text-decoration: none; }
+.post-row time { color: var(--ink-3); font-size: 13px; font-family: var(--mono); white-space: nowrap; flex: none; }
+.post-row .pt { color: var(--ink); }
+.post-row .pt b { font-size: 16.5px; display: block; }
+.post-row .pt span { color: var(--ink-2); font-size: 14px; }
+.post-row .cat { font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--accent-l); padding: 2px 9px; border-radius: 999px; white-space: nowrap; flex: none; }
+
+/* ---------- 記事本文（prose） ---------- */
+.article { padding: 44px 0 72px; }
+.article .wrap { max-width: 760px; }
+.crumbs { font-size: 13px; color: var(--ink-3); margin-bottom: 18px; }
+.crumbs a { color: var(--ink-3); }
+.art-head h1 { font-size: clamp(26px, 4vw, 36px); line-height: 1.25; margin: 6px 0 12px; letter-spacing: -.3px; }
+.art-meta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; color: var(--ink-3); font-size: 13.5px; border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 30px; }
+.art-meta .cat { font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--accent-l); padding: 2px 9px; border-radius: 999px; }
+.prose { font-size: 16.5px; }
+.prose h2 { font-size: 24px; margin: 44px 0 14px; padding-left: 12px; border-left: 4px solid var(--accent); letter-spacing: -.2px; }
+.prose h3 { font-size: 19px; margin: 32px 0 10px; }
+.prose p { margin: 16px 0; }
+.prose ul, .prose ol { padding-left: 1.4em; }
+.prose li { margin: 7px 0; }
+.prose pre.code { margin: 22px 0; }
+.prose blockquote { margin: 22px 0; padding: 12px 18px; border-left: 4px solid var(--green); background: var(--bg-2); color: var(--ink-2); border-radius: 0 8px 8px 0; }
+.prose img, .prose .embed { border: 1px solid var(--line); border-radius: var(--radius); margin: 24px 0; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 14.5px; margin: 22px 0; }
+.prose th, .prose td { border: 1px solid var(--line); padding: 9px 12px; text-align: left; }
+.prose thead th { background: var(--bg-3); }
+/* 埋め込みデモのグリッド表は prose の表スタイル(上マージン/罫線結合)を受けない＝選択カーソルのズレ防止 */
+.prose .tssgrid .tg-table { margin: 0; border-collapse: separate; border-spacing: 0; }
+.prose .tssgrid .tg-table th, .prose .tssgrid .tg-table td { padding: 0 6px; }
+.callout { background: var(--accent-l); border: 1px solid #b9ddf5; border-radius: var(--radius); padding: 14px 18px; margin: 24px 0; font-size: 15px; }
+.callout b { color: var(--accent-d); }
+.art-foot { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }
+
+/* ---------- フッタ ---------- */
+.site-foot { background: var(--bg-2); border-top: 1px solid var(--line); padding: 40px 0; margin-top: 20px; }
+.site-foot .wrap { display: flex; flex-wrap: wrap; gap: 18px 40px; align-items: center; justify-content: space-between; }
+.site-foot .f-brand { font-weight: 800; color: var(--ink); }
+.site-foot .f-links { display: flex; gap: 18px; flex-wrap: wrap; }
+.site-foot a { color: var(--ink-2); font-size: 14px; font-weight: 600; }
+.site-foot .copy { width: 100%; color: var(--ink-3); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 18px; }
+
+/* ---------- レスポンシブ ---------- */
+@media (max-width: 820px) {
+  .grid { grid-template-columns: 1fr; }
+  .nav { position: absolute; top: 60px; left: 0; right: 0; background: var(--bg); border-bottom: 1px solid var(--line); flex-direction: column; align-items: stretch; padding: 8px 14px 14px; gap: 2px; display: none; box-shadow: 0 18px 30px -20px rgba(0,0,0,.3); }
+  .nav.open { display: flex; }
+  .nav a { padding: 12px; }
+  .nav-toggle { display: block; }
+  .post-row { flex-direction: column; gap: 6px; }
+}

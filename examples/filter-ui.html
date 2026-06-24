@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — ヘッダのオートフィルタUI（tss-filter プラグイン）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-filter.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; }
+  .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:680px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .bar { margin:12px 0; display:flex; gap:8px; align-items:center; font-size:12.5px; }
+  .bar button { font:inherit; font-size:12.5px; padding:5px 12px; border:1px solid #cbd2dc; background:#fff; border-radius:6px; cursor:pointer; }
+  .bar button:hover { border-color:#1573c0; color:#1573c0; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .tg .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  .stat { font-size:12px; color:#64748b; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ヘッダのオートフィルタ <span class="pill">tss-filter プラグイン</span></h1>
+  <div class="note" style="margin-top:8px">
+  各見出しの<b>ロート（漏斗）アイコン</b>をクリック → <b>値チェックリスト＋検索</b>で絞り込み（Excel風・<code>plugins/tss-filter.js</code>＋<code>.css</code>）。複数列の条件は <b>AND</b>。中身は<b>コアの非破壊 <code>filter()</code> を呼ぶだけ</b>＝フィルタ中の編集も消えません。値候補は<b>マスタ全行から集計</b>（絞り込み中でも全値が出る）。
+  </div>
+
+  <div class="bar">
+    <button id="clear">全フィルタ解除</button>
+    <span class="stat" id="stat"></span>
+  </div>
+
+  <div class="panel"><div class="tg"><div id="grid"></div></div></div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-filter.js"></script>
+<script>
+  const depts = ['営業', '開発', '総務', '人事'];
+  const cities = ['東京', '大阪', '名古屋', '福岡'];
+  const data = Array.from({ length: 200 }, (_, r) => [
+    'E' + String(r + 1).padStart(4, '0'),
+    ['佐藤', '鈴木', '高橋', '田中', '伊藤'][r % 5] + (r + 1),
+    depts[r % 4],
+    cities[(r * 3) % 4],
+    String((r * 23 % 50 + 20) * 1000),
+  ]);
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'staff', width: 700, height: '380px', rowHeaders: true,
+    headers: ['社員番号', '氏名', '部署', '勤務地', '給与'],
+    colWidths: [100, 150, 100, 100, 110],
+    columns: [{ data: 'id' }, { data: 'name' }, { data: 'dept' }, { data: 'city' }, { data: 'salary', type: 'number', format: { thousands: true } }],
+    data,
+    plugins: [TssFilter.plugin()],
+    onFilter: ({ count, total, cleared }) => { document.getElementById('stat').textContent = cleared ? `全 ${total} 件` : `${count} / ${total} 件`; },
+  });
+  document.getElementById('stat').textContent = `全 ${grid.ROWS} 件`;
+  document.getElementById('clear').onclick = () => grid.getPlugin('filter').clearAll();
+</script>
+</body>
+</html>

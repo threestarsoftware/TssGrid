@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<link rel="apple-touch-icon" href="favicon.png">
+<title>TssGrid — ノービルド・無依存の日本語業務グリッド</title>
+<meta name="description" content="ビルド不要・依存ゼロ・日本語IMEに強い、業務フォーム特化の軽量データグリッド（MIT）。<script>タグ1本で Excel ライクな入力画面を。">
+<link rel="canonical" href="https://tssgrid.threestarsoftware.co.jp/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TssGrid">
+<meta property="og:title" content="TssGrid — ノービルド・無依存の日本語業務グリッド">
+<meta property="og:description" content="ビルド不要・依存ゼロ・日本語IMEに強い、業務フォーム特化の軽量データグリッド（MIT）。タグ1本で Excel ライクな入力画面を。">
+<meta property="og:url" content="https://tssgrid.threestarsoftware.co.jp/">
+<meta property="og:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TssGrid — ノービルド・無依存の日本語業務グリッド">
+<meta name="twitter:description" content="ビルド不要・依存ゼロ・日本語IMEに強い、業務フォーム特化の軽量データグリッド（MIT）。">
+<meta name="twitter:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<link rel="stylesheet" href="assets/lib/tssgrid.css">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./"><img class="logo" src="favicon.svg" width="28" height="28" alt="">TssGrid <span class="tag">MIT</span></a>
+    <button class="nav-toggle" aria-label="メニュー">≡</button>
+    <nav class="nav">
+      <a href="#features">機能</a>
+      <a href="#demo">デモ</a>
+      <a href="docs.html">ガイド</a>
+      <a href="api.html">API</a>
+      <a href="articles/">記事</a>
+      <a class="gh" href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ヒーロー -->
+<section class="hero">
+  <div class="wrap">
+    <h1>業務の入力画面を、<br><span class="hl">ビルド無し</span>でサッと。</h1>
+    <p class="lead">
+      TssGrid は <b>ノービルド・依存ゼロ・日本語IMEに強い</b> 軽量データグリッド。
+      帳票・マスタ・勤怠・在庫の入力画面を、<code>&lt;script&gt;</code> タグ1本で Excel ライクに作れます。
+    </p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#demo">動かしてみる ↓</a>
+      <a class="btn btn-ghost" href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub で見る</a>
+    </div>
+    <div class="pills">
+      <span class="pill"><b>0</b> 依存ライブラリ</span>
+      <span class="pill"><b>0</b> ビルド工程</span>
+      <span class="pill">日本語 <b>IME</b> 堅牢</span>
+      <span class="pill">Excel <b>コピペ</b> / Undo</span>
+      <span class="pill">商用も <b>無料</b>（MIT）</span>
+    </div>
+  </div>
+</section>
+
+<!-- ライブデモ -->
+<section id="demo" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Live Demo</div>
+      <h2>このページ上で、本物が動きます</h2>
+      <p>セルをクリックして編集・Tab/矢印で移動・右クリックで行操作。セル右下の■をドラッグすれば連続入力（フィル。数値は連番に、<b>Alt を押しながらだと斜め＝矩形フィル</b>）。Excel からの貼り付けや Ctrl+Z も効きます。</p>
+    </div>
+    <div class="demo-shell">
+      <div class="demo-bar"><i></i><i></i><i></i><span>発注メモ.html</span></div>
+      <div id="demo-grid"></div>
+      <div class="demo-note">↑ これは画像ではありません。実際の TssGrid です（編集してみてください）。</div>
+    </div>
+    <p style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:26px">
+      <a class="btn btn-primary" href="demos/gantt.html">方眼ガントを触る →</a>
+      <a class="btn btn-primary" href="demos/inventory.html">在庫管理アプリを触る →</a>
+      <a class="btn btn-ghost" href="examples/">実例35件を見る →</a>
+    </p>
+  </div>
+</section>
+
+<!-- インストール -->
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">No Build</div>
+      <h2>導入はコピペで完結</h2>
+      <p>npm も webpack も要りません。CSS と JS を読み込んで、1つ呼ぶだけ。</p>
+    </div>
+    <pre class="code"><span class="c">&lt;!-- ① 読み込む（CDN or 自前ホスト） --&gt;</span>
+<span class="t">&lt;link</span> rel=<span class="s">"stylesheet"</span> href=<span class="s">"tssgrid.css"</span><span class="t">&gt;</span>
+<span class="t">&lt;script</span> src=<span class="s">"tssgrid.js"</span><span class="t">&gt;&lt;/script&gt;</span>
+
+<span class="c">&lt;!-- ② 置く --&gt;</span>
+<span class="t">&lt;div</span> id=<span class="s">"app"</span><span class="t">&gt;&lt;/div&gt;</span>
+
+<span class="c">&lt;!-- ③ 1行で起動 --&gt;</span>
+<span class="t">&lt;script&gt;</span>
+  <span class="t">new</span> TssGrid(document.getElementById(<span class="s">'app'</span>), {
+    columns: [
+      { data: <span class="s">'name'</span>, title: <span class="s">'品名'</span> },
+      { data: <span class="s">'qty'</span>,  title: <span class="s">'数量'</span>, type: <span class="s">'number'</span> },
+    ],
+    data: [{ name: <span class="s">'コピー用紙 A4'</span>, qty: 5 }],
+  });
+<span class="t">&lt;/script&gt;</span></pre>
+  </div>
+</section>
+
+<!-- 機能 -->
+<section id="features" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Features</div>
+      <h2>業務フォームに必要なものだけ、ちゃんと</h2>
+      <p>高機能を盛るより、日本の業務入力で本当に効く機能を堅く。</p>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="ico">あ</div><h3>日本語IMEに強い</h3><p>アクティブセルに本物の <code>&lt;input&gt;</code> を重ねる設計。変換確定の Enter を奪わない・composition を確実に拾う。</p></div>
+      <div class="card"><div class="ico">⌗</div><h3>Excel 相互コピペ</h3><p>範囲選択・コピー・貼り付けが Excel と往復可能。フィルハンドルで連続入力、Ctrl+Z で巻き戻し。</p></div>
+      <div class="card"><div class="ico">▦</div><h3>セル結合・固定列</h3><p>矩形のセル結合、行/列の固定、ネストヘッダ。帳票レイアウトをそのまま画面に。</p></div>
+      <div class="card"><div class="ico">▾</div><h3>豊富なセル型</h3><p>ドロップダウン・チェックボックス・日付/時刻・数値書式・入力検証。列定義に書くだけ。</p></div>
+      <div class="card"><div class="ico">⚲</div><h3>非破壊フィルタ</h3><p>元データを壊さず絞り込み。10万行クラスも「2表＋同期スクロール」で実用域。</p></div>
+      <div class="card"><div class="ico">🧩</div><h3>薄いプラグイン</h3><p>計算式・フリガナ自動入力・スパークライン・ヒートマップ等。コア無依存のまま拡張。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 記事導線 -->
+<section id="articles">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Articles</div>
+      <h2>作りながら考えたこと</h2>
+      <p>設計判断・他ライブラリ比較・実装の勘所を記事にしています。</p>
+    </div>
+    <div class="posts">
+      <a class="post-row" href="articles/ime-input.html">
+        <time>2026-06-19</time>
+        <span class="cat">設計</span>
+        <span class="pt"><b>なぜ Web グリッドは日本語入力で「Enter を奪う」のか</b><span>変換確定の Enter でセルが飛ぶ問題の原因と、本物の input ＋ composition で解いた IME 設計。</span></span>
+      </a>
+      <a class="post-row" href="articles/cell-merge-3libs.html">
+        <time>2026-06-16</time>
+        <span class="cat">設計</span>
+        <span class="pt"><b>3社のグリッドを調べて「セル結合」の落とし所を決めた話</b><span>ag-grid / Handsontable / jspreadsheet を見比べ、軽量のまま矩形結合を実装した判断の記録。</span></span>
+      </a>
+    </div>
+    <p style="text-align:center;margin-top:26px"><a class="btn btn-ghost" href="articles/">記事をすべて見る →</a></p>
+  </div>
+</section>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="f-brand">TssGrid</div>
+    <nav class="f-links">
+      <a href="#features">機能</a>
+      <a href="docs.html">ガイド</a>
+      <a href="api.html">API</a>
+      <a href="articles/">記事</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.threestarsoftware.co.jp/" target="_blank" rel="noopener">運営会社</a>
+    </nav>
+    <div class="copy">
+      MIT License ・ © <span id="year">2026</span> 株式会社スリースターソフトウェア（ThreeStarSoftware）
+    </div>
+  </div>
+</footer>
+
+<!-- ライブデモのコード -->
+<script src="assets/lib/tssgrid.js"></script>
+<script>
+  new TssGrid(document.getElementById('demo-grid'), {
+    name: 'order-demo', width: '100%', rowHeight: 30,
+    columns: [
+      { data: 'name', title: '品名', width: 180 },
+      { data: 'note', title: '備考', width: 150 },
+      { data: 'cat',  title: 'カテゴリ', width: 120, type: 'dropdown', options: ['事務用品', '備品', '消耗品', 'PC周辺'] },
+      { data: 'qty',  title: '数量', width: 80, type: 'number' },
+      { data: 'due',  title: '希望納期', width: 120, type: 'date' },
+      { data: 'staff',title: '担当', width: 110 },
+      { data: 'done', title: '手配済', width: 80, type: 'checkbox' },
+    ],
+    data: [
+      { name: 'コピー用紙 A4', note: '常備品',   cat: '消耗品', qty: 20, due: '2026-06-20', staff: '高橋', done: true },
+      { name: 'トナー TN-50',  note: '在庫僅少', cat: '消耗品', qty: 4,  due: '2026-06-22', staff: '佐藤', done: false },
+      { name: 'モニター 24型', note: '稟議済',   cat: 'PC周辺', qty: 2,  due: '2026-06-25', staff: '鈴木', done: false },
+      { name: 'ホワイトボード',note: '会議室用', cat: '備品',   qty: 1,  due: '2026-07-01', staff: '田中', done: false },
+      { name: 'ボールペン 黒', note: '常備品',   cat: '事務用品', qty: 50, due: '2026-06-20', staff: '高橋', done: true },
+    ],
+  });
+</script>
+<script src="assets/site.js"></script>
+</body>
+</html>

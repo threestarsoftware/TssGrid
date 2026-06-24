@@ -1,0 +1,36 @@
+/* TssDatetime — 日付＋時刻 同時ピッカーのレイアウト。
+   カレンダー部は tss-calendar.css（.tss-cal-*）、時刻部は tss-time.css（.tss-time-*）のスタイルを再利用するので、
+   この3枚を読み込む（または .tss-dt 配下に必要分を内包）。ここは「合体ポップアップ」の枠だけ定義。 */
+.tss-dt {
+  --dt-bg: #fff;
+  --dt-fg: #222;
+  --dt-border: #c3ccd6;
+  --dt-accent: #2aa0d8;
+  --dt-radius: 8px;
+  --dt-font: 13px "Segoe UI", "Meiryo", sans-serif;
+
+  position: fixed; z-index: 10000; background: var(--dt-bg); color: var(--dt-fg);
+  border: 1px solid var(--dt-border); border-radius: var(--dt-radius);
+  box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 8px; font: var(--dt-font); user-select: none; outline: none;
+}
+/* 選択中の値リードアウト＝標準の日時に無い「曜日」をここで必ず見せる */
+.tss-dt-readout { font-size: 13px; padding: 3px 6px 7px; margin-bottom: 4px; border-bottom: 1px dashed var(--dt-border); font-variant-numeric: tabular-nums; }
+.tss-dt-readout .tss-dt-ro-wd { color: var(--dt-accent); margin: 0 2px; }
+.tss-dt-readout .tss-dt-ro-empty { color: #99a; }
+
+.tss-dt-body { display: flex; gap: 12px; align-items: flex-start; }
+.tss-dt-time { padding-top: 2px; }
+.tss-dt-time-lbl { font-size: 11px; color: #889; margin: 0 0 4px 2px; }
+
+/* 合体ポップアップ内ではカレンダー/時刻の各ポップアップ枠（影・border・fixed）を無効化＝中身だけ使う */
+.tss-dt .tss-cal, .tss-dt .tss-time { position: static; box-shadow: none; border: 0; padding: 0; z-index: auto; }
+.tss-dt .tss-time-row { display: flex; align-items: center; gap: 4px; }
+.tss-dt .tss-time-row select { font: inherit; padding: 2px 4px; border: 1px solid var(--dt-border); border-radius: 5px; background: var(--dt-bg); color: var(--dt-fg); cursor: pointer; }
+.tss-dt .tss-time-sep { font-weight: 600; }
+
+.tss-dt-btns { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.tss-dt-btns .tss-dt-spacer { flex: 1 1 auto; }
+.tss-dt-btns button { font: inherit; padding: 4px 12px; border: 1px solid var(--dt-border); background: var(--dt-bg); color: var(--dt-fg); border-radius: 6px; cursor: pointer; }
+.tss-dt-btns button:hover { background: #eef4ff; }
+.tss-dt-btns .tss-dt-ok { border-color: var(--dt-accent); background: var(--dt-accent); color: #fff; }
+.tss-dt-btns .tss-dt-clear { color: #b6473e; }

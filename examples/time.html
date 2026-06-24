@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 時刻ピッカー（時/分プルダウン）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-time.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 24px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 780px; }
+  .note b { color: #1573c0; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 780px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 時刻ピッカー</h1>
+
+<div class="note">
+業務の時刻入力向けの<b>時/分プルダウン</b>ピッカー（<code>plugins/tss-time.js</code>）。クロックフェイスのようなリッチさは省き、<b>任意時刻を素早く</b>選べます。保存値は常に <b>24h "HH:MM"</b>（組込 <code>type:'time'</code> と互換）。<br>
+「出勤」列＝<b>15分刻み</b>、「退勤」列＝<b>1分刻み・AM/PM 表示</b>。セル右端 🕐 を<b>クリックで開閉</b>、<b>現在</b>/<b>決定</b>ボタン、キーボード（Enter 決定 / Esc 取消）も可。フィルで下へコピーも。
+</div>
+
+<h2>デモ</h2>
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み（抜粋）</h2>
+<pre>const t15 = TssTime({ step: 15 });               // 15分刻み（24h）
+const t1  = TssTime({ step: 1, hour12: true });  // 1分刻み・AM/PM 表示
+
+new TssGrid(host, {
+  columns: [ {}, { type:'time', editor: t15 }, { type:'time', editor: t1 }, /* … */ ],
+  data: rows,
+});</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-time.js"></script>
+<script>
+  const t15 = TssTime({ step: 15 });
+  const t1 = TssTime({ step: 1, hour12: true });
+  new TssGrid(document.getElementById('grid'), {
+    name: 'time', showDump: true, width: 520,
+    headers: ['担当', '出勤(15分)', '退勤(AM/PM)', '備考'],
+    columns: [
+      {},
+      { type: 'time', editor: t15 },
+      { type: 'time', editor: t1, hour12: true },
+      {},
+    ],
+    data: [
+      ['彩瀬', '09:00', '18:30', ''],
+      ['二宮', '09:15', '17:45', ''],
+      ['', '', '', ''],
+    ],
+  });
+</script>
+</body>
+</html>

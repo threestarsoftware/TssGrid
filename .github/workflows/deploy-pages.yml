@@ -1,0 +1,60 @@
+# site/ を GitHub Pages へ配信（公開リポ TssGrid 専用）。
+# Pages の Source を「GitHub Actions」にしておくと、main への push で自動デプロイされる。
+# カスタムドメインは site/CNAME（成果物に含まれる）で設定される。
+name: Deploy site to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時実行は1つに（古いデプロイは打ち切り）
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # dev リポ(TssGrid-dev)では走らせない＝公開リポだけ。
+    # かつ main 限定（workflow_dispatch を別ブランチから実行しても公開させない）。
+    if: github.repository == 'threestarsoftware/TssGrid' && github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      # 配信物を組み立て: site/ をルートに、examples/ と依存(src/plugins/showcase)を同梱。
+      # これで /examples/xxx.html がライブで動く（../src/ → /src/ に解決される）。
+      - name: Assemble site bundle
+        run: |
+          mkdir -p _site
+          cp -r site/. _site/
+          cp -r examples src plugins showcase _site/
+          cp README.md _site/   # /docs.html が fetch して整形表示する正本
+      # 各 example の上部に「← TssGrid / 例一覧」バー、下部に会社名フッターを注入
+      # （配信物のみ・ソースは触らない）。index.html は自前のバー/フッターがあるので除外。
+      - name: Inject nav bar + footer into examples
+        run: |
+          BAR='<div style="position:sticky;top:0;z-index:99999;background:#1573c0;color:#fff;padding:9px 26px;font:14px/1.5 system-ui,sans-serif;box-shadow:0 1px 5px rgba(0,0,0,.18)"><a href="../" style="color:#fff;text-decoration:none;font-weight:700">← TssGrid</a><span style="opacity:.6;margin:0 8px">/</span><a href="index.html" style="color:#fff;text-decoration:none">例一覧</a></div>'
+          FOOT='<footer style="margin-top:40px;background:#0f3a5f;color:#cfe0f0;padding:18px 26px;text-align:center;font:12.5px/1.7 system-ui,sans-serif"><div><a href="../" style="color:#fff;font-weight:700;text-decoration:none">TssGrid</a> — 業務フォーム向け軽量データグリッド（MIT）</div><div style="opacity:.85;margin-top:4px">© 2026 株式会社スリースターソフトウェア（ThreeStarSoftware） · <a href="https://github.com/threestarsoftware/TssGrid" style="color:#cfe0f0">GitHub</a> · <a href="https://www.threestarsoftware.co.jp/" style="color:#cfe0f0">運営会社</a></div></footer>'
+          # 中身を共通コンテナ(.tssg-content)で包んで中央寄せ＋左右余白を統一（ページごとの
+          # body余白の不揃いを吸収）。flex:1 で短いページもフッターを画面最下部へ押し下げる。
+          # バー/フッターはコンテナ外＝全幅のまま。
+          STYLE='<style>html{height:100%}body{min-height:100vh;margin:0;display:flex;flex-direction:column}.tssg-content{flex:1 0 auto;width:100%;max-width:1240px;margin:0 auto;padding:22px 28px;box-sizing:border-box}body>footer{flex-shrink:0}</style>'
+          export BAR FOOT STYLE
+          for f in _site/examples/*.html; do
+            [ "$(basename "$f")" = "index.html" ] && continue
+            perl -0777 -pi -e 's{(</head>)}{$ENV{STYLE} . $1}e; s{(<body[^>]*>)}{$1 . $ENV{BAR} . qq(<div class="tssg-content">)}e; s{(</body>)}{qq(</div>) . $ENV{FOOT} . $1}e;' "$f"
+          done
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

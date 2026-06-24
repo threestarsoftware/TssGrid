@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 御見積書（明細編集・税率別集計・見たまま印刷）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-calendar.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:840px; color:#445; line-height:1.7; }
+  .note b { color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+
+  .controls { display:flex; gap:10px; margin:14px 0 0; flex-wrap:wrap; }
+  .controls button { font:inherit; padding:6px 16px; border:1px solid #1573c0; background:#1573c0; color:#fff; border-radius:6px; cursor:pointer; }
+  .controls button.ghost { background:#fff; color:#1573c0; }
+  .controls button:hover { filter:brightness(.96); }
+
+  /* 見積書 用紙 */
+  .sheet { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:30px 34px 34px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.06); min-width:max-content; }   /* 狭い時も白地が本文(固定幅)を覆う */
+  .doc { max-width:674px; min-width:674px; margin:0 auto; }   /* 本文をグリッド幅(672+枠)に揃える。min-width で「Gridより狭い時はHTML系も縮ませず横スクロール」＝ズレ防止 */
+  .sheet h2 { text-align:center; letter-spacing:.5em; font-size:24px; margin:0 0 22px; }
+  .head { display:flex; justify-content:space-between; gap:24px; margin-bottom:16px; }   /* 金額と明細表の間に一息 */
+  .to { flex:1 1 auto; }
+  /* 会社名＋御中を1つの下線コンテナに＝「○○株式会社　御中」全体に連続した下線。input は透明枠 */
+  .to .client-line { display:inline-flex; align-items:baseline; border-bottom:1.5px solid #333; padding:0 10px 5px 2px; }
+  .to .client-line:focus-within { border-bottom-color:#1573c0; }
+  .to .client-input { font:inherit; font-size:17px; font-weight:700; border:none; background:transparent; color:inherit; outline:none; min-width:210px; padding:0; }
+  .to .onchu { font-size:15px; font-weight:700; margin-left:14px; white-space:nowrap; }
+  .from { flex:1 1 auto; min-width:0; font-size:12px; color:#333; }
+  /* 発行日塊・会社名塊を各々「自分の幅で右端に張り付く」＝中身は左揃え・塊ごと右寄せ（互いに左端は揃えない） */
+  .from .from-issue, .from .from-company { width:max-content; max-width:100%; margin-left:auto; text-align:left; line-height:1.65; }
+  .from .from-company { margin-top:14px; }   /* 中身は左揃えのまま・塊ごと右配置（margin-left:auto＝.from-issueと同じ作法） */
+  .from .issue { font-size:12.5px; color:#445; line-height:1.75; }
+  .from .name { font-size:14px; font-weight:700; }
+  .from .reg { font-weight:600; color:#1573c0; }
+  .lead { font-size:12.5px; color:#445; margin:26px 0 8px; }
+  .subject { font-size:14px; font-weight:700; color:#1f2733; margin:0; padding-bottom:4px; border-bottom:1px solid #c9d2dc; max-width:360px; }
+  .subject .subject-input { font:inherit; font-weight:700; border:none; background:transparent; color:inherit; outline:none; min-width:230px; padding:0; }
+  .issue .pickable { cursor:pointer; border-bottom:1px dotted #9aa6b2; }
+  .issue .pickable:hover { color:#1573c0; border-bottom-color:#1573c0; }
+  /* 備考枠＝固定注記＋フリー入力 */
+  .remarks { margin-top:16px; border:1px solid #d9e0e8; border-radius:6px; }
+  .remarks-label { font-size:12px; font-weight:700; color:#445; background:#f3f6fa; padding:5px 12px; border-bottom:1px solid #e2e7ee; border-radius:6px 6px 0 0; }
+  .remarks-body { padding:10px 12px; }
+  .remarks-fixed { font-size:11.5px; color:#667; margin-bottom:7px; }
+  .remarks-free { display:block; width:100%; min-height:52px; border:none; outline:none; resize:vertical; font:inherit; font-size:12.5px; line-height:1.7; color:#1f2733; background:transparent; padding:0; box-sizing:border-box; }
+  .remarks-free::placeholder { color:#aeb6c0; }
+  .total-box { margin:20px 0 2px; }   /* 件名の直下に配置＝間延びを詰める */
+  .total-box .lbl { font-size:13px; color:#445; }
+  .total-box .amt { font-size:26px; font-weight:800; border-bottom:2px solid #1573c0; display:inline-block; padding:2px 16px 4px; min-width:260px; text-align:center; }
+
+  .gridwrap .tssgrid { --tg-font-size:13px; --tg-header-bg:#334155; --tg-header-fg:#eef2f7; }
+  .gridwrap .tssgrid td.tg-readonly { background:#f7f9fb; color:#334; }
+  .gridwrap .tssgrid .tg-wrap:not(:focus-within) .tg-table th.selhdr { background:var(--tg-header-bg); color:var(--tg-header-fg); }
+  .gridwrap .tssgrid td.tg-merged { background:#eaf2fb; color:#10568f; font-weight:700; text-align:left; padding-left:10px; }
+
+  /* 合計欄＝別グリッド（本体と同一列幅＝金額列が縦に揃う） */
+  .sumwrap { margin-top:4px; }
+  .sumwrap .tssgrid .tg-wrap { border:none; overflow:visible; max-height:none; }
+  .sumwrap .tssgrid .tg-table th.rowhead { color:transparent; background:#fff; border-color:#fff; }
+  .sumwrap .tssgrid .tg-table td { border-color:#eef2f6; cursor:default; }
+  .sumwrap .tssgrid .tg-table td.tg-merged { background:#fff; color:#445; font-weight:600; text-align:right; padding-right:12px; }
+  .sumwrap .tssgrid .tg-table td.tg-readonly { background:#fff; color:#1f2733; font-variant-numeric:tabular-nums; }
+  .sumwrap .tssgrid .tg-table tr:last-child td { font-weight:800; color:#10314f; border-top:2px solid #1573c0; }
+  .sumwrap .tssgrid .tg-selbox, .sumwrap .tssgrid .tg-selrange, .sumwrap .tssgrid .tg-fillhandle, .sumwrap .tssgrid .tg-copybox { display:none !important; }
+  .sumwrap .tssgrid .tg-table td.sel { background:#fff !important; }
+  .sumwrap .tssgrid .tg-table th.rowhead.selhdr, .sumwrap .tssgrid .tg-table th.selhdr { color:transparent !important; background:#fff !important; }
+  .fine { font-size:11.5px; color:#889; margin-top:10px; }
+
+  @media print {
+    body { background:#fff; } .wrap { max-width:none; padding:0; }
+    .note, .controls, .pill, h1 { display:none !important; }
+    .issue .pickable { border-bottom:none !important; cursor:default; }   /* 印刷ではクリック合図の点線を消す */
+    .remarks-free::placeholder { color:transparent !important; }          /* 印刷では「（自由記入）」の合図を出さない（記入があれば印字） */
+    .remarks-free { resize:none; }
+    .sheet { border:none; box-shadow:none; border-radius:0; padding:0; margin:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .gridwrap .tssgrid .tg-wrap { overflow:visible !important; max-height:none !important; height:auto !important; border:none; }
+    .gridwrap .tssgrid .tg-table thead { display:table-header-group; }
+    .gridwrap .tssgrid .tg-table thead th { position:static !important; }
+    .gridwrap .tssgrid .tg-table tr { break-inside:avoid; page-break-inside:avoid; }
+    .gridwrap .tssgrid .tg-table colgroup col:first-child { width:0 !important; }
+    .gridwrap .tssgrid .tg-table th.rowhead, .gridwrap .tssgrid .tg-table th.corner { padding:0 !important; border:0 !important; max-width:0 !important; overflow:hidden !important; }
+    .gridwrap .tssgrid .tg-table th.rowhead * { display:none !important; }
+    .gridwrap .tssgrid .tg-wrap { width:auto !important; }
+    .gridwrap .tssgrid { width:max-content !important; margin:0 auto !important; }
+    .gridwrap .tssgrid .tg-selrange, .gridwrap .tssgrid .tg-selbox, .gridwrap .tssgrid .tg-copybox, .gridwrap .tssgrid .tg-fillhandle { display:none !important; }
+    .gridwrap .tssgrid .tg-table td.sel { background:transparent !important; }
+    .gridwrap .tssgrid .tg-table td.tg-readonly { background:#f7f9fb !important; }
+    .gridwrap .tssgrid .tg-table td.tg-merged { background:#eaf2fb !important; }
+    .gridwrap .tssgrid .tg-table thead th,
+    .gridwrap .tssgrid .tg-table td.tg-merged { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
+  @page { size: A4 portrait; margin: 14mm; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>御見積書（明細編集・税率別集計）</h1>
+  <div class="note" style="margin-top:8px">
+    <b>Excelのように打てる見積書。</b>金額＝数量×単価・消費税（10%/8%/非課税）・合計まで<b>自動計算</b>、打った表が<b>見たまま印刷／PDF</b>（A4縦）。<br>
+    <b>試せること</b>：セルをクリックで編集／<b>発行日</b>はクリックでカレンダー変更／No〜金額を範囲選択→右クリックで<b>「分類見出しに結合」</b>／IME・Undo（Ctrl+Z）・フィル・Excel相互コピペ。
+  </div>
+
+  <div class="controls">
+    <button id="print">🖨 印刷</button>
+    <button id="addrow" class="ghost">＋ 明細行を追加</button>
+    <button id="merge" class="ghost">▭ 選択を結合（分類見出し）</button>
+    <button id="undo" class="ghost">↶ 元に戻す (Ctrl+Z)</button>
+  </div>
+
+  <div class="sheet">
+    <div class="doc">
+    <h2>御　見　積　書</h2>
+    <div class="head">
+      <div class="to">
+        <span class="client-line"><input class="client-input" type="text" value="○○○○○株式会社" aria-label="相手先会社名"><span class="onchu">御中</span></span>
+        <div class="lead">下記の通りお見積り申し上げます。</div>
+        <div class="subject">件名：<input class="subject-input" type="text" value="システム開発業務一式" aria-label="件名"></div>
+        <div class="total-box">
+          <div class="lbl">お見積金額（税込）</div>
+          <div class="amt" id="grand">¥0</div>
+        </div>
+      </div>
+      <div class="from">
+        <div class="from-issue">
+          <div class="issue">発行日：<span id="issue-date" class="pickable" title="クリックで変更"></span></div>
+          <div class="issue">見積番号：Q20250618-001</div>
+          <div class="issue">有効期限：<span id="expiry-date"></span></div>
+        </div>
+        <div class="from-company">
+          <div class="name">株式会社スリースターソフトウェア</div>
+          〒530-0046<br>
+          大阪市北区菅原町2番14号103ビル3階<br>
+          Tel 06-6809-7995　Fax 06-6809-7996<br>
+          <span class="reg">登録番号 T4120001190832</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="gridwrap"><div id="grid"></div></div>
+
+    <div class="gridwrap sumwrap"><div id="sumgrid"></div></div>
+    <div class="remarks">
+      <div class="remarks-label">備考</div>
+      <div class="remarks-body">
+        <div class="remarks-fixed">※消費税額は、各明細行ごとに算出し、端数は四捨五入しております。</div>
+        <textarea class="remarks-free" rows="3" placeholder="（自由記入）"></textarea>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-merge.js"></script>
+<script src="../plugins/tss-sum.js"></script>
+<script src="../plugins/tss-calendar.js"></script>
+<script>
+  const yen = v => (v === '' || v == null) ? '' : '¥' + Number(v).toLocaleString('ja-JP');
+  const inMerge = (g, r, c) => (g.getMerges ? g.getMerges() : []).some(m => r >= m.r && r < m.r + (m.rowspan || 1) && c >= m.c && c < m.c + m.colspan);
+
+  // 発行日＝クリックでカレンダー変更（TssCalendar 単体ウィジェット）。有効期限は発行日＋30日で自動追従
+  let issueDate = new Date(2025, 5, 18);                      // 既定 2025-06-18（システムでは当日を入れる想定）
+  const fmtJP = d => d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  const pad2 = n => String(n).padStart(2, '0');
+  const isoOf = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  const parseISO = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+  const datePicker = TssCalendar({});
+  function renderDates() {
+    document.getElementById('issue-date').textContent = fmtJP(issueDate);
+    const exp = new Date(issueDate); exp.setDate(exp.getDate() + 30);
+    document.getElementById('expiry-date').textContent = fmtJP(exp);
+  }
+  renderDates();
+  document.getElementById('issue-date').addEventListener('click', function () {
+    datePicker.openAt(this, isoOf(issueDate), iso => { const d = parseISO(iso); if (d) { issueDate = d; renderDates(); } });
+  });
+
+  let grid, sumApi;
+  const num = v => Number(v) || 0;
+  const amountOf = r => num(r[2]) * num(r[3]);                 // 数量×単価
+  const lineTaxOf = (r, rate) => Math.round(amountOf(r) * rate);   // 行ごとに四捨五入
+
+  function recompute() {
+    const merges = grid.getMerges ? grid.getMerges() : [];
+    const banner = new Set(merges.filter(m => m.c === 0 && m.colspan > 1).map(m => m.r));
+    let no = 0;
+    for (let i = 0; i < grid.data.length; i++) {
+      if (banner.has(i)) continue;
+      const row = grid.data[i];
+      if (row[0] && isNaN(Number(row[0]))) continue;   // No列に非数値(見出しラベル■…等)が残る行は採番で上書きしない＝結合解除後もラベルを保持
+      const amt = amountOf(row);
+      const hasContent = (row[1] && String(row[1]).trim()) || amt;
+      row[0] = hasContent ? String(++no) : '';
+      row[5] = amt ? String(amt) : '';
+    }
+  }
+  function repaintAfterMerge() { recompute(); grid.buildTable(); }
+
+  let rowClip = null;
+  function copyRows(r0, r1) {
+    r0 = Math.max(0, r0 | 0); r1 = Math.min(grid.ROWS - 1, r1 == null ? r0 : r1 | 0);
+    if (r1 < r0) return;
+    const snaps = []; for (let i = r0; i <= r1; i++) snaps.push(grid.data[i].slice());
+    rowClip = { snaps, cut: false };
+    if (grid.selectRect) grid.selectRect(r0, 0, r1, grid.COLS - 1);
+  }
+  function cutRows(r0, r1) {
+    r0 = Math.max(0, r0 | 0); r1 = Math.min(grid.ROWS - 1, r1 == null ? r0 : r1 | 0);
+    if (r1 < r0) return;
+    const snaps = []; for (let i = r0; i <= r1; i++) snaps.push(grid.data[i].slice());
+    const before = grid.ROWS;
+    grid.deleteRows(r0, r1);
+    if (grid.ROWS === before) return;
+    const H = grid.history;
+    rowClip = { snaps, cut: true, cutCmd: H.undoStack[H.undoStack.length - 1] };
+  }
+  function insertRowClipAt(target) {
+    if (!rowClip) return;
+    const H = grid.history, to = Math.max(0, Math.min(grid.ROWS, target | 0));
+    grid._normalizeArrays();
+    const snaps = rowClip.snaps, n = snaps.length, base = H.undoStack.length;
+    for (let k = 0; k < n; k++) grid.insertRow(to + k, 'above');
+    const before = grid.snapSel(), ch = [];
+    for (let k = 0; k < n; k++) { const r = to + k; for (let c = 0; c < grid.COLS; c++) grid.setCell(r, c, snaps[k][c], ch); }
+    grid.pushCmd(ch, before, grid.snapSel(), 'edit');
+    const added = H.undoStack.splice(base);
+    let insertCmd = null;
+    if (added.length) { insertCmd = { label: 'rowins', apply() { added.forEach(c => c.apply()); }, revert() { for (let i = added.length - 1; i >= 0; i--) added[i].revert(); } }; H.undoStack.push(insertCmd); }
+    if (rowClip.cut && rowClip.cutCmd && insertCmd) {
+      const i = H.undoStack.indexOf(rowClip.cutCmd);
+      if (i === H.undoStack.length - 2) {
+        H.undoStack.splice(i, 2);
+        const A = rowClip.cutCmd, B = insertCmd;
+        H.undoStack.push({ label: 'move', apply() { A.apply(); B.apply(); }, revert() { B.revert(); A.revert(); } });
+      }
+    }
+    if (rowClip.cut) rowClip = null;
+    recompute(); grid.buildTable();
+    if (grid.selectRect) grid.selectRect(to, 0, to + n - 1, grid.COLS - 1);
+  }
+
+  // Enter/Tab の送り先＝編集する列だけ横送り→行末で次行先頭（No=自動・金額=readonly・分類見出し帯の行はスキップ）
+  const EDIT_COLS = [1, 2, 3, 4];   // 品名 / 数量 / 単価 / 税区分
+  const isBannerRow = r => (grid.getMerges ? grid.getMerges() : []).some(m => m.r === r && m.c === 0 && m.colspan > 1);
+  function nextEditable(r, c, dir) {
+    let rr = r, cc;
+    if (dir > 0) { cc = EDIT_COLS.find(x => x > c); if (cc == null) { cc = EDIT_COLS[0]; rr++; } }                          // 右の最初のeditable／無ければ次行先頭
+    else { const a = EDIT_COLS.filter(x => x < c); cc = a.length ? a[a.length - 1] : null; if (cc == null) { cc = EDIT_COLS[EDIT_COLS.length - 1]; rr--; } }   // 左／無ければ前行末尾
+    while (rr >= 0 && rr < grid.ROWS && isBannerRow(rr)) rr += dir > 0 ? 1 : -1;   // 分類見出し帯はスキップ
+    return (rr < 0 || rr >= grid.ROWS) ? null : { r: rr, c: cc };
+  }
+
+  function render() {
+    const host = document.getElementById('grid');
+    grid = new TssGrid(host, {
+      name: 'quote', width: 672, rowHeight: 30, rowHeaders: true, resizeCols: false,   // 列幅固定（帳票なのでドラッグでの列幅変更を無効化）
+      allowInsertRows: true, allowDeleteRows: true,
+      allowInsertCols: false, allowDeleteCols: false,
+      nextCell: ({ r, c, shift }) => nextEditable(r, c, shift ? -1 : 1),   // Enter/Tab＝品名→数量→単価→税区分→次行先頭（No/金額・帯行スキップ）
+      columns: [
+        { data: 'no',    title: 'No.',  width: 40,  align: 'center' },
+        { data: 'name',  title: '品名', width: 244 },
+        { data: 'qty',   title: '数量', width: 52,  type: 'number', align: 'right' },
+        { data: 'price', title: '単価', width: 92,  type: 'number', align: 'right', format: yen },
+        { data: 'tax',   title: '税区分', width: 76, type: 'dropdown', options: ['10%', '8%', '非課税'], align: 'center' },
+        { data: 'amount', title: '金額', width: 128, type: 'number', align: 'right', readOnly: true, format: yen },
+      ],
+      contextMenu: { items: [
+        { name: 'セルを結合（分類見出しに）', disabled: s => s.r0 === s.r1 && s.c0 === s.c1, callback: function () { this.mergeSelection(); repaintAfterMerge(); } },
+        { name: '結合を解除', disabled: function () { return !inMerge(this, this.active.r, this.active.c); }, callback: function () { this.removeMerge(this.active.r, this.active.c); repaintAfterMerge(); } },
+        '---',
+        { name: '行をコピー', callback: function () { const r = this.rectRange(); copyRows(r.r0, r.r1); } },
+        { name: '行を切り取り（画面から消える）', callback: function () { const r = this.rectRange(); cutRows(r.r0, r.r1); } },
+        { name: 'コピー/切り取った行をここに挿入', disabled: function () { return !rowClip; }, callback: function () { insertRowClipAt(this.active.r); } },
+        '---',
+        { name: '行を上に挿入', callback: function () { this.insertRow(this.active.r, 'above'); } },
+        { name: '行を下に挿入', callback: function () { this.insertRow(this.active.r, 'below'); } },
+        { name: '行を削除', callback: function () { const r = this.rectRange(); this.deleteRows(r.r0, r.r1); } },
+        '---', 'copy', 'paste', 'clear', '---', 'undo', 'redo',
+      ] },
+      onAfterChange: () => { recompute(); grid.buildTable(); grid.setActive(grid.active.r, grid.active.c); },
+      onStructureChange: () => { recompute(); grid.buildTable(); },
+      data: [
+        { no: '■ ソフトウェア開発' },
+        { name: 'Webシステム設計・開発', qty: '1', price: '600000', tax: '10%' },
+        { name: 'サーバ構築・初期設定',   qty: '1', price: '120000', tax: '10%' },
+        { name: '保守サポート（6月分）',   qty: '1', price: '30000',  tax: '10%' },
+        { no: '■ 経費' },
+        { name: '旅費交通費（実費）',      qty: '1', price: '4500',   tax: '非課税' },
+      ],
+      plugins: [TssMerge.plugin({ merges: [
+        { r: 0, c: 0, colspan: 6 },
+        { r: 4, c: 0, colspan: 6 },
+      ] })],
+    });
+    recompute(); grid.buildTable();
+    sumApi = TssSum.attach(grid, document.getElementById('sumgrid'), {
+      format: yen,
+      rows: [
+        { label: '小計（税抜）',  of: r => amountOf(r) },
+        { label: '消費税（10%）', when: r => r[4] === '10%', of: r => lineTaxOf(r, 0.10) },
+        { label: '消費税（8%）',  when: r => r[4] === '8%',  of: r => lineTaxOf(r, 0.08) },
+        { label: '合計（税込）',  total: v => v[0] + v[1] + v[2] },
+      ],
+      onCompute: v => { document.getElementById('grand').textContent = (yen(v[v.length - 1]) || '¥0') + 'ー'; },   // 金額末尾に「ー」（締め）
+    });
+  }
+
+  document.getElementById('print').onclick = () => window.print();
+  document.getElementById('undo').onclick = () => grid.history.undo();
+  document.getElementById('addrow').onclick = () => { grid.setActive(Math.max(0, grid.ROWS - 1), 1); grid.insertRow(grid.ROWS - 1, 'below'); };
+  document.getElementById('merge').onclick = () => { if (!grid.mergeSelection()) { alert('No〜金額を2セル以上ドラッグ選択してから押してください'); return; } repaintAfterMerge(); };
+
+  render();
+  if (grid.editor) grid.editor.blur();
+  if (sumApi && sumApi.grid.editor) sumApi.grid.editor.blur();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+
+  // ヘッドレス検証フック
+  window.__quote = { grand: () => document.getElementById('grand').textContent, sumVals: () => sumApi.grid.data.map(r => r[r.length - 1]) };
+</script>
+</body>
+</html>

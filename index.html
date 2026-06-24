@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>TssGrid — demo</title>
+<link rel="stylesheet" href="src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 24px; color: #222; }
+  h1 { font-size: 18px; } h2 { font-size: 15px; margin-top: 28px; }
+  .note { background:#f5f7fa; border:1px solid #dde3ea; border-radius:6px; padding:10px 14px; font-size:13px; line-height:1.6; max-width:860px; }
+  .note b { color:#1a5; }
+  .host-toolbar { margin:12px 0; }
+  .host-toolbar button { font-size:13px; padding:5px 14px; margin-right:6px; cursor:pointer; }
+  .host-toolbar button:disabled { opacity:.4; cursor:default; }
+  .grids { display:flex; gap:28px; flex-wrap:wrap; }
+  .grid-slot h3 { font-size:14px; margin:0 0 6px; }
+</style>
+</head>
+<body>
+<h1>TssGrid — demo</h1>
+
+<div class="note">
+軽量・ノービルド・日本語IME堅牢な編集グリッド。<br>
+操作: 矢印=移動 / Shift+矢印・ドラッグ=範囲 / 行・列ヘッダのクリック=行/列選択（角で全選択） / 列ヘッダ右端・行ヘッダ下端をドラッグ=幅/高さ変更（線でプレビュー→離して確定） / F2・ダブルクリック・文字=編集 / Enter=下 / Tab=右 /
+Delete=範囲クリア / Ctrl+C/V/X=コピペ(Excel相互) / Ctrl+Z・Y=Undo/Redo / 右クリック=行/列の挿入・削除メニュー /
+フィルハンドル右下ドラッグ=コピー（数値2つ=連番 / 単一+Ctrl=+1 / Alt=2D矩形）。
+</div>
+
+<h2>1) 単体（HistoryManager を渡さない＝自前で生成）</h2>
+<div class="grid-slot"><div id="solo"></div></div>
+
+<h2>1.5) セルタイプ + バリデータ（dropdown / checkbox / date / 入力検証）</h2>
+<div class="note">
+状態列=<b>ドロップダウン</b> / 完了列=<b>チェックボックス</b>（Space・クリックでトグル。<b>ヘッダのチェックで全選択/全解除</b>＝部分選択は indeterminate） / 期限列=<b>日付</b>（不正日付は拒否） /
+期限列=<b>日付</b>（<b>20260630</b> や <b>2026/6/30</b> と打てる→保存は ISO・表示は yyyy/mm/dd） /
+時刻列=<b>時刻</b>（12時間制 AM/PM 表示。<b>1:30 PM</b> も <b>13:30</b> も入力可、下のボタンで 24h と切替） /
+数量列=<b>validator</b>（数値のみ）。貼り付け・フィルでも同じ検証が効きます。
+このデモは <b>invalidMode:'keep'</b>＝検証 NG は<b style="color:#e23">値を残して赤く</b>表示（直せば赤が消える）。
+<span id="typedInfo" style="color:#c22;font-weight:600;margin-left:8px;"></span>
+</div>
+<div class="host-toolbar">
+  <button id="toggle12" type="button">時刻表示: 24時間 に切替</button>
+  <button id="togglePaste" type="button">貼り付けはみ出し: clip に切替</button>
+</div>
+<div class="grid-slot"><div id="typed"></div></div>
+
+<h2>1.6) CellFormat（表示書式：数値カンマ/小数/通貨・日付パターン）</h2>
+<div class="note">
+保存値は<b>正規</b>のまま（<b>getData は素の値</b>）、<b>表示だけ</b>整形します。<br>
+単価/金額列=<b>¥ + カンマ</b>（<b>190200</b> と打てる→<b>¥190,200</b> 表示。<b>編集時は素の数値</b>） /
+達成率列=<b>小数1桁 + %</b> / 納品日列=<b>format:'yyyy年m月d日'</b>（<b>20260630</b> でも入力可）。
+数値列は<b>右寄せ</b>。非数値・不正日付は弾きます。<br>
+このデモは <b>width:560</b> で枠を制約＝はみ出す列はテーブル自身の<b>横スクロールバー</b>で送れます（未指定だと枠が内容幅まで広がりページ側がスクロール）。
+</div>
+<div class="grid-slot"><div id="fmt"></div></div>
+
+<h2>1.7) 列固定（frozenCols）＋縦横スクロール</h2>
+<div class="note">
+左の <b>2列（ID・担当）を固定</b>＋ヘッダ行も固定。<b>width / height</b> で枠を制約して縦横スクロールします。
+「状態」列は <b>resizable:false</b> で<b>幅ロック</b>（その列の右端にリサイズグリップが出ません）。
+</div>
+<div class="grid-slot"><div id="frozen"></div></div>
+
+<h2>1.8) 読み取り専用（readOnly）</h2>
+<div class="note">
+<b>ID 列</b>と<b>小計 列</b>は <b>readOnly:true</b>（淡色＝編集不可。クリック・F2・貼り付け・フィル・Delete のどれでも変更を拒否し元の値に戻します）。<br>
+<b>数量 / 単価</b>は編集可。<b>状態</b>列は <b>関数 readOnly</b>（<b>「完了」の行だけ</b>ロック）。読み取り専用セルへの変更は <b>onReadOnly</b> で通知されます。
+<span id="roInfo" style="color:#c22;font-weight:600;margin-left:8px;"></span>
+</div>
+<div class="grid-slot"><div id="ro"></div></div>
+
+<h2>1.9) 右クリックメニュー（行/列の挿入・削除）</h2>
+<div class="note">
+セルやヘッダを<b>右クリック</b>すると、<b>行/列の挿入・削除</b>＋<b>コピー/切り取り/貼り付け/クリア</b>のメニューが出ます（複数行/列を選択してまとめて削除も可）。挿入・削除は <b>Undo/Redo</b> に1操作で積まれます。<br>
+各操作は <b>allowInsertRows / allowDeleteRows / …</b> で個別に ON/OFF 可。下のボタンで「<b>行の追加/削除</b>」を切替えて右クリックで確認できます。<b>contextMenu に配列</b>を渡せば項目の取捨選択＋<b>独自項目・サブメニュー</b>も足せます（README 参照）。
+</div>
+<div class="host-toolbar">
+  <button id="toggleRowOps" type="button">行の追加/削除: ON（クリックで OFF）</button>
+</div>
+<div class="grid-slot"><div id="ctx"></div></div>
+
+<h2>1.10) データの持ち方（配列 / オブジェクト配列）</h2>
+<div class="note">
+<b>columns[c].data='キー'</b> で列に名前を紐付けると、<b>data にオブジェクト配列</b>を渡せます（従来の配列形式も自動判別でそのまま使えます）。<br>
+<b>grid.getValue(r,'キー')</b> で名前アクセス、<b>grid.getRows()</b> でオブジェクト配列として取り出し。下のグリッドは <b>id</b> という<b>画面に出さないフィールド</b>を持っていて、編集・行挿入・削除をしても <b>getRows()</b> で保持されます。<br>
+「品名列を隠す/表示」は <b>toggleColumn(1)</b>（列の表示/非表示をプログラムから制御）。<b>隠してもデータは保持</b>され、getRows() にも出ます。
+</div>
+<div class="host-toolbar">
+  <button id="showRows" type="button">getRows() を表示</button>
+  <button id="hideName" type="button">品名列を隠す/表示</button>
+</div>
+<div class="grid-slot"><div id="obj"></div></div>
+<pre id="objOut" style="background:#0b1020;color:#cfe;padding:8px;border-radius:6px;font-size:12px;max-width:560px;overflow:auto;white-space:pre-wrap;"></pre>
+
+<h2>1.11) 入力フォーム向けオプション（placeholder / minSpareRows / autoWrapRow / stretchH）</h2>
+<div class="note">
+<b>placeholder</b>＝空セルに薄いヒント / <b>minSpareRows:1</b>＝末尾に常に空行（下へ打ち足せる） / <b>autoWrapRow</b>＝Tab で行末から次行頭へ折り返し / <b>stretchH:'last'</b>＝最終列を枠幅まで伸ばす。<br>
+試しに一番下の空行に入力 → さらに空行が増えます。Tab で右端まで行くと次の行の先頭へ移ります。
+</div>
+<div class="grid-slot"><div id="form"></div></div>
+
+<h2>1.12) 整列 / セル読取専用（実行時・プログラム制御）</h2>
+<div class="note">
+範囲を選んでボタン操作。<b>setAlignment('left'|'center'|'right')</b> で整列（数値列の既定右寄せも上書き可）、<b>setCellReadOnly(true/false)</b> でセル単位の読取専用を実行時に切替。どちらも列の挿入・削除でセルにちゃんと追従します。
+</div>
+<div class="host-toolbar">
+  <button id="alLeft" type="button">左</button>
+  <button id="alCenter" type="button">中央</button>
+  <button id="alRight" type="button">右</button>
+  <button id="alReset" type="button">整列クリア</button>
+  <button id="roOn" type="button">選択を読取専用に</button>
+  <button id="roOff" type="button">読取専用を解除</button>
+</div>
+<div class="grid-slot"><div id="al"></div></div>
+
+<h2>1.13) 列幅オートフィット / autofill拡張 / カスタムエディタ</h2>
+<div class="note">
+<b>列幅オートフィット</b>: ボタン、または<b>列ヘッダ右端をダブルクリック</b>で内容に合わせて自動調整。<br>
+<b>autofill拡張</b>: このグリッドは <b>fillHandle:{autoInsertRow:true}</b>＝フィルハンドルを<b>テーブル下端より下までドラッグ</b>すると行が自動追加されます。<br>
+<b>カスタムエディタ</b>: 「メモ」列は <b>columns[c].editor</b> で <b>textarea（複数行）</b>編集（Ctrl+Enter または外側クリックで確定 / Esc 取消）。確定は検証・Undo の関所を通ります。
+</div>
+<div class="host-toolbar">
+  <button id="fitAll" type="button">列幅オートフィット</button>
+</div>
+<div class="grid-slot"><div id="ext"></div></div>
+
+<h2>1.14) ショートカット / プラグイン / 破棄(destroy)</h2>
+<div class="note">
+<b>Ctrl+D</b>＝選択行を下に複製（カスタムショートカット）。<b>プラグイン</b>で編集のたびに件数を表示。<b>破棄</b>ボタンで <b>destroy()</b>＝リスナ/Observer を全解除して DOM ごと撤去（SPA のリーク防止）。
+<span id="infraInfo" style="color:#178;font-weight:600;margin-left:8px;"></span>
+</div>
+<div class="host-toolbar">
+  <button id="destroyBtn" type="button">このグリッドを破棄</button>
+</div>
+<div class="grid-slot"><div id="infra"></div></div>
+
+<h2>2) 2グリッドで Undo を共有（同じ HistoryManager を注入）</h2>
+<div class="host-toolbar">
+  <button id="undoBtn" type="button">↶ Undo (Ctrl+Z)</button>
+  <button id="redoBtn" type="button">↷ Redo (Ctrl+Y)</button>
+  <span id="histInfo" style="font-size:12px;color:#678;margin-left:8px;"></span>
+</div>
+<div class="grids">
+  <div class="grid-slot"><h3>甲（セリフ表示用）</h3><div id="gridA"></div></div>
+  <div class="grid-slot"><h3>乙（音声設定用）</h3><div id="gridB"></div></div>
+</div>
+
+<script src="src/tssgrid.js"></script>
+<script>
+  // --- 1) 単体 ---
+  new TssGrid(document.getElementById('solo'), {
+    name: 'solo', showDump: true,
+    headers: ['名前', 'よみ', '数値', '連番'],
+    data: [['彩瀬', 'あやせ', '1', '10'], ['', '', '2', '20'], ['', '', '', ''], ['', '', '', ''], ['', '', '', '']],
+  });
+
+  // --- 1.5) セルタイプ + バリデータ ---
+  const info2 = document.getElementById('typedInfo');
+  const typed = new TssGrid(document.getElementById('typed'), {
+    name: 'typed', showDump: true,
+    invalidMode: 'keep',   // 検証 NG は値を残してセルを赤く（既定 'revert' は元に戻す）
+    pasteOverflow: 'error',   // 貼り付けがはみ出したら中止してエラー表示（既定 'clip' は切り捨て）
+    headers: ['担当', '状態', '完了', '期限', '時刻', '数量'],
+    columns: [
+      {},
+      { type: 'dropdown', options: ['未着手', '進行中', '完了', '保留'] },
+      { type: 'checkbox' },
+      // date: テキスト入力で yyyymmdd と打てる（保存は ISO、表示は yyyy/mm/dd）
+      { type: 'date', picker: false, format: v => v ? v.replace(/-/g, '/') : '' },
+      { type: 'time', hour12: true },   // 12時間制(AM/PM)。下のボタンで 24h と切替
+      { validator: v => v === '' || /^\d+$/.test(v) ? true : '数値で入力してください' },
+    ],
+    onInvalid: (rej) => {
+      const msgs = rej.map(x => x.message).filter(Boolean);
+      if (msgs.length) info2.textContent = '⚠ ' + msgs.join(' / ');
+    },
+    onPasteOverflow: (info) => {
+      info2.textContent = '⚠ 貼り付け範囲がはみ出します（右 ' + info.overCols + ' 列 / 下 ' + info.overRows + ' 行 超過）。貼り付けを中止しました。';
+    },
+    onSelectionChange: () => { info2.textContent = ''; },
+    data: [
+      ['彩瀬', '進行中', '', '2026-06-30', '09:30', '3'],
+      ['', '未着手', '', '', '13:45', ''],
+      ['', '', '', '', '', ''], ['', '', '', '', '', ''], ['', '', '', '', '', ''],
+    ],
+  });
+
+  // 時刻列(index 4)の 12h ⇄ 24h をボタンで切替（保存値は常に 24h）
+  document.getElementById('toggle12').addEventListener('click', () => {
+    const col = typed.columns[4];
+    col.hour12 = !col.hour12;
+    typed.redraw();
+    document.getElementById('toggle12').textContent = '時刻表示: ' + (col.hour12 ? '12時間(AM/PM)' : '24時間') + ' に切替';
+  });
+
+  // 貼り付けはみ出しの clip ⇄ error をボタンで切替（実行時にプロパティを変えるだけ）
+  document.getElementById('togglePaste').addEventListener('click', () => {
+    typed.pasteOverflow = typed.pasteOverflow === 'error' ? 'clip' : 'error';
+    document.getElementById('togglePaste').textContent = '貼り付けはみ出し: ' + (typed.pasteOverflow === 'error' ? 'clip' : 'error') + ' に切替';
+    info2.textContent = '貼り付けはみ出しモード: ' + typed.pasteOverflow + (typed.pasteOverflow === 'clip' ? '（入る所まで貼って残りは捨てる）' : '（はみ出すなら中止）');
+  });
+
+  // --- 1.6) CellFormat（表示書式） ---
+  new TssGrid(document.getElementById('fmt'), {
+    name: 'fmt', showDump: true, width: 560,   // 枠を制約＝テーブル自身に横スクロールバーが出る
+    headers: ['商品', '数量', '単価', '金額', '達成率', '納品日'],
+    columns: [
+      {},
+      { type: 'number', thousands: true },                       // カンマ区切りのみ
+      { type: 'number', thousands: true, decimals: 2, prefix: '¥' }, // 通貨＋小数2桁
+      { type: 'number', thousands: true, prefix: '¥' },          // 通貨（整数）
+      { type: 'number', decimals: 1, suffix: '%' },              // 小数1桁＋％
+      { type: 'date', format: 'yyyy年m月d日' },                  // 日付パターン（宣言的）
+    ],
+    data: [
+      ['りんご', '1200', '158.5', '190200', '98.4', '2026-06-30'],
+      ['みかん', '350', '98', '34300', '75', '2026-07-15'],
+      ['ぶどう', '80', '1280.25', '102420', '100', '2026-08-01'],
+      ['', '', '', '', '', ''],
+    ],
+  });
+
+  // --- 1.7) 列固定 + 縦横スクロール + 幅ロック ---
+  const fzNames = ['Bob Martinez','Diana Park','Carlos Silva','Hannah Lee','Erik Johansson','George Thompson','Alice Chen','Fatima Al-Hassan'];
+  const fzData = [];
+  for (let i = 0; i < 16; i++) fzData.push([
+    'PRJ-' + String(i + 1).padStart(3, '0'), fzNames[i % fzNames.length],
+    ['進行中','未着手','完了','保留'][i % 4], '2026-' + String((i % 12) + 1).padStart(2, '0') + '-10',
+    ['09:30','10:00','13:30','15:45'][i % 4], String((i % 5) + 1), 'メモ' + (i + 1),
+  ]);
+  new TssGrid(document.getElementById('frozen'), {
+    name: 'frozen', frozenCols: 2, width: 520, height: 240,
+    headers: ['ID', '担当', '状態', '期限', '時刻', '数量', '備考'],
+    columns: [{}, {}, { resizable: false }],   // 状態列(2)は幅ロック
+    data: fzData,
+  });
+
+  // --- 1.8) 読み取り専用（readOnly） ---
+  const roInfo = document.getElementById('roInfo');
+  new TssGrid(document.getElementById('ro'), {
+    name: 'ro',
+    headers: ['ID', '商品', '状態', '数量', '単価', '小計'],
+    columns: [
+      { readOnly: true },                              // ID は固定（編集不可）
+      {},
+      // 状態が「完了」の行だけロック（関数 readOnly）
+      { type: 'dropdown', options: ['受付', '出荷', '完了'], readOnly: (v) => v === '完了' },
+      { type: 'number', thousands: true },
+      { type: 'number', thousands: true, prefix: '¥' },
+      { type: 'number', thousands: true, prefix: '¥', readOnly: true },   // 小計は計算結果（編集不可）
+    ],
+    onReadOnly: (b) => { roInfo.textContent = '⚠ 読み取り専用セルは変更できません（' + b.length + '件を元に戻しました）'; },
+    onSelectionChange: () => { roInfo.textContent = ''; },
+    data: [
+      ['A-001', 'りんご', '受付', '1200', '158', '189600'],
+      ['A-002', 'みかん', '完了', '350', '98', '34300'],
+      ['A-003', 'ぶどう', '出荷', '80', '1280', '102400'],
+      ['A-004', '', '受付', '', '', ''],
+    ],
+  });
+
+  // --- 1.9) 右クリックメニュー（行/列の挿入・削除） ---
+  const ctxGrid = new TssGrid(document.getElementById('ctx'), {
+    name: 'ctx', showDump: true,
+    headers: ['品番', '品名', '数量'],
+    columns: [{}, {}, { type: 'number', thousands: true }],
+    data: [
+      ['P-100', 'ボルト M6', '1200'],
+      ['P-101', 'ナット M6', '1200'],
+      ['P-102', 'ワッシャー', '2400'],
+    ],
+  });
+  // 「行の追加/削除」を実行時に ON/OFF（allowInsertRows / allowDeleteRows を切り替えるだけ）
+  document.getElementById('toggleRowOps').addEventListener('click', (e) => {
+    const on = !ctxGrid.allowInsertRows;
+    ctxGrid.allowInsertRows = on; ctxGrid.allowDeleteRows = on;
+    e.target.textContent = '行の追加/削除: ' + (on ? 'ON（クリックで OFF）' : 'OFF（クリックで ON）');
+  });
+
+  // --- 1.10) オブジェクト配列データ ---
+  const objGrid = new TssGrid(document.getElementById('obj'), {
+    name: 'obj',
+    headers: ['品番', '品名', '数量'],
+    columns: [{ data: '品番' }, { data: '品名' }, { data: '数量', type: 'number', thousands: true }],
+    data: [   // ← オブジェクト配列。id は画面に出さないが getRows() で保持される
+      { 品番: 'P-100', 品名: 'ボルト M6', 数量: '1200', id: 42 },
+      { 品番: 'P-101', 品名: 'ナット M6', 数量: '1200', id: 43 },
+      { 品番: 'P-102', 品名: 'ワッシャー', 数量: '2400', id: 44 },
+    ],
+  });
+  // 列の表示/非表示（プログラム制御）。隠しても getRows() の値は保持される
+  document.getElementById('hideName').addEventListener('click', () => objGrid.toggleColumn(1));
+  document.getElementById('showRows').addEventListener('click', () => {
+    document.getElementById('objOut').textContent =
+      'getValue(0,"品名") → ' + JSON.stringify(objGrid.getValue(0, '品名')) + '\n' +
+      'getColumn("品番") → ' + JSON.stringify(objGrid.getColumn('品番')) + '   ← getRow の対（列を縦に取得）\n\n' +
+      'getRows() →\n' + JSON.stringify(objGrid.getRows(), null, 2);
+  });
+
+  // --- 1.11) 入力フォーム向けオプション ---
+  new TssGrid(document.getElementById('form'), {
+    name: 'form', showDump: true, width: 560,
+    headers: ['品名', '数量', '単価', '備考'],
+    columns: [
+      { placeholder: '品名を入力' },
+      { type: 'number', thousands: true, placeholder: '0' },
+      { type: 'number', thousands: true, prefix: '¥', placeholder: '¥0' },
+      { placeholder: '（任意）' },
+    ],
+    minSpareRows: 1,        // 末尾に常に空行
+    autoWrapRow: true,      // Tab で行末→次行頭
+    stretchH: 'last',       // 備考列を枠幅まで伸ばす
+    data: [['りんご', '12', '158', '']],
+  });
+
+  // --- 1.12) 整列 / セル読取専用（実行時） ---
+  const alGrid = new TssGrid(document.getElementById('al'), {
+    name: 'al', headers: ['商品', '数量', '単価', '区分'],
+    columns: [{}, { type: 'number', thousands: true }, { type: 'number', thousands: true, prefix: '¥' }, {}],
+    data: [['りんご', '1200', '158', 'A'], ['みかん', '350', '98', 'B'], ['ぶどう', '80', '1280', 'A']],
+  });
+  const A = (a) => alGrid.setAlignment(a);
+  document.getElementById('alLeft').onclick = () => A('left');
+  document.getElementById('alCenter').onclick = () => A('center');
+  document.getElementById('alRight').onclick = () => A('right');
+  document.getElementById('alReset').onclick = () => A('reset');
+  document.getElementById('roOn').onclick = () => alGrid.setCellReadOnly(true);
+  document.getElementById('roOff').onclick = () => alGrid.setCellReadOnly(false);
+
+  // --- 1.13) オートフィット / autofill拡張 / カスタムエディタ ---
+  // textarea の複数行エディタ（薄いオブジェクト契約）
+  const textareaEditor = {
+    open({ value, td, commit, cancel }) {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      const b = td.getBoundingClientRect();
+      Object.assign(ta.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: Math.max(160, b.width) + 'px', height: '64px', zIndex: 9999, font: '13px Meiryo', padding: '4px', border: '2px solid #2aa0d8', boxSizing: 'border-box' });
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      ta.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commit(ta.value); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+      });
+      ta.addEventListener('blur', () => commit(ta.value));   // 外側クリックで確定
+      this._ta = ta;
+    },
+    close() { if (this._ta) { this._ta.remove(); this._ta = null; } },
+  };
+  const extGrid = new TssGrid(document.getElementById('ext'), {
+    name: 'ext', width: 560,
+    headers: ['品番', '商品名', '数量', 'メモ'],
+    columns: [{}, {}, { type: 'number', thousands: true }, { editor: textareaEditor }],
+    fillHandle: { autoInsertRow: true },   // 下へドラッグで行追加
+    data: [
+      ['P-100', 'とても長い商品名のサンプル', '1200', '備考1行目\n2行目'],
+      ['P-101', 'ナット', '350', ''],
+      ['P-102', 'ワッシャー', '80', ''],
+    ],
+  });
+  document.getElementById('fitAll').addEventListener('click', () => extGrid.autoSizeAllColumns());
+
+  // --- 1.14) ショートカット / プラグイン / 破棄 ---
+  const infraInfo = document.getElementById('infraInfo');
+  // プラグイン: onAfterChange を包んで件数を表示（destroy で元に戻す）
+  const counterPlugin = (grid) => {
+    const prev = grid.onAfterChange;
+    grid.onAfterChange = (ch, src) => { if (prev) prev(ch, src); infraInfo.textContent = '✎ ' + ch.length + '件変更 (' + src + ')'; };
+    return { name: 'counter', destroy() { grid.onAfterChange = prev; } };
+  };
+  const infraGrid = new TssGrid(document.getElementById('infra'), {
+    name: 'infra',
+    headers: ['品番', '商品', '数量'],
+    columns: [{}, {}, { type: 'number', thousands: true }],
+    shortcuts: [
+      { keys: 'Ctrl+D', name: 'dup', context: 'grid', handler: (e, { grid }) => {
+        const r = grid.active.r; grid.insertRow(r, 'below');
+        for (let c = 0; c < grid.COLS; c++) grid.setValue(r + 1, c, grid.getValue(r, c));
+      } },
+    ],
+    plugins: [counterPlugin],
+    data: [['P-100', 'りんご', '12'], ['P-101', 'みかん', '8']],
+  });
+  document.getElementById('destroyBtn').addEventListener('click', (e) => {
+    infraGrid.destroy();
+    e.target.disabled = true; infraInfo.textContent = '🗑 破棄しました（リスナ/Observer 全解除・DOM 撤去）';
+  });
+
+  // --- 2) 共有Undo ---
+  const history = new HistoryManager();
+  new TssGrid(document.getElementById('gridA'), {
+    name: '甲', history,
+    headers: ['話者', 'セリフ', '表情'],
+    data: [['A', 'こんにちは', 'happy'], ['B', '', ''], ['', '', ''], ['', '', ''], ['', '', '']],
+  });
+  new TssGrid(document.getElementById('gridB'), {
+    name: '乙', history,
+    headers: ['声', '速度', '番号'],
+    data: [['女性', '1.0', '1'], ['', '1.0', '2'], ['', '', ''], ['', '', ''], ['', '', '']],
+  });
+
+  const undoBtn = document.getElementById('undoBtn'), redoBtn = document.getElementById('redoBtn'), info = document.getElementById('histInfo');
+  history.onChange = (h) => {
+    undoBtn.disabled = !h.canUndo(); redoBtn.disabled = !h.canRedo();
+    info.textContent = '履歴: undo ' + h.undoStack.length + ' / redo ' + h.redoStack.length + '（甲乙 共有）';
+  };
+  undoBtn.addEventListener('mousedown', e => e.preventDefault());
+  redoBtn.addEventListener('mousedown', e => e.preventDefault());
+  undoBtn.addEventListener('click', () => history.undo());
+  redoBtn.addEventListener('click', () => history.redo());
+  history.onChange(history);
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 派生列（formula プラグイン）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:680px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .frm .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  .frm .tssgrid td.tg-readonly { background:#f8fafc; color:#5b6573; }   /* 派生列を上品なグレーに */
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+  /* 合計表示グリッド＝合計セルを青地に（列幅は本体と揃えて下にぴたっと並ぶ） */
+  #sumgrid .tssgrid td { background:#1573c0; color:#fff; font-weight:700; }
+  #sumgrid .tssgrid td.sum-lbl { background:#0d5d57; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>派生列 <span class="pill">formula プラグイン</span></h1>
+  <div class="note" style="margin-top:8px">
+  「その行の値だけから計算する列」を <b>columns 定義に <code>formula</code> 関数</b>で書けるプラグイン（<code>plugins/tss-formula.js</code>）。<br>
+  <b>金額 = 数量 × 単価</b>、<b>税込 = 金額 × 1.1</b>（前の formula 結果も使える）。数量や単価を編集すると<b>即再計算</b>。formula 列は<b>自動 readOnly</b>、書き込みは履歴に積まないので <b>Undo/Redo も入力に追従</b>（派生値が独立した取り消し段にならない）。<br>
+  下の<b>合計行</b>は別プラグイン <code>plugins/tss-totals.js</code>（<b>列方向の集計＝計算だけ</b>、描画は利用者側）。ここでは <code>onTotals</code> で受けて<b>もう1つの TssGrid（合計表）</b>に流し込み、列幅を本体と揃えて下にぴたっと並べています。formula→totals の順で、行の派生→列の集計が連動。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">注文明細（数量・単価が入力できます。金額・税込は自動計算）</div>
+    <div class="frm"><div id="grid"></div></div>
+    <div class="frm" style="margin-top:3px"><div id="sumgrid"></div></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-formula.js"></script>
+<script src="../plugins/tss-totals.js"></script>
+<script>
+  const yen = v => (v === '' || v == null) ? '' : '¥' + Number(v).toLocaleString('ja-JP');
+  const num = v => (v === '' || v == null) ? '' : Number(v).toLocaleString('ja-JP');
+  const W = { name: 200, quantity: 90, price: 110, amount: 130, withTax: 130 };   // 本体と合計表で共有＝列が揃う
+
+  // ① 合計表示用グリッド（表示専用）。列幅を本体と揃えて下にぴたっと並べる＝「究極の見た目」。
+  const sumGrid = new TssGrid(document.getElementById('sumgrid'), {
+    name: 'sum', width: 660, rowHeight: 26, rowHeaders: false, colHeaders: false, cursor: false, contextMenu: ['copy'],
+    columns: [
+      { data: 'label',    width: W.name,     readOnly: true, align: 'center' },
+      { data: 'quantity', width: W.quantity, readOnly: true, align: 'right', format: num },
+      { data: 'price',    width: W.price,    readOnly: true },                 // 単価は合計しないので空
+      { data: 'amount',   width: W.amount,   readOnly: true, align: 'right', format: yen },
+      { data: 'withTax',  width: W.withTax,  readOnly: true, align: 'right', format: yen },
+    ],
+    cellClass: (r, c) => c === 0 ? 'sum-lbl' : '',
+    data: [{ label: '合計', quantity: '', price: '', amount: '', withTax: '' }],
+  });
+
+  // ② 明細グリッド。totals の onTotals で①へ流し込むだけ（setValueRaw＝表示専用なので履歴も汚さない）。
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'formula-demo', width: 660, rowHeight: 26, rowHeaders: false,
+    columns: [
+      { data: 'name',     title: '品名', width: W.name },
+      { data: 'quantity', title: '数量', width: W.quantity, type: 'number', align: 'right' },
+      { data: 'price',    title: '単価', width: W.price,    type: 'number', align: 'right', format: yen },
+      // ↓ 派生列: formula を書くだけ。自動 readOnly・自動再計算。formula はただのJSなので空ガードも自由に。
+      { data: 'amount',   title: '金額', width: W.amount, type: 'number', align: 'right', format: yen,
+        formula: (row) => (row.quantity && row.price) ? row.quantity * row.price : '' },
+      { data: 'withTax',  title: '税込(10%)', width: W.withTax, type: 'number', align: 'right', format: yen,
+        formula: (row) => row.amount ? Math.round(row.amount * 1.1) : '' },   // ← 1つ前の formula 結果(amount)を参照
+    ],
+    // formula＝行の派生列 / totals＝列の集計（計算だけ）。onTotals で合計表(sumGrid)へ流す＝これが「別TssGridに表示」。
+    plugins: [TssFormula, TssTotals({
+      columns: { quantity: 'sum', amount: 'sum', withTax: 'sum' },
+      onTotals: (t) => {
+        sumGrid.setValueRaw(0, 'quantity', t.quantity);
+        sumGrid.setValueRaw(0, 'amount', t.amount);
+        sumGrid.setValueRaw(0, 'withTax', t.withTax);
+      },
+    })],
+    data: [
+      { name: 'ボルト M6',   quantity: '120', price: '18' },
+      { name: 'ナット M6',   quantity: '120', price: '7' },
+      { name: 'ワッシャー',  quantity: '240', price: '3' },
+      { name: '六角レンチ',  quantity: '12',  price: '350' },
+      { name: '',            quantity: '',    price: '' },
+    ],
+  });
+</script>
+</body>
+</html>

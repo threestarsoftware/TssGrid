@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 簡単な在庫管理</title>
+<link rel="stylesheet" href="../assets/lib/tssgrid.css">
+<link rel="stylesheet" href="../assets/lib/tss-calendar.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 24px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 860px; }
+  .note b { color: #1573c0; }
+  .bar { margin: 12px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .bar button { font-size: 13px; padding: 6px 16px; cursor: pointer; background:#1573c0; color:#fff; border:1px solid #1573c0; border-radius:6px; }
+  .bar button:hover { background:#115f9e; border-color:#115f9e; }
+  #totals { font-weight: 600; color: #1a3a6b; background: #eef4ff; border-radius: 16px; padding: 4px 14px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12px; overflow: auto; max-width: 860px; max-height: 220px; white-space: pre-wrap; }
+  pre:empty { display: none; }   /* 出力が無いときは黒い箱を隠す */
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+</style>
+<style>html{height:100%}body{min-height:100vh;margin:0;display:flex;flex-direction:column}.tssg-content{flex:1 0 auto;width:100%;max-width:1240px;margin:0 auto;padding:22px 28px;box-sizing:border-box}body>footer{flex-shrink:0}</style>
+</head>
+<body>
+<div style="position:sticky;top:0;z-index:9999;background:#1573c0;color:#fff;padding:9px 26px;font:14px/1.5 'Segoe UI','Hiragino Kaku Gothic ProN',system-ui,sans-serif;box-shadow:0 1px 5px rgba(0,0,0,.18)">
+  <a href="../" style="color:#fff;text-decoration:none;font-weight:700">← TssGrid</a>
+  <span style="opacity:.7;margin:0 8px">/</span><a href="../#demo" style="color:#fff;text-decoration:none">デモに戻る</a>
+  <span style="opacity:.75;margin-left:12px">ライブデモ — 在庫管理ミニアプリ</span>
+</div>
+<div class="tssg-content">
+<h1>TssGrid 例: 簡単な在庫管理 <span class="pill">機能てんこ盛り</span></h1>
+
+<div class="note">
+TssGrid 1本（＋カレンダープラグイン）で作った<b>在庫管理ミニアプリ</b>。これくらいの業務画面が<b>ノービルド</b>で組めます（項目を差し替えれば勤怠・発注・工程にも転用可）。<br>
+使っている機能：<b>ドロップダウン</b>(カテゴリ) / <b>数値書式</b>(数量・単価・金額) / <b>計算列</b>(金額＝数量×単価, 読み取り専用) / <b>チェックボックス＋ヘッダ全選択</b>(在庫) / <b>休日カレンダー</b>(入荷日) / <b>入力検証</b>(品番) / <b>ヘッダクリックで並べ替え</b> / <b>右クリックで行挿入削除・全チェック</b> / <b>末尾に常に空行</b> / <b>Excel相互コピペ・Undo</b> / <b>getRows() で保存</b>。
+</div>
+
+<div class="bar">
+  <button id="save">保存（getRows → localStorage）</button>
+  <button id="load">読込</button>
+  <button id="csv">CSV出力</button>
+  <button id="unsort">ソート解除（入力順に戻す）</button>
+  <span id="totals"></span>
+</div>
+<div class="tssgrid-host"><div id="grid"></div></div>
+<pre id="out"></pre>
+
+<script src="../assets/lib/tssgrid.js"></script>
+<script src="../assets/lib/tss-calendar.js"></script>
+<script>
+  const holidays = {
+    '2026-06-14': '日曜', '2026-07-20': '海の日', '2026-08-11': '山の日',
+    '2026-08-13': { name: '夏季休業', type: 'company' }, '2026-08-14': { name: '夏季休業', type: 'company' },
+  };
+  const cal = TssCalendar({ holidays });
+
+  const C = { 品番: 0, 商品名: 1, カテゴリ: 2, 数量: 3, 単価: 4, 金額: 5, 在庫: 6, 入荷日: 7 };
+  const base = ['品番', '商品名', 'カテゴリ', '数量', '単価', '金額', '在庫', '入荷日'];
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'inventory',
+    headers: base.slice(),
+    colWidths: [90, 150, 90, 70, 90, 100, 56, 116],
+    minSpareRows: 1,                                   // 末尾に常に空行（追加用）
+    contextMenu: ['row_above', 'row_below', 'remove_row', '---------', 'check_column', 'uncheck_column'],
+    columns: [
+      { data: '品番', validator: v => v === '' || /^[A-Za-z0-9\-]+$/.test(v) ? true : '品番は英数字とハイフンで' },
+      { data: '商品名' },
+      { data: 'カテゴリ', type: 'dropdown', options: ['食品', '日用品', '文具', '飲料'] },
+      { data: '数量', type: 'number', thousands: true },
+      { data: '単価', type: 'number', thousands: true, prefix: '¥' },
+      { data: '金額', type: 'number', thousands: true, prefix: '¥', readOnly: true },   // 計算列
+      { data: '在庫', type: 'checkbox' },
+      { data: '入荷日', type: 'date', editor: cal, format: 'yyyy/mm/dd' },
+    ],
+    onInvalid: (rej) => { const m = rej.map(x => x.message).filter(Boolean); if (m.length) document.getElementById('out').textContent = '⚠ ' + m.join(' / '); },
+    onAfterChange: (changes) => {
+      // 金額は setValueRaw（履歴非汚染の派生値）。undo/redo 中も再計算してOK＝金額が独立undoにならず追従
+      for (const ch of changes) if (ch.c === C.数量 || ch.c === C.単価) recalc(ch.r);
+      updateTotals();
+    },
+    onHeaderClick: (c) => {                            // ヘッダクリックで並べ替え（▲▼）
+      sortDir = (sortCol === c && sortDir === 'asc') ? 'desc' : 'asc'; sortCol = c;
+      grid.headers = base.map((h, i) => i === c ? h + (sortDir === 'asc' ? ' ▲' : ' ▼') : h);
+      grid.sortBy(c, sortDir); updateTotals();
+      return false;                                    // 既定の列選択は抑止
+    },
+    data: [
+      { 品番: 'A-001', 商品名: 'りんご', カテゴリ: '食品', 数量: '120', 単価: '158', 金額: '18960', 在庫: '1', 入荷日: '2026-06-10' },
+      { 品番: 'A-002', 商品名: 'ボールペン', カテゴリ: '文具', 数量: '500', 単価: '88', 金額: '44000', 在庫: '1', 入荷日: '2026-06-09' },
+      { 品番: 'A-003', 商品名: 'お茶', カテゴリ: '飲料', 数量: '0', 単価: '128', 金額: '0', 在庫: '', 入荷日: '2026-06-12' },
+      { 品番: 'A-004', 商品名: '洗剤', カテゴリ: '日用品', 数量: '36', 単価: '398', 金額: '14328', 在庫: '1', 入荷日: '2026-06-11' },
+    ],
+  });
+  let sortCol = -1, sortDir = 'asc';
+  function resetSortHeaders() { sortCol = -1; sortDir = 'asc'; grid.headers = base.slice(); }
+  document.getElementById('unsort').addEventListener('click', () => {
+    if (!grid.isSorted()) return;
+    resetSortHeaders();        // 先に▲▼を消してから
+    grid.clearSort();          // 入力順に戻す（内部で再描画）
+    updateTotals();
+  });
+
+  // 計算列: 金額＝数量×単価（setValueRaw＝履歴に積まない派生値・readOnly貫通。undo/redoでも追従）
+  function recalc(r) {
+    const q = grid.getValue(r, C.数量), p = grid.getValue(r, C.単価);
+    const amt = (q !== '' && p !== '') ? String((Number(q) || 0) * (Number(p) || 0)) : '';
+    grid.setValueRaw(r, C.金額, amt);
+  }
+  function updateTotals() {
+    let total = 0, count = 0, stock = 0;
+    for (let r = 0; r < grid.ROWS; r++) {
+      if (grid.getValue(r, C.品番) === '') continue;   // 空行（追加用）は数えない
+      count++;
+      total += Number(grid.getValue(r, C.金額)) || 0;
+      if (grid.getValue(r, C.在庫) === '1') stock++;
+    }
+    document.getElementById('totals').textContent = `商品 ${count} 点 ／ 在庫あり ${stock} 点 ／ 総額 ¥${total.toLocaleString()}`;
+  }
+  updateTotals();
+
+  document.getElementById('csv').addEventListener('click', () => {
+    grid.downloadCSV('在庫一覧.csv');                  // 素の値で出力（formatted:true で ¥/カンマ付き）
+    document.getElementById('out').textContent = 'CSVをダウンロードしました（在庫一覧.csv, UTF-8 BOM付＝Excelで文字化けしない）\n\n' + grid.toCSV();
+  });
+  document.getElementById('save').addEventListener('click', () => {
+    const rows = grid.getRows().filter(o => o.品番);   // 空行は除外
+    localStorage.setItem('tss-inventory', JSON.stringify(rows));
+    document.getElementById('out').textContent = '保存しました（localStorage: tss-inventory, ' + rows.length + '件）\n\n' + JSON.stringify(rows, null, 2);
+  });
+  document.getElementById('load').addEventListener('click', () => {
+    const s = localStorage.getItem('tss-inventory');
+    if (!s) { document.getElementById('out').textContent = '保存データがありません'; return; }
+    grid.setData(JSON.parse(s)); updateTotals();
+    document.getElementById('out').textContent = '読込しました（' + JSON.parse(s).length + '件）';
+  });
+</script>
+</div>
+<footer style="margin-top:40px;background:#0f3a5f;color:#cfe0f0;padding:18px 26px;text-align:center;font:12.5px/1.7 system-ui,sans-serif">
+  <div><a href="../" style="color:#fff;font-weight:700;text-decoration:none">TssGrid</a> — 業務フォーム向け軽量データグリッド（MIT）</div>
+  <div style="opacity:.85;margin-top:4px">© 2026 株式会社スリースターソフトウェア（ThreeStarSoftware） · <a href="https://github.com/threestarsoftware/TssGrid" style="color:#cfe0f0">GitHub</a> · <a href="https://www.threestarsoftware.co.jp/" style="color:#cfe0f0">運営会社</a></div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 方眼ガントチャート（予定/実績・遅延・期間指定）</title>
+<link rel="stylesheet" href="../assets/lib/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:900px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); overflow:auto; }
+
+  /* 操作バー（期間指定・今日） */
+  .ctrl { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; font-size:13px; color:#334; margin:14px 0 4px; }
+  .ctrl input[type=date] { font:inherit; padding:4px 6px; border:1px solid #cdd6df; border-radius:6px; }
+  .ctrl button { font:inherit; padding:5px 12px; border:1px solid #1573c0; background:#1573c0; color:#fff; border-radius:6px; cursor:pointer; }
+  .ctrl button:hover { background:#115f9e; }
+  .ctrl .sep { width:1px; height:20px; background:#d6dde4; }
+
+  /* ガント配色＝cellStyle が参照（バー色はここで一括変更） */
+  .gpanel { --plan:#bcdcf3; --act:#1573c0; --late:#e0564c; --wknd:#e4eaf0; --today:#e2483d; --bar:#c9d3e0; }
+  .gpanel .tssgrid { --tg-font-size:12px; --tg-header-bg:#334155; --tg-header-fg:#eef2f7; }
+  .gpanel .tssgrid thead th { white-space:pre-line; line-height:1.18; }   /* 日番号＋曜日の2行表示 */
+  .gpanel .tssgrid thead th.hdr-sun { color:#ff9aa8; }   /* 日曜＝赤系 */
+  .gpanel .tssgrid thead th.hdr-sat { color:#9ad2ff; }   /* 土曜＝青系 */
+  .gpanel .tssgrid td.tg-readonly:not([data-ccls]) { background:#fff; color:inherit; }   /* 空の日セルは白（バー/土日は cellStyle が上書き／状態列は除外） */
+  .gpanel .tssgrid .tg-grouphdr { background:#3d4a5c; color:#eef2f7; font-weight:600; }
+  /* 状態バッジ＆遅延タスク */
+  .gpanel .tssgrid td.st-done { background:#e7f6ee; color:#0a7d4d; font-weight:600; }
+  .gpanel .tssgrid td.st-doing{ background:#e8f1fb; color:#1f6fb2; font-weight:600; }
+  .gpanel .tssgrid td.st-late { background:#fde8e7; color:#c8312a; font-weight:700; }
+  .gpanel .tssgrid td.st-todo { background:#f1f3f5; color:#71808f; }
+  .gpanel .tssgrid td.task-late { box-shadow: inset 3px 0 0 #e2483d; }
+
+  .legend { display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; color:#475569; margin:10px 0; }
+  .legend span i { display:inline-block; width:24px; height:10px; border-radius:2px; vertical-align:0; margin-right:6px; }
+  .legend .li-plan i { background:#bcdcf3; } .legend .li-act i { background:#1573c0; } .legend .li-late i { background:#e0564c; }
+  .legend .li-wknd i { background:#e4eaf0; border:1px solid #d2dae3; }
+  .legend .li-today i { width:3px; height:13px; background:#e2483d; vertical-align:-2px; }
+</style>
+<style>html{height:100%}body{min-height:100vh;margin:0;display:flex;flex-direction:column}.tssg-content{flex:1 0 auto;width:100%;max-width:1240px;margin:0 auto;padding:22px 28px;box-sizing:border-box}body>footer{flex-shrink:0}</style>
+</head>
+<body>
+<div style="position:sticky;top:0;z-index:9999;background:#1573c0;color:#fff;padding:9px 26px;font:14px/1.5 'Segoe UI','Hiragino Kaku Gothic ProN',system-ui,sans-serif;box-shadow:0 1px 5px rgba(0,0,0,.18)">
+  <a href="../" style="color:#fff;text-decoration:none;font-weight:700">← TssGrid</a>
+  <span style="opacity:.7;margin:0 8px">/</span><a href="../#demo" style="color:#fff;text-decoration:none">デモに戻る</a>
+  <span style="opacity:.75;margin-left:12px">ライブデモ — 方眼ガント（予定/実績・遅延管理）</span>
+</div>
+<div class="tssg-content">
+<div class="wrap">
+  <h1>方眼ガントチャート <span class="pill">予定/実績・遅延・期間指定</span></h1>
+  <div class="note" style="margin-top:8px">
+    左の固定列で<b>予定/実績の日付</b>を入力→右カレンダーに<b>バーが自動描画</b>（上帯＝予定・下帯＝実績）。
+    <b>実績が予定終了を越えた部分は赤</b>＝遅延が一目。<b>状態列</b>（完了/進行中/遅延/未着手）と<b>遅延タスクの赤線</b>も自動。<br>
+    日付は <b>M/D 表示</b>・手入力（<code>6/20</code> や <code>620</code> でもOK＝ISOに自動置換）、不正な日付は<b>赤</b>でお知らせ。
+    上の<b>期間</b>で表示範囲を、<b>今日</b>で基準日を変更できます（今日を進めると遅延が増えるのが分かります）。
+    すべて <code>cellStyle</code>/<code>cellClass</code> ＋ コア機能のみ・依存ゼロ。
+  </div>
+
+  <div class="ctrl">
+    <label>表示期間 <input id="rs" type="date"></label>
+    <span>〜</span>
+    <label><input id="re" type="date"></label>
+    <span class="sep"></span>
+    <label>今日 <input id="td" type="date"></label>
+    <button id="apply">適用</button>
+    <button id="fit" style="background:#fff;color:#1573c0">タスクに合わせる</button>
+  </div>
+
+  <div class="legend">
+    <span class="li-plan"><i></i>予定</span>
+    <span class="li-act"><i></i>実績</span>
+    <span class="li-late"><i></i>遅延（予定超過）</span>
+    <span class="li-today"><i></i>今日</span>
+    <span class="li-wknd"><i></i>土日</span>
+  </div>
+
+  <div class="panel">
+    <div class="gpanel"><div id="gantt"></div></div>
+  </div>
+</div>
+
+<script src="../assets/lib/tssgrid.js"></script>
+<script>
+  // ===== 状態（期間・今日・タスク）。タスクは編集で書き換わる正本 =====
+  let START = '2026-06-15', END = '2026-07-12', TODAY = '2026-07-03';
+  let tasks = [
+    { task: '要件定義',   who: '高橋', ps: '2026-06-15', pe: '2026-06-19', as: '2026-06-15', ae: '2026-06-19', prog: '100' },
+    { task: '基本設計',   who: '佐藤', ps: '2026-06-22', pe: '2026-06-26', as: '2026-06-22', ae: '2026-06-25', prog: '100' },
+    { task: '詳細設計',   who: '鈴木', ps: '2026-06-29', pe: '2026-07-02', as: '2026-06-29', ae: '2026-07-03', prog: '100' },
+    { task: '実装',       who: '田中', ps: '2026-07-01', pe: '2026-07-08', as: '2026-07-01', ae: '',           prog: '55'  },
+    { task: '結合テスト', who: '高橋', ps: '2026-07-06', pe: '2026-07-10', as: '',           ae: '',           prog: '0'   },
+    { task: 'リリース',   who: '佐藤', ps: '2026-07-10', pe: '2026-07-12', as: '',           ae: '',           prog: '0'   },
+  ];
+  let grid;
+  const LEFT = 8;   // 固定する左列の数（タスク〜状態）
+
+  const pad = n => String(n).padStart(2, '0');
+  const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const shift = (s, days) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + days); return iso(d); };
+  const md = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return m ? (+m[2] + '/' + +m[3]) : (v || ''); };   // 正しいISOだけ M/D、それ以外（赤エラー値）は入力のまま
+
+  // 実在する日付なら ISO を返す（2/30 等は null）。月日の桁は補正。
+  function mkISO(y, mo, da) {
+    y = +y; mo = +mo; da = +da;
+    if (!(mo >= 1 && mo <= 12 && da >= 1 && da <= 31)) return null;
+    const s = y + '-' + pad(mo) + '-' + pad(da), d = new Date(s + 'T00:00:00');
+    return (d.getFullYear() === y && d.getMonth() + 1 === mo && d.getDate() === da) ? s : null;
+  }
+  // 'M/D' の年は、編集中セルの既存値の年（無ければ表示期間の開始年）を採用。
+  function yearFor(ctx) {
+    const cur = (grid && ctx && grid.data[ctx.r]) ? String(grid.data[ctx.r][ctx.c]) : '';
+    return /^\d{4}-/.test(cur) ? cur.slice(0, 4) : START.slice(0, 4);
+  }
+  // 手入力 → ISO へ置換（勤怠の時刻スマート入力と同じノリ）。不正は null＝赤セルに。
+  function parseDate(s, ctx) {
+    s = String(s).trim().replace(/[／]/g, '/').replace(/[．]/g, '.');
+    if (s === '') return '';
+    let m;
+    if (m = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/)) return mkISO(m[1], m[2], m[3]);   // YYYY/M/D
+    if (m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})$/))               return mkISO(yearFor(ctx), m[1], m[2]); // M/D
+    if (m = s.match(/^(\d{4})(\d{2})(\d{2})$/))                   return mkISO(m[1], m[2], m[3]);   // YYYYMMDD
+    if (m = s.match(/^(\d{1,2})(\d{2})$/))                        return mkISO(yearFor(ctx), m[1], m[2]); // 620→6/20
+    return null;
+  }
+
+  // ===== 状態判定（遅延・完了・進行中・未着手）。ISO日付は文字列比較でOK =====
+  function status(t) {
+    const prog = Number(t.prog) || 0, done = prog >= 100, started = !!t.as;
+    if (done) return (t.ae && t.pe && t.ae > t.pe) ? { label: '遅延完了', key: 'late' } : { label: '完了', key: 'done' };
+    if (!started) return (t.ps && TODAY > t.ps) ? { label: '未着手(遅延)', key: 'late' } : { label: '未着手', key: 'todo' };
+    return (t.pe && TODAY > t.pe) ? { label: '遅延', key: 'late' } : { label: '進行中', key: 'doing' };
+  }
+  const taskOf = row => ({ ps: row[2], pe: row[3], as: row[4], ae: row[5], prog: row[6] });
+
+  function render() {
+    // 期間からカレンダー列を生成
+    const DAYS = [];
+    for (let d = new Date(START + 'T00:00:00'), e = new Date(END + 'T00:00:00'); d <= e; d.setDate(d.getDate() + 1)) DAYS.push(iso(new Date(d)));
+    const WEEKEND = DAYS.map(s => { const g = new Date(s + 'T00:00:00').getDay(); return g === 0 || g === 6; });
+    const groups = [];
+    DAYS.forEach(s => {
+      const lab = s.slice(0, 4) + '年' + parseInt(s.slice(5, 7), 10) + '月';
+      const last = groups[groups.length - 1];
+      if (last && last.label === lab) last.colspan++; else groups.push({ label: lab, colspan: 1 });
+    });
+    const leftLeaf = ['タスク', '担当', '予定開始', '予定終了', '実績開始', '実績終了', '進捗', '状態'];
+    const WD = ['日', '月', '火', '水', '木', '金', '土'];   // 日番号の下に曜日
+    const nestedHeaders = [
+      [{ label: '計画', colspan: LEFT }, ...groups],
+      [...leftLeaf, ...DAYS.map(s => parseInt(s.slice(8, 10), 10) + '\n' + WD[new Date(s + 'T00:00:00').getDay()])],
+    ];
+    const columns = [
+      { data: 'task', width: 130, cellClass: (v, { row }) => status(taskOf(row)).key === 'late' ? 'task-late' : '' },
+      { data: 'who',  width: 50, align: 'center' },
+      // M/D 表示（format）＋ 手入力を ISO に置換（parse）。不正は invalidMode:'keep' で赤セルに。未入力は空白。
+      { data: 'ps', type: 'date', width: 62, align: 'center', format: md, parse: parseDate },
+      { data: 'pe', type: 'date', width: 62, align: 'center', format: md, parse: parseDate },
+      { data: 'as', type: 'date', width: 62, align: 'center', format: md, parse: parseDate },
+      { data: 'ae', type: 'date', width: 62, align: 'center', format: md, parse: parseDate },
+      // 進捗％：右寄せ数値＋背景データバー（コアの cellStyle だけ＝tss-bar/heatmap と同じ仕組み）
+      { data: 'prog', type: 'number', width: 66, align: 'right', format: v => (v === '' || v == null) ? '' : v + '%',
+        cellStyle: v => { const p = Math.max(0, Math.min(100, Number(v) || 0)); return p ? { background: 'linear-gradient(to right, var(--bar) ' + p + '%, transparent ' + p + '%)' } : null; } },
+      { data: 'st', width: 70, align: 'center', readOnly: true, cellClass: (v, { row }) => 'st-' + status(taskOf(row)).key },
+      ...DAYS.map((s, i) => ({ data: '__d' + i, width: 28, readOnly: true })),
+    ];
+
+    function cellStyle(r, c, v, row) {
+      if (c < LEFT) return null;
+      const i = c - LEFT, d = DAYS[i];
+      const ps = row[2], pe = row[3], as = row[4], ae = row[5];
+      const aEnd = ae || TODAY;                         // 実績終了が空＝進行中（今日まで）
+      const inPlan = ps && pe && ps <= d && d <= pe;
+      const inAct  = as && as <= d && d <= aEnd;
+      const L = [];
+      if (inPlan) L.push('linear-gradient(var(--plan),var(--plan)) 0 0 / 100% 40% no-repeat');           // 上帯＝予定
+      if (inAct) {
+        const col = (pe && d > pe) ? 'var(--late)' : 'var(--act)';                                        // 予定超過＝赤
+        L.push('linear-gradient(' + col + ',' + col + ') 0 100% / 100% 40% no-repeat');                   // 下帯＝実績
+      }
+      if (WEEKEND[i]) L.push('linear-gradient(var(--wknd),var(--wknd))');
+      const st = {};
+      if (L.length) st.background = L.join(', ');
+      if (d === TODAY) st['box-shadow'] = 'inset 2px 0 0 var(--today)';
+      return st;
+    }
+
+    const host = document.getElementById('gantt');
+    host.innerHTML = '';
+    grid = new TssGrid(host, {
+      name: 'gantt', width: 1060, rowHeight: 30, rowHeaders: false, invalidMode: 'keep',
+      frozenCols: LEFT, nestedHeaders: nestedHeaders, columns: columns, cellStyle: cellStyle,
+      onAfterChange: () => {
+        for (let i = 0; i < grid.data.length; i++) grid.data[i][7] = status(taskOf(grid.data[i])).label;   // 状態を再計算
+        grid.buildTable(); grid.setActive(grid.active.r, grid.active.c);                                    // バー＋状態を描き直す
+      },
+      data: tasks.map(t => Object.assign({ st: status(t).label }, t)),
+    });
+
+    // カレンダー見出しの土日色分け（土=青/日=赤）。buildTable 後も維持するようラップ。
+    const decorateHdr = () => grid.table.querySelectorAll('thead th[data-c]').forEach(th => {
+      const i = +th.dataset.c - LEFT; if (i < 0) return;
+      const g = new Date(DAYS[i] + 'T00:00:00').getDay();
+      th.classList.toggle('hdr-sun', g === 0); th.classList.toggle('hdr-sat', g === 6);
+    });
+    const _origBuild = grid.buildTable.bind(grid);
+    grid.buildTable = () => { _origBuild(); decorateHdr(); };
+    decorateHdr();
+  }
+
+  function syncTasks() {
+    if (!grid) return;
+    tasks = grid.data.map(r => ({ task: r[0], who: r[1], ps: r[2], pe: r[3], as: r[4], ae: r[5], prog: r[6] }));
+  }
+
+  // ===== 操作バー =====
+  const rs = document.getElementById('rs'), re = document.getElementById('re'), tdi = document.getElementById('td');
+  rs.value = START; re.value = END; tdi.value = TODAY;
+  function applyRange() {
+    if (rs.value && re.value && rs.value <= re.value) { START = rs.value; END = re.value; }
+    if (tdi.value) TODAY = tdi.value;
+    syncTasks(); render();
+  }
+  document.getElementById('apply').onclick = applyRange;
+  document.getElementById('fit').onclick = () => {
+    syncTasks();
+    const starts = [], ends = [];
+    tasks.forEach(t => { [t.ps, t.as].forEach(d => d && starts.push(d)); [t.pe, t.ae].forEach(d => d && ends.push(d)); });
+    if (!starts.length || !ends.length) return;
+    rs.value = shift(starts.sort()[0], -2);
+    re.value = shift(ends.sort().slice(-1)[0], 2);
+    applyRange();
+  };
+
+  render();
+</script>
+</div>
+<footer style="margin-top:40px;background:#0f3a5f;color:#cfe0f0;padding:18px 26px;text-align:center;font:12.5px/1.7 system-ui,sans-serif">
+  <div><a href="../" style="color:#fff;font-weight:700;text-decoration:none">TssGrid</a> — 業務フォーム向け軽量データグリッド（MIT）</div>
+  <div style="opacity:.85;margin-top:4px">© 2026 株式会社スリースターソフトウェア（ThreeStarSoftware） · <a href="https://github.com/threestarsoftware/TssGrid" style="color:#cfe0f0">GitHub</a> · <a href="https://www.threestarsoftware.co.jp/" style="color:#cfe0f0">運営会社</a></div>
+</footer>
+</body>
+</html>

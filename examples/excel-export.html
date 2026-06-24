@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — Excel(xlsx)出力（ExcelJS）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 720px; }
+  .note b { color: #1a8f57; } code { background: #eef; padding: 0 4px; border-radius: 3px; }
+  .bar { margin: 12px 0; display: flex; gap: 10px; align-items: center; }
+  .bar button { font-size: 13px; padding: 6px 16px; cursor: pointer; }
+  #msg { font-size: 13px; color: #1a3a6b; }
+  .pill { display: inline-block; background: #1a8f57; color: #fff; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 720px; }
+  .tssgrid { --tg-accent: #1a8f57; }   /* 外部ライブラリ連携＝緑テーマ */
+</style>
+</head>
+<body>
+<h1>TssGrid 例: Excel(xlsx)出力 <span class="pill">サンプル + ExcelJS</span></h1>
+
+<div class="note">
+xlsx は zip ベースのバイナリ形式なので<b>コアには入れず</b>（軽量を保つ方針）、<b>サンプルで外部ライブラリ <a href="https://github.com/exceljs/exceljs" target="_blank">ExcelJS</a>（MIT）</b>と連携します。CDN を <code>&lt;script&gt;</code> で読むだけ＝<b>ノービルドのまま</b>。<br>
+CSV と違い、<b>数値は“数値のまま”</b>・<b>太字ヘッダ</b>・<b>¥書式</b>・<b>ヘッダ行固定</b>・<b>列幅</b>まで付けられます（Excelで集計・並べ替えがそのまま効く）。下のボタンで <code>.xlsx</code> をダウンロード。<b>読込（取り込み）は</b> <a href="excel-import.html">excel-import.html</a>。
+</div>
+
+<div class="bar">
+  <button id="xlsx">Excel(.xlsx)で出力</button>
+  <button id="csv">参考: CSV出力</button>
+  <span id="msg"></span>
+</div>
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み（要点）</h2>
+<pre>// &lt;script src="…/exceljs@4.4.0/dist/exceljs.min.js" integrity="sha384-…" crossorigin&gt;&lt;/script&gt;
+const wb = new ExcelJS.Workbook();
+const ws = wb.addWorksheet('在庫');
+ws.columns = [
+  { header:'品名', key:'name',   width:18 },
+  { header:'数量', key:'qty',    width:10 },
+  { header:'単価', key:'price',  width:12, style:{ numFmt:'¥#,##0' } },
+  { header:'金額', key:'amount', width:14, style:{ numFmt:'¥#,##0' } },
+];
+ws.getRow(1).font = { bold:true };                 // 太字ヘッダ
+ws.views = [{ state:'frozen', ySplit:1 }];          // ヘッダ行固定
+grid.getRows().forEach(r =&gt; ws.addRow({            // 数値は Number で入れる
+  name:r.品名, qty:+r.数量||0, price:+r.単価||0, amount:(+r.数量||0)*(+r.単価||0),
+}));
+const buf = await wb.xlsx.writeBuffer();            // → Blob → ダウンロード</pre>
+
+<script src="../src/tssgrid.js"></script>
+<!-- ExcelJS（MIT）。バージョン固定＋SRI（integrity）で CDN 改ざんに備える -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"
+        integrity="sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'xlsx', width: 480,
+    headers: ['品名', '数量', '単価', '金額'],
+    columns: [
+      { data: '品名' },
+      { data: '数量', type: 'number', thousands: true },
+      { data: '単価', type: 'number', thousands: true, prefix: '¥' },
+      { data: '金額', type: 'number', thousands: true, prefix: '¥', readOnly: true },
+    ],
+    onAfterChange: (changes) => {
+      for (const ch of changes) if (ch.c === 1 || ch.c === 2) {
+        const q = +grid.getValue(ch.r, 1) || 0, p = +grid.getValue(ch.r, 2) || 0;
+        grid.setValueRaw(ch.r, 3, (grid.getValue(ch.r, 1) !== '' && grid.getValue(ch.r, 2) !== '') ? String(q * p) : '');   // 派生値=履歴非汚染
+      }
+    },
+    data: [
+      { 品名: 'りんご', 数量: '120', 単価: '158', 金額: '18960' },
+      { 品名: 'ボールペン', 数量: '500', 単価: '88', 金額: '44000' },
+      { 品名: '洗剤', 数量: '36', 単価: '398', 金額: '14328' },
+    ],
+  });
+
+  // TssGrid の getRows() から ExcelJS のワークブックを組み立てて .xlsx を返す
+  async function buildWorkbook() {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'TssGrid'; wb.created = new Date();
+    const ws = wb.addWorksheet('在庫');
+    ws.columns = [
+      { header: '品名', key: 'name', width: 18 },
+      { header: '数量', key: 'qty', width: 10 },
+      { header: '単価', key: 'price', width: 12, style: { numFmt: '¥#,##0' } },
+      { header: '金額', key: 'amount', width: 14, style: { numFmt: '¥#,##0' } },
+    ];
+    const head = ws.getRow(1);
+    head.font = { bold: true };
+    head.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF3FA' } };
+    head.alignment = { vertical: 'middle' };
+    ws.views = [{ state: 'frozen', ySplit: 1 }];                 // ヘッダ行固定
+    const rows = grid.getRows().filter(r => r.品名);
+    rows.forEach(r => {
+      const q = +r.数量 || 0, p = +r.単価 || 0;
+      ws.addRow({ name: r.品名, qty: q, price: p, amount: q * p });   // 数値は Number で
+    });
+    // 合計行
+    const total = rows.reduce((s, r) => s + (+r.数量 || 0) * (+r.単価 || 0), 0);
+    const t = ws.addRow({ name: '合計', amount: total });
+    t.font = { bold: true };
+    t.getCell('amount').numFmt = '¥#,##0';
+    return wb;
+  }
+
+  document.getElementById('xlsx').addEventListener('click', async () => {
+    if (typeof ExcelJS === 'undefined') { document.getElementById('msg').textContent = '⚠ ExcelJS を読み込めませんでした（CDN/ネット接続をご確認ください）'; return; }
+    const wb = await buildWorkbook();
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = '在庫一覧.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    document.getElementById('msg').textContent = '✅ 在庫一覧.xlsx をダウンロードしました（数値書式・太字ヘッダ・ヘッダ固定つき）';
+  });
+
+  document.getElementById('csv').addEventListener('click', () => {
+    grid.downloadCSV('在庫一覧.csv');
+    document.getElementById('msg').textContent = '✅ 在庫一覧.csv（コア内蔵・BOM付）をダウンロードしました';
+  });
+</script>
+</body>
+</html>

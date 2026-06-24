@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 入力検証とエラー表示（validator / onInvalid / getInvalidCells）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:740px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .va .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; --tg-invalid-bg:#fde8e8; --tg-invalid-fg:#c0392b; }
+  .va .tssgrid td.tg-placeholder { color:#b6bfca; }
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+  /* エラー一覧パネル */
+  .errs { margin-top:12px; border:1px solid #e2e7ee; border-radius:8px; overflow:hidden; font-size:12.5px; }
+  .errs .head { background:#c0392b; color:#fff; padding:6px 12px; font-weight:600; }
+  .errs.ok .head { background:#1573c0; }
+  .errs ul { margin:0; padding:6px 12px; list-style:none; }
+  .errs li { padding:3px 0; border-bottom:1px solid #f0f3f7; }
+  .errs li:last-child { border-bottom:0; }
+  .errs .cell { display:inline-block; min-width:96px; color:#64748b; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>入力検証とエラー表示 <span class="pill">validator / onInvalid / getInvalidCells</span></h1>
+  <div class="note" style="margin-top:8px">
+  <code>validator</code> が<b>文字列を返すとエラー文</b>に。<code>invalidMode:'keep'</code> で<b>NG値を残して赤く</b>＋<b>ホバーで理由（title）</b>。<br>
+  <b>複数エラーは <code>getInvalidCells()</code> でまとめて取得</b>してパネル表示（下）。確定時の <code>onInvalid(rejections)</code> でもその場のエラーを受け取れます。<code>invalidTitle:false</code> でホバー表示はOFFにも。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">社員登録（コード=英数字5桁 / 年齢=0〜120 / メール=形式 / 部署=必須）。わざとNGを入れると赤＋一覧に出ます</div>
+    <div class="va"><div id="grid"></div></div>
+    <div id="errs" class="errs"></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'reg', width: 780, rowHeight: 26, rowHeaders: false, invalidMode: 'keep',   // 赤く残す＋title（invalidTitle 既定ON）
+    columns: [
+      { data: 'code', title: 'コード', width: 120, placeholder: 'A1234', maxLength: 5,
+        validator: v => v === '' || /^[A-Z0-9]{1,5}$/.test(v) || '英数字（大文字）5桁以内' },
+      { data: 'name', title: '氏名', width: 160, placeholder: '氏名を入力' },
+      { data: 'age', title: '年齢', width: 90, type: 'number', align: 'right',
+        validator: v => v === '' || (Number(v) >= 0 && Number(v) <= 120) || '0〜120 の範囲' },
+      { data: 'email', title: 'メール', width: 220, placeholder: 'name@example.com',
+        validator: v => v === '' || reEmail.test(v) || 'メール形式が不正' },
+      { data: 'dept', title: '部署', width: 120, type: 'dropdown', options: ['営業部', '開発部', '総務部'], allowEmpty: false },
+    ],
+    onInvalid: (rejections) => { /* 確定時の即時エラー（ここではパネルにまとめるので何もしない） */ },
+    onAfterChange: () => renderErrors(),
+    data: [
+      { code: 'A1234', name: '三星 太郎', age: '34', email: 'taro@example.com', dept: '開発部' },
+      { code: 'b99',   name: '彩瀬 花子', age: '200', email: 'hanako(at)example.com', dept: '' },  // わざと複数NG
+      { code: '', name: '', age: '', email: '', dept: '' },
+    ],
+  });
+
+  // 値はユーザー入力なので innerHTML 前に必ずエスケープ（XSS対策）
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // getInvalidCells() で全エラーをまとめてパネルに（複数エラーをプログラム側で集計表示）
+  function renderErrors() {
+    const errs = grid.getInvalidCells();
+    const box = document.getElementById('errs');
+    if (!errs.length) { box.className = 'errs ok'; box.innerHTML = '<div class="head">✓ エラーなし</div>'; return; }
+    const title = c => (grid.columns[c].title || grid.columns[c].data);
+    box.className = 'errs';
+    box.innerHTML = '<div class="head">エラー ' + errs.length + ' 件</div><ul>'
+      + errs.map(e => '<li><span class="cell">' + (e.r + 1) + '行 ' + esc(title(e.c)) + '</span>'
+        + esc(e.message || '入力が不正') + '（' + (e.value === '' ? '空' : esc(e.value)) + '）</li>').join('') + '</ul>';
+  }
+  renderErrors();
+</script>
+</body>
+</html>

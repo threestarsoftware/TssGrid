@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 2択トグル（toggle プラグイン）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-toggle.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:640px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .tg .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  /* トグルの配色（プラグインCSSの変数を上書き） */
+  .tg .tssgrid { --tg-toggle-accent:#1573c0; }
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>2択トグル <span class="pill">toggle プラグイン</span></h1>
+  <div class="note" style="margin-top:8px">
+  ラジオの2択を<b>並んだセグメント（有効｜無効）</b>で表示し、<b>クリックで切替</b>（<code>plugins/tss-toggle.js</code>＋<code>.css</code>）。チェックボックスより<b>2つのラベルが見える</b>のが利点。アクティブセルで <b>Space</b> でも反対側へトグル。<br>
+  値は <code>dropdown</code> と同じく <b>value を保存</b>（<code>['公開','非公開']</code> や <code>{value:'1',label:'公開'}</code>）。<b>Undo 対応</b>・他値の打ち込みは検証で拒否。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">記事管理（公開状態・コメント許可・対象をクリックで切替）</div>
+    <div class="tg"><div id="grid"></div></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-toggle.js"></script>
+<script>
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'articles', width: 660, rowHeight: 28, rowHeaders: false,
+    columns: [
+      { data: 'title', title: 'タイトル', width: 240 },
+      { data: 'pub',   title: '公開', width: 130 },
+      { data: 'cmt',   title: 'コメント', width: 130 },
+      { data: 'target', title: '対象', width: 120 },
+    ],
+    plugins: [TssToggle.plugin({
+      columns: {
+        pub:    [{ value: '1', label: '公開' }, { value: '0', label: '非公開' }],   // value/label 分離
+        cmt:    ['許可', '不可'],                                                    // 文字列2つ
+        target: ['全員', '会員'],
+      },
+    })],
+    data: [
+      { title: 'TssGrid を作った話', pub: '1', cmt: '許可', target: '全員' },
+      { title: 'プラグインの設計',    pub: '0', cmt: '不可', target: '会員' },
+      { title: '勤怠表の作り方',      pub: '1', cmt: '許可', target: '全員' },
+      { title: '比較表まとめ',        pub: '0', cmt: '許可', target: '会員' },
+    ],
+  });
+</script>
+</body>
+</html>

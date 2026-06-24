@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="../favicon.png">
+<link rel="apple-touch-icon" href="../favicon.png">
+<title>記事 — TssGrid</title>
+<meta name="description" content="TssGrid の設計判断・他ライブラリ比較・実装の勘所をまとめた記事一覧。">
+<link rel="canonical" href="https://tssgrid.threestarsoftware.co.jp/articles/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TssGrid">
+<meta property="og:title" content="記事 — TssGrid">
+<meta property="og:description" content="TssGrid の設計判断・他ライブラリ比較・実装の勘所をまとめた記事一覧。">
+<meta property="og:url" content="https://tssgrid.threestarsoftware.co.jp/articles/">
+<meta property="og:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="記事 — TssGrid">
+<meta name="twitter:description" content="TssGrid の設計判断・他ライブラリ比較・実装の勘所をまとめた記事一覧。">
+<meta name="twitter:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../"><img class="logo" src="../favicon.svg" width="28" height="28" alt="">TssGrid <span class="tag">MIT</span></a>
+    <button class="nav-toggle" aria-label="メニュー">≡</button>
+    <nav class="nav">
+      <a href="../#features">機能</a>
+      <a href="../#demo">デモ</a>
+      <a href="./">記事</a>
+      <a class="gh" href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Articles</div>
+      <h2>記事一覧</h2>
+      <p>設計判断・他ライブラリ比較・実装の勘所。新しい順。</p>
+    </div>
+
+    <div class="posts">
+      <!-- ▼ 記事を追加するときは、この <a class="post-row"> ブロックを上にコピーするだけ -->
+      <a class="post-row" href="ime-input.html">
+        <time>2026-06-19</time>
+        <span class="cat">設計</span>
+        <span class="pt"><b>なぜ Web グリッドは日本語入力で「Enter を奪う」のか</b><span>変換確定の Enter でセルが飛ぶ・1文字目が落ちる問題の原因と、本物の input ＋ composition で解いた IME 設計。</span></span>
+      </a>
+      <a class="post-row" href="cell-merge-3libs.html">
+        <time>2026-06-16</time>
+        <span class="cat">設計</span>
+        <span class="pt"><b>3社のグリッドを調べて「セル結合」の落とし所を決めた話</b><span>ag-grid / Handsontable / jspreadsheet を見比べ、軽量のまま矩形結合を実装した判断の記録。</span></span>
+      </a>
+      <!-- ▲ ここまでが1記事 -->
+    </div>
+  </div>
+</section>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="f-brand">TssGrid</div>
+    <nav class="f-links">
+      <a href="../#features">機能</a>
+      <a href="./">記事</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.threestarsoftware.co.jp/" target="_blank" rel="noopener">運営会社</a>
+    </nav>
+    <div class="copy">MIT License ・ © <span id="year">2026</span> 株式会社スリースターソフトウェア（ThreeStarSoftware）</div>
+  </div>
+</footer>
+
+<script src="../assets/site.js"></script>
+</body>
+</html>

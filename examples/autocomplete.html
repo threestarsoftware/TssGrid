@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — オートコンプリート（autocomplete エディタ）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-autocomplete.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:640px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .ac .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  /* オートコンプリートの配色（プラグインCSSの変数を上書き） */
+  .tss-ac { --ac-accent:#1573c0; }
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>オートコンプリート <span class="pill">autocomplete エディタ</span></h1>
+  <div class="note" style="margin-top:8px">
+  自由入力＋<b>候補の絞り込み</b>（<code>plugins/tss-autocomplete.js</code>）。固定ドロップダウンの上位版で、<b>「だいたい決まってるが新規もある」</b>項目（取引先・商品名など）向け。↑↓で候補移動・Enterで確定・Escで取消・クリックで選択。<br>
+  <b>IME変換中の Enter は奪いません</b>（変換確定が最優先＝TssGrid の流儀）。<code>取引先</code>は候補から自由に、<code>支払方法</code>は <code>strict:true</code>（候補のみ許可）。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">受注メモ（取引先・商品名を打つと候補が出ます。新規もそのまま入力可）</div>
+    <div class="ac"><div id="grid"></div></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-autocomplete.js"></script>
+<script>
+  const clients = ['三星商事', '三星製作所', '三星物流', '彩瀬電機', '彩瀬システム', '神田工業', '新宿テクノ', '八王子製作所', '品川商会'];
+  const products = ['A4 コピー用紙', 'A3 コピー用紙', 'ボールペン(黒)', 'ボールペン(赤)', 'クリアファイル', 'ホチキス', 'ホチキス針', '付箋', 'マーカー'];
+  const pays = ['現金', '振込', '掛け(月末締)', '掛け(20日締)', 'クレジット'];
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'orders', width: 660, rowHeight: 26, rowHeaders: false, initialCell: { r: 0, c: 'client' },
+    columns: [
+      { data: 'client',  title: '取引先',  width: 200, editor: TssAutocomplete({ source: clients }) },           // 自由入力可
+      { data: 'product', title: '商品名',  width: 220, editor: TssAutocomplete({ source: products }) },
+      { data: 'pay',     title: '支払方法', width: 160, editor: TssAutocomplete({ source: pays, strict: true }) }, // 候補のみ
+    ],
+    data: [
+      { client: '三星商事', product: 'A4 コピー用紙', pay: '振込' },
+      { client: '', product: '', pay: '' },
+      { client: '', product: '', pay: '' },
+      { client: '', product: '', pay: '' },
+    ],
+  });
+</script>
+</body>
+</html>

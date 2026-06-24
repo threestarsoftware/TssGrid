@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 行固定（frozenRows）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 720px; }
+  .note b { color: #1573c0; } code { background: #eef; padding: 0 4px; border-radius: 3px; }
+  .bar { margin: 10px 0; display: flex; gap: 8px; align-items: center; }
+  .bar button { font-size: 13px; padding: 5px 12px; cursor: pointer; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 720px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 行固定 <span class="pill">frozenRows</span></h1>
+
+<div class="note">
+<b>上から N 行を縦スクロールしても固定</b>します（ヘッダ行の sticky と同じ仕組みの行版）。列固定 <code>frozenCols</code> と併用すると<b>四隅が固定</b>されます。<br>
+このデモ：<b>frozenRows: 1</b>（合計行を上に固定）＋ <b>frozenCols: 1</b>（品番を左に固定）。<b>縦にも横にもスクロール</b>して確認してください。
+</div>
+
+<div class="bar">
+  <button id="f0">固定なし</button>
+  <button id="f1">先頭1行を固定</button>
+  <button id="f2">先頭2行を固定</button>
+  <span id="msg" style="font-size:13px;color:#1a3a6b"></span>
+</div>
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み</h2>
+<pre>new TssGrid(host, {
+  height: 280,            // 縦スクロールを出す（sticky の効く枠）
+  frozenRows: 1,          // 上から1行を固定（実行時 grid.freezeRows(n) でも）
+  frozenCols: 1,          // 左から1列を固定（併用で四隅固定）
+  data: rows,
+});</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const cols = 9, rowsN = 40;
+  const headers = ['品番'];
+  for (let c = 1; c < cols; c++) headers.push('項目' + c);
+  const data = [];
+  // 1行目＝合計行（固定される）
+  const total = ['合計']; for (let c = 1; c < cols; c++) total.push('—');
+  data.push(total);
+  for (let r = 1; r < rowsN; r++) {
+    const row = ['P-' + String(r).padStart(3, '0')];
+    for (let c = 1; c < cols; c++) row.push('r' + r + 'c' + c);
+    data.push(row);
+  }
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'frozen', headers, data,
+    width: 620, height: 280,
+    frozenRows: 1, frozenCols: 1,
+    colWidths: Array.from({ length: cols }, (_, c) => c === 0 ? 90 : 100),
+  });
+
+  const setF = (n) => { grid.freezeRows(n); document.getElementById('msg').textContent = '固定行: ' + n; };
+  document.getElementById('f0').onclick = () => setF(0);
+  document.getElementById('f1').onclick = () => setF(1);
+  document.getElementById('f2').onclick = () => setF(2);
+  document.getElementById('msg').textContent = '固定行: 1 ／ 固定列: 1';
+</script>
+</body>
+</html>

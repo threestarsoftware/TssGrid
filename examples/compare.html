@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 機能比較 — 主要グリッドライブラリと比べて</title>
+<style>
+  :root { --accent:#1a7f5a; --line:#dde3ea; --head:#f3f6fa; --me:#eafaf2; --meHead:#1a7f5a; }
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 0; color: #222; line-height: 1.65; background: #fbfcfd; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 22px 80px; }
+  h1 { font-size: 22px; margin-bottom: 4px; } h2 { font-size: 17px; margin-top: 34px; border-left: 4px solid var(--accent); padding-left: 10px; }
+  .lead { color: #445; font-size: 14px; max-width: 820px; }
+  .me-badge { color: var(--accent); font-weight: 700; }
+  .legend { font-size: 13px; color: #556; margin: 10px 0 4px; }
+  .legend span { margin-right: 14px; white-space: nowrap; }
+  .disc { background: #fff8e8; border: 1px solid #f0e0b0; border-radius: 6px; padding: 10px 14px; font-size: 12.5px; color: #6a5a20; max-width: 820px; }
+  .tbl-scroll { overflow-x: auto; margin-top: 12px; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 760px; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: center; }
+  thead th { background: var(--head); position: sticky; top: 0; z-index: 1; font-size: 12.5px; }
+  tbody th { text-align: left; font-weight: 600; background: #fafcfe; white-space: nowrap; }
+  .grp td { background: #eef2f7; font-weight: 700; text-align: left; color: #334; font-size: 12px; letter-spacing: .03em; }
+  col.me, td.me, .colme { background: var(--me); }
+  thead th.me { background: var(--meHead); color: #fff; }
+  .mk { font-size: 14px; } .sub { font-size: 11px; color: #667; display: block; }
+  .ok { color: #1a7f5a; } .no { color: #c0392b; } .pt { color: #b8860b; } .yen { color: #b8860b; }
+  .reco { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; max-width: 880px; }
+  .reco .card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; font-size: 13px; background: #fff; }
+  .reco .card b { color: var(--accent); }
+  .road { font-size: 13.5px; }
+  .road li { margin-bottom: 5px; }
+  .road b { color: #1a3a6b; }
+  a { color: #1a6; }
+  @media (max-width: 720px) { .reco { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>TssGrid 機能比較</h1>
+<p class="lead">
+<span class="me-badge">TssGrid</span> の立ち位置は <b>MIT（無料・商用可）× ノービルド × 日本語IME堅牢 × 業務フォーム特化</b>。
+「Excelを丸ごとブラウザに」ではなく、<b>帳票・マスタ入力・勤怠・在庫</b>のような<b>日本語の入力業務を、軽く・確実に</b>がねらいです。
+下表は主要ライブラリとの概況比較と、<b>他社が強い領域（＝TssGrid の伸びしろ）</b>を正直にまとめたものです。
+</p>
+
+<div class="disc">
+⚠️ <b>注記</b>: 競合製品の評価は公開情報をもとにした<b>2026年前半時点の概況</b>です。各製品は活発に更新されており、ライセンス・機能は変わります。<b>正確・最新の情報は各公式サイトでご確認ください</b>。本表は優劣の断定ではなく「用途適合」の目安です。
+</div>
+
+<p class="legend">
+  <span class="ok mk">✅ 対応</span>
+  <span class="pt mk">⚠️ 限定的／外部UI・要拡張</span>
+  <span class="no mk">❌ 非対応</span>
+  <span class="yen mk">💲 有料機能／有償ライセンス</span>
+</p>
+
+<div class="tbl-scroll">
+<table>
+  <colgroup><col><col class="me"><col><col><col><col></colgroup>
+  <thead>
+    <tr>
+      <th>項目</th>
+      <th class="me">TssGrid</th>
+      <th>Handsontable</th>
+      <th>AG Grid</th>
+      <th>jspreadsheet CE</th>
+      <th>SpreadJS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="grp"><td colspan="6">ライセンス・導入</td></tr>
+    <tr><th>ライセンス／費用</th><td class="me ok">✅ MIT<span class="sub">無料・商用可</span></td><td class="yen">💲 商用は有料</td><td class="ok">✅ Community(MIT)<span class="sub">💲 Enterprise有料</span></td><td class="pt">⚠️ CE無料/Pro有料<span class="sub">ライセンス条件あり</span></td><td class="yen">💲 商用(有償)</td></tr>
+    <tr><th>ノービルド（scriptタグ1本）</th><td class="me ok">✅</td><td class="pt">⚠️ 可だが重い</td><td class="pt">⚠️ 可だが重い</td><td class="ok">✅</td><td class="pt">⚠️ 可だが重い</td></tr>
+    <tr><th>依存なし</th><td class="me ok">✅</td><td class="ok">✅<span class="sub">数式は別ライブラリ</span></td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td></tr>
+    <tr><th>サイズ感</th><td class="me ok">✅ 極小（1ファイル）</td><td class="no">❌ 大</td><td class="no">❌ 大</td><td class="ok">✅ 小</td><td class="no">❌ 大</td></tr>
+    <tr><th>日本語IME堅牢性</th><td class="me ok">✅ 最重要設計</td><td class="pt">⚠️</td><td class="pt">⚠️</td><td class="pt">⚠️</td><td class="ok">✅ 国産級</td></tr>
+
+    <tr class="grp"><td colspan="6">編集・入力</td></tr>
+    <tr><th>セル編集</th><td class="me ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td></tr>
+    <tr><th>入力検証（validator）</th><td class="me ok">✅ 型＋関数</td><td class="ok">✅</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>セルタイプ（数値/日付/選択/✓）</th><td class="me ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td></tr>
+    <tr><th>全角→半角の自動正規化</th><td class="me ok">✅ 既定ON</td><td class="no">❌ 自前</td><td class="no">❌ 自前</td><td class="no">❌ 自前</td><td class="pt">⚠️</td></tr>
+    <tr><th>カスタムエディタ</th><td class="me ok">✅ 薄い契約</td><td class="ok">✅</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>Excel相互コピー＆ペースト</th><td class="me ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td></tr>
+    <tr><th>オートフィル（ハンドル）</th><td class="me ok">✅</td><td class="ok">✅</td><td class="yen">💲 範囲はEnterprise</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>Undo / Redo</th><td class="me ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td></tr>
+    <tr><th>日付／時刻ピッカー</th><td class="me ok">✅ 同梱<span class="sub">社内休日カレンダー対応</span></td><td class="pt">⚠️</td><td class="pt">⚠️</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+
+    <tr class="grp"><td colspan="6">表示・操作</td></tr>
+    <tr><th>列固定（フリーズ）</th><td class="me ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td></tr>
+    <tr><th>列リサイズ／幅ロック</th><td class="me ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td></tr>
+    <tr><th>列の表示／非表示</th><td class="me ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>並べ替え</th><td class="me ok">✅ データ並替</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td></tr>
+    <tr><th>テーマ／CSSカスタム</th><td class="me ok">✅ CSS変数</td><td class="ok">✅</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>プラグイン拡張</th><td class="me ok">✅ 軽量</td><td class="ok">✅</td><td class="ok">✅ モジュール</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+
+    <tr class="grp"><td colspan="6">大規模・高度（他社が強い領域 ＝ TssGrid の伸びしろ）</td></tr>
+    <tr><th>行固定（フリーズ行）</th><td class="me ok">✅ frozenRows</td><td class="ok">✅</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>フィルタUI</th><td class="me pt">⚠️ サンプルあり<span class="sub">setData+編集同期</span></td><td class="ok">✅</td><td class="ok">✅ 強力</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>仮想スクロール（大量行）</th><td class="me no">❌ <span class="sub">将来</span></td><td class="ok">✅</td><td class="ok">✅ 最強</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>セル結合（merge）</th><td class="me ok">✅ 横/縦/矩形<span class="sub">tss-merge＋ヘッダ結合</span></td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td><td class="ok">✅</td></tr>
+    <tr><th>条件付き書式</th><td class="me ok">✅ cellClass<span class="sub">値/行でクラス付与</span></td><td class="ok">✅</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>数式</th><td class="me no">❌ <span class="sub">方針として非搭載</span></td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td><td class="ok">✅ Excel級</td></tr>
+    <tr><th>Excelファイル入出力（xlsx）</th><td class="me no">❌ コア非搭載<span class="sub">ExcelJS 併用で可（入出力サンプルあり）</span></td><td class="yen">💲／外部</td><td class="yen">💲 Enterprise</td><td class="pt">⚠️</td><td class="ok">✅ 完全</td></tr>
+    <tr><th>CSV出力／入力</th><td class="me pt">✅ 出力 / ❌ 入力<span class="sub">出力はコア。入力は貼付で代替／CSVファイルは PapaParse 併用（サンプル）</span></td><td class="ok">✅ / ✅</td><td class="ok">✅ / ⚠️</td><td class="ok">✅ / ✅</td><td class="ok">✅ / ✅</td></tr>
+    <tr><th>ピボット／集計</th><td class="me no">❌</td><td class="pt">⚠️</td><td class="yen">💲 Enterprise</td><td class="no">❌</td><td class="ok">✅</td></tr>
+    <tr><th>グラフ</th><td class="me no">❌</td><td class="no">❌</td><td class="yen">💲 Enterprise</td><td class="no">❌</td><td class="ok">✅</td></tr>
+    <tr><th>モバイル／タッチ操作</th><td class="me no">❌ <span class="sub">将来（参考収集済）</span></td><td class="pt">⚠️</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>他社が強い領域 → TssGrid の今後（伸びしろ）</h2>
+<p class="lead">「無料公開して終わり」ではなく、ここを着実に埋めていくのが方針です。正直に並べることが、次のバージョンの地図になります。</p>
+<ul class="road">
+  <li><b>仮想スクロール（AG Grid / SpreadJS が強い）</b> → 大量行対応。インデックスマッパとセットで設計予定（フィルタの基盤にもなる）。<b>ロードマップ上位</b>。</li>
+  <li><b>セル結合 merge</b> → <b>対応済み</b>。データセルの<b>横/縦/矩形結合</b>（<a href="merge.html">merge.html</a>・<code>plugins/tss-merge.js</code>）＝アンカー=左上が値/編集/選択、Undo対応・行列の挿入削除で座標追従。ヘッダ結合（<code>nestedHeaders</code>）も別途あり。割り切り: ソートは結合中ロック・縦結合中は行移動不可（分断回避）。</li>
+  <li><b>フィルタUI（各社）</b> → <b>サンプルで対応済み</b>（<a href="filter.html">filter.html</a>：マスタ保持＋setData＋編集同期）。本体は太らせない方針。完全な非破壊フィルタ＋構造変更両立は行インデックスマッパとセット（将来）。</li>
+  <li><b>条件付き書式</b> → <b>対応済み</b>（<code>cellClass</code> で値/行を見てクラス付与＋編集で即追従。見た目は業務側CSS）。Excel風の「ルール設定UI」は将来。</li>
+  <li><b>行固定 frozen rows</b> → <b>対応済み</b>（<code>frozenRows</code>。列固定 <code>frozenCols</code> と併用で四隅固定）。</li>
+  <li><b>xlsx 入出力（SpreadJS が完全）</b> → CSV出力は対応済み。xlsx は<b>外部ライブラリ連携</b>を想定（本体非搭載の方針）。</li>
+  <li><b>モバイル／タッチ（AG Grid / SpreadJS）</b> → 選択ハンドル・長押しメニュー等の<b>参考を収集済み</b>。pointer イベント一般化で対応予定。</li>
+  <li><b>数式（Handsontable / SpreadJS）</b> → <b>あえて非搭載の方針</b>。「Excelを再現」ではなく「入力業務を軽く確実に」に集中。必要なら計算は業務コード側で。</li>
+</ul>
+
+<h2>用途別おすすめ（正直版）</h2>
+<div class="reco">
+  <div class="card"><b>TssGrid</b> ── 軽量・日本語IME堅牢。<b>帳票・マスタ・勤怠・在庫</b>の入力画面を、ビルド無しでサッと。MITで商用も無料。</div>
+  <div class="card"><b>SpreadJS</b> ── <b>Excel互換を丸ごと</b>（数式・グラフ・ピボット・xlsx）。予算があり「ブラウザ版Excel」が要るなら。国産サポート。</div>
+  <div class="card"><b>AG Grid</b> ── <b>超大量データ・サーバサイド・エンタープライズ</b>。仮想スクロールとデータグリッドの王。</div>
+  <div class="card"><b>Handsontable</b> ── <b>スプレッドシート機能の全部入り</b>（数式・結合・条件付き書式）。商用予算が取れる場合の定番。</div>
+  <div class="card"><b>jspreadsheet CE</b> ── <b>軽量スプレッドシート</b>。数式も使える。ライセンス条件が許容できれば手軽。</div>
+  <div class="card" style="background:#f3faf6;"><b>選び方の軸</b> ── 「大量データ／Excel互換」が要るなら商用勢、「<b>日本語の入力業務を軽く</b>」なら TssGrid。重さと自由度のトレードオフで選ぶのが正解。</div>
+</div>
+
+<p style="margin-top:30px; font-size:13px; color:#667;">
+  <a href="showcase.html">導入事例 / Used by</a><br>
+  動くデモ: <a href="attendance.html">勤怠表</a> ／ <a href="inventory.html">在庫管理</a> ／ <a href="number-input.html">数値入力（全角→半角・エラー化）</a> ／ <a href="conditional-format.html">条件付き書式</a> ／ <a href="html-cells.html">画像/SVG/HTMLセル</a> ／ <a href="frozen-rows.html">行固定</a> ／ <a href="nested-headers.html">ヘッダ結合</a> ／ <a href="row-reorder.html">行ドラッグ移動</a> ／ <a href="excel-export.html">Excel出力</a> ／ <a href="excel-import.html">Excel読込</a> ／ <a href="calendar.html">休日カレンダー</a> ／ <a href="time.html">時刻ピッカー</a> ／ <a href="sort.html">並べ替え</a> ／ <a href="filter.html">フィルタ</a>
+</p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid - 勤怠表サンプル</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:900px; color:#445; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  /* ヘッダ情報バー */
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .info { display:flex; gap:0; flex-wrap:wrap; font-size:13px; border:1px solid #cfd7e0; border-radius:8px; overflow:hidden; width:fit-content; }
+  .info div { padding:6px 14px; border-right:1px solid #e3e8ef; }
+  .info .k { background:#334155; color:#fff; font-weight:600; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin:14px 0 6px; flex-wrap:wrap; }
+  .toolbar label { background:#334155; color:#fff; padding:6px 10px; border-radius:6px 0 0 6px; font-size:13px; }
+  .toolbar select { font:inherit; padding:6px 8px; border:1px solid #cfd7e0; border-left:0; border-radius:0 6px 6px 0; background:#fff; }
+  .btn { font-size:13px; padding:7px 16px; border:0; border-radius:7px; background:#1573c0; color:#fff; cursor:pointer; box-shadow:0 2px 5px rgba(21,115,192,.3); }
+  .btn.ghost { background:#fff; color:#334155; border:1px solid #cfd7e0; box-shadow:none; }
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+
+  /* ===== TssGrid モダン配色（slate ヘッダ ＋ 青アクセント） ===== */
+  .att .tssgrid {
+    --tg-colheader-bg:#334155;  --tg-rowhead-bg:#475569;  --tg-header-fg:#f1f5f9;
+    --tg-accent:#1573c0;        --tg-edit-accent:#0ea5e9;
+    --tg-border:#dbe1e9;        --tg-wrap-border:#c3ccd6;
+    --tg-sel-bg:#eaf2fb;        --tg-selhdr-bg:#1565a8;
+    --tg-font-size:12.5px;
+  }
+  .att .tssgrid .tg-table thead th { font-weight:600; }
+  /* 入力セル＝淡いクリーム（編集できる所が一目で分かる） */
+  .att .tssgrid td.att-row-off { background:#f4f7fb; }                 /* 休日行（先に書いて入力色に負ける） */
+  .att .tssgrid td.att-input   { background:#fff3cd; }                 /* 入力セル＝アンバー（打てる所が一目で分かる） */
+  .att .tssgrid td.tg-readonly { background:#f8fafc; color:#5b6573; }  /* 計算列を上品なグレーに */
+  /* 土＝青 / 日祝＝赤（日・曜の文字） */
+  .att .tssgrid td.att-sat { color:#2563eb; font-weight:700; }
+  .att .tssgrid td.att-sun { color:#dc2626; font-weight:700; }
+  /* 未入力アラート＝平日で当日までに出勤も区分も空の区分セルを赤地に（att-input より後＝アンバーに勝つ） */
+  .att .tssgrid td.att-missing { background:#fde2e2; color:#c0392b; font-weight:600; }
+  /* 検証NG（HH:MM 以外）＝赤セル */
+  .att .tssgrid { --tg-invalid-bg:#fde8e8; --tg-invalid-fg:#c0392b; }
+  /* ラベルセル（colHeaders なしのフォーム的グリッドで、ラベルをデータセルとしてチップ見た目に） */
+  .att .tssgrid td.kv-lbl { background:#334155; color:#f1f5f9; font-weight:600; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>TssGrid - 勤怠表サンプル</h1>
+  <div class="note" style="margin-top:8px">
+  以前 Handsontable で作りかけていた<b>勤怠入力画面</b>を TssGrid で再現（無料・無依存・ノービルド）。<b>オブジェクトデータ束縛</b> / <b>土日祝の色分け</b>（隠しフィールド <code>holiday_kbn</code> 基準＝<code>cellClass</code> の <code>src</code>）/ <b>休日カレンダー</b>（日付ピッカーと同じ <code>holidays</code> JSON を読んで祝日・会社休日を赤＋備考に。年月を変えると月末日も変化）/ <b>区分ドロップダウン</b>＋<b>未入力アラート</b>（平日で当日までに出勤も区分も空なら区分セルを赤に） / <b>時刻スマート入力</b>（<code>930</code>→<code>09:30</code>）＋<b>HH:MM検証</b> / <b>readonly 計算列</b>（元Excelの計算を移植＝勤務時間・残業・深夜・<b>休出</b>（休日労働は休出列へ振り分け）・<b>遅刻/早退</b>（基本始業09:00・終業17:30からの差）を5分丸め/基本就業7.5h/深夜22:00でライブ計算）/ <b>合計表</b>（休出日数も集計）。配色はテーマ変数だけで slate＋ブルー に。<br>計算は <b>TssGrid非依存の純粋関数エンジン</b>（<code>examples/attendance-calc.js</code>）に分離
+  </div>
+  
+  <div class="panel">
+    <!-- 社員情報・設定とも colHeaders:false＝ヘッダ行なし。ラベルもデータセルとして渡し1行で（元のコンパクトな見た目） -->
+    <div class="att"><div class="tssgrid-host"><div id="info"></div></div></div>
+    <div class="toolbar" style="margin-top:6px">
+      <div class="att"><div class="tssgrid-host"><div id="settings"></div></div></div>
+      <button class="btn ghost" id="fill">サンプル入力</button>
+    </div>
+
+    <div class="lbl">勤怠（出勤・退勤・所定外休・区分・備考が入力できます／930 と打つと 09:30 に整形）</div>
+    <div class="att"><div class="tssgrid-host"><div id="grid"></div></div></div>
+    <div class="att" style="margin-top:3px"><div class="tssgrid-host"><div id="sum"></div></div></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="attendance-calc.js"></script>   <!-- 勤怠計算エンジン（TssGrid非依存・純粋関数）。実用版でもこのファイルをそのまま使い回す -->
+<script>
+  // 計算は attendance-calc.js（AttendanceCalc）に集約。ここはグリッド表示との橋渡しだけ。
+  const AC = AttendanceCalc;
+  const { hhMmToSecond, hhMmFormat, isHhMm, timeConv } = AC;   // 時刻ユーティリティはエンジンから借用
+
+  // ===== 休日カレンダー（日付ピッカー plugins/tss-calendar.js と同じ JSON 形式） =====
+  // ここに登録するだけで勤怠表の祝日色分け（赤）＋備考に反映。同じ JSON をピッカーにも渡せば両方で使える。
+  // 形式: { 'YYYY-MM-DD': '名称' | {name, type} }
+  const holidays = {
+    '2026-02-11': '建国記念の日',
+    '2026-02-23': '天皇誕生日',
+    '2026-07-20': '海の日',
+    '2026-07-21': { name: '夏季休業', type: 'company' },   // 会社独自の休日も登録可
+    '2028-02-11': '建国記念の日',
+    '2028-02-23': '天皇誕生日',
+  };
+  const holName = h => h == null ? '' : (typeof h === 'object' ? h.name : h);
+
+  // ===== 月の勤怠データを生成（y年m月。day_week / holiday_kbn 付き。月末日は月により28〜31） =====
+  const YOUBI = ['日', '月', '火', '水', '木', '金', '土'];
+  const pad = n => String(n).padStart(2, '0');
+  function buildMonth(y, m) {                                    // m: 1〜12
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();      // その月の最終日（28/29/30/31）
+    const rows = [];
+    for (let d = 1; d <= last; d++) {
+      const wd = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+      const hol = holidays[y + '-' + pad(m) + '-' + pad(d)];   // 休日カレンダーに登録あり？
+      rows.push({
+        day: String(d), day_week: YOUBI[wd],
+        attendance_kbn: '', start_hours: '', end_hours: '', extra_break_hours: '',
+        prescribed_break_hours: '', working_hours: '', overtime_hours: '', midnight_overtime_hours: '',
+        holiday_work_hours: '', late_hours: '', early_leave_hours: '', remarks: holName(hol),   // 休日名を備考に
+        holiday_kbn: hol ? '3' : (wd === 6 ? '1' : wd === 0 ? '2' : '0'),   // 3=祝/会社休日, 1=土, 2=日
+        ymd: '' + y + pad(m) + pad(d),
+      });
+    }
+    return rows;
+  }
+  let data = buildMonth(2026, 6);
+  // 今日（YYYYMMDD）。各行の ymd と文字列比較して「当日まで」を判定（未入力アラート用）。
+  const _now = new Date();
+  const TODAY = '' + _now.getFullYear() + pad(_now.getMonth() + 1) + pad(_now.getDate());
+
+  // 有給の期首残（繰越＋付与）。区分から取得日数を引いて残を出す。取得日数の算定は AC.paidDays。
+  const PAID_START = 12.0;
+  const paidDays = AC.paidDays;   // 有給=1.0日 / 前半休・後半休=0.5日
+
+  // 入力列の共通プリセット（DRY）。時刻列＝parse/validator・中央寄せ / 計算列＝readOnly・中央寄せ。
+  const ttime = { parse: timeConv, validator: (v) => isHhMm(v) || '時刻は HH:MM で', align: 'center' };
+  const ro = { readOnly: true, align: 'center' };
+
+  // 列定義（1か所に集約）。見出し(title)・幅(width)・型・読取専用まで各列に同居＝「列の事は列の定義で」。
+  // ★この配列の行を入れ替えるだけで表示列の順番が変わる。列番号(C)は下で cols から自動生成するのでロジックも追従する。
+  const cols = [
+    { data: 'day', title: '日', width: 30, readOnly: true, align: 'center' },
+    { data: 'day_week', title: '曜', width: 30, readOnly: true, align: 'center' },
+    { data: 'attendance_kbn', title: '区分', width: 60, type: 'dropdown', options: ['欠勤', '代休', '特休', '有給', '前半休', '後半休'] },   // 空(クリア用)は自動で先頭に付くので入れない
+    Object.assign({ data: 'start_hours', title: '出勤', width: 62 }, ttime),
+    Object.assign({ data: 'end_hours', title: '退勤', width: 62 }, ttime),
+    Object.assign({ data: 'extra_break_hours', title: '所定外休', width: 70 }, ttime),
+    Object.assign({ data: 'prescribed_break_hours', title: '所定休憩', width: 70 }, ro),
+    Object.assign({ data: 'working_hours', title: '勤務時間', width: 70 }, ro),
+    Object.assign({ data: 'overtime_hours', title: '残業', width: 64 }, ro),
+    Object.assign({ data: 'midnight_overtime_hours', title: '深夜', width: 64 }, ro),
+    Object.assign({ data: 'holiday_work_hours', title: '休出', width: 64 }, ro),
+    Object.assign({ data: 'late_hours', title: '遅刻', width: 64 }, ro),
+    Object.assign({ data: 'early_leave_hours', title: '早退', width: 64 }, ro),
+    { data: 'remarks', title: '備考', width: 220 },
+  ];
+  // 短縮名 → data キー の対応（位置ではなくキー基準）。これを基に C（短縮名→実際の列番号）を cols から自動生成。
+  // ＝cols の行を並べ替えても C が自動で追従するので、計算/入力フロー/色分けの列参照がズレない（手で番号を直さなくていい）。
+  const COL_KEY = {
+    day: 'day', week: 'day_week', kbn: 'attendance_kbn', start: 'start_hours', end: 'end_hours',
+    exbreak: 'extra_break_hours', presc: 'prescribed_break_hours', work: 'working_hours', ot: 'overtime_hours',
+    night: 'midnight_overtime_hours', holwork: 'holiday_work_hours', late: 'late_hours', early: 'early_leave_hours', remarks: 'remarks',
+  };
+  const C = {}; for (const k in COL_KEY) C[k] = cols.findIndex(col => col.data === COL_KEY[k]);
+  const FLOW = [C.start, C.end, C.exbreak, C.remarks];   // Enter の巡回順（入力セルだけ）
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'attendance', width: 1014, height: 430, rowHeight: 23, maxRows: 31,
+    rowHeaders: false,         // 行番号列（自動連番）を非表示（日 列が連番なので不要）
+    invalidMode: 'keep',
+    contextMenu: ['copy', 'cut', 'paste', 'clear'],   // 行/列の挿入削除は出さない（固定31日なので不要）
+    initialCell: { r: 0, c: C.start },                // 初期カーソル＝1日目の出勤
+    // Enter/Tab は入力セルだけ巡回: 出勤→退勤→所定外休→備考→次行の出勤（readonly計算列を飛ばす）
+    nextCell: ({ r, c, shift }) => {
+      const i = FLOW.indexOf(c);
+      if (i < 0) return null;                                          // 入力列以外は既定の移動
+      if (shift) return i > 0 ? { r, c: FLOW[i - 1] } : { r: r - 1, c: FLOW[FLOW.length - 1] };
+      return i < FLOW.length - 1 ? { r, c: FLOW[i + 1] } : { r: r + 1, c: FLOW[0] };
+    },
+    columns: cols,   // ↑で定義した列定義をそのまま渡す（見出しも幅も同居）
+    // 条件付き書式: src（元レコード）の holiday_kbn で土日祝を色分け＋入力セルのクリーム地
+    cellClass: (r, c, value, row, src) => {
+      const out = [];
+      const kbn = src ? src.holiday_kbn : '0';
+      if (c === C.day || c === C.week) { if (kbn === '1') out.push('att-sat'); else if (kbn === '2' || kbn === '3') out.push('att-sun'); }
+      if (kbn !== '0') out.push('att-row-off');
+      if (c === C.kbn || c === C.start || c === C.end || c === C.exbreak || c === C.remarks) out.push('att-input');
+      // 未入力アラート: 平日(kbn=0)で当日まで(ymd<=TODAY)・出勤も区分も空 → 区分セルを赤
+      if (c === C.kbn && kbn === '0' && src && src.ymd && src.ymd <= TODAY && !row[C.start] && !value) out.push('att-missing');
+      return out;
+    },
+    onAfterChange: (changes) => {
+      // 計算列(勤務時間)は setValueRaw で書く＝履歴に積まれない派生値。よって undo/redo 中でも
+      // ここで再計算してOK（むしろ必要）＝勤務時間が独立した undo ステップにならず入力に追従する。
+      const rows = new Set();
+      for (const ch of changes) if (ch.c === C.start || ch.c === C.end || ch.c === C.exbreak) rows.add(ch.r);
+      rows.forEach(recalc);
+      // 出勤の有無が変わると未入力アラートの判定も変わる → 区分セルを再描画して赤を追従させる
+      for (const ch of changes) if (ch.c === C.start) grid._renderCell(ch.r, C.kbn);
+      updateSum();
+    },
+    data,
+  });
+
+  // ===== 基本設定 =====（既定は元Excel「基本設定」名前付き範囲。実用版では会社/契約ごとに差し替え可）
+  const SET = Object.assign({}, AC.DEFAULT_SETTINGS);
+
+  // 計算本体は AC.recalc（純粋関数）に委譲。ここは「グリッドから読む→エンジンに渡す→セルへ書く」の橋渡しだけ。
+  // 派生値は setValueRaw（履歴に積まない）。休日判定は隠しフィールド holiday_kbn から。
+  function recalc(r) {
+    const res = AC.recalc({
+      start: grid.getValue(r, C.start), end: grid.getValue(r, C.end),
+      extraBreak: grid.getValue(r, C.exbreak),
+      isHoliday: (data[r] ? data[r].holiday_kbn : '0') !== '0',
+    }, SET);
+    grid.setValueRaw(r, C.presc, res.prescribedBreak);   // 所定休憩
+    grid.setValueRaw(r, C.work, res.work);               // 勤務時間
+    grid.setValueRaw(r, C.ot, res.overtime);             // 残業
+    grid.setValueRaw(r, C.night, res.night);             // 深夜
+    grid.setValueRaw(r, C.holwork, res.holidayWork);     // 休出
+    grid.setValueRaw(r, C.late, res.late);               // 遅刻
+    grid.setValueRaw(r, C.early, res.early);             // 早退
+  }
+
+  // ===== 合計グリッド =====
+  const sum = new TssGrid(document.getElementById('sum'), {
+    name: 'sum', rowHeight: 23, rowHeaders: false, cursor: false,   // 表示専用＝選択カーソル非表示。幅は中身に合わせる
+    contextMenu: ['copy'],   // 表示専用なのでコピーのみ（行/列操作なし）
+    headers: ['', '勤務日数', '勤務時間', '残業', '深夜', '休出日数', '有給取得', '有給残'],
+    colWidths: [60, 88, 90, 80, 80, 80, 80, 80],   // 合計列＝上テーブルの 日(30)+曜(30)
+    columns: [{ data: 'k', readOnly: true, align: 'center' }].concat(
+      ['wd', 'wh', 'ot', 'mn', 'hw', 'pd', 'pb'].map(k => ({ data: k, readOnly: true, align: 'center' }))),
+    data: [{ k: '合計', wd: '0', wh: '0:00', ot: '0:00', mn: '0:00', hw: '0', pd: '0.0', pb: '0.0' }],
+  });
+  function updateSum() {
+    let days = 0, work = 0, ot = 0, night = 0, holDays = 0, paid = 0;
+    for (let r = 0; r < grid.ROWS; r++) {
+      const w = hhMmToSecond(grid.getValue(r, C.work));
+      if (w != null && w > 0) { days++; work += w; }
+      const o = hhMmToSecond(grid.getValue(r, C.ot)); if (o) ot += o;
+      const n = hhMmToSecond(grid.getValue(r, C.night)); if (n) night += n;
+      const hw = hhMmToSecond(grid.getValue(r, C.holwork)); if (hw != null && hw > 0) holDays++;   // 休出日数
+      paid += paidDays(grid.getValue(r, C.kbn));   // 有給取得（有給=1.0 / 前半休・後半休=0.5）
+    }
+    const remain = PAID_START - paid;   // 有給残＝期首残 − 当月取得
+    sum.setValueRaw(0, 'wd', String(days));
+    sum.setValueRaw(0, 'wh', hhMmFormat(work) || '00:00');
+    sum.setValueRaw(0, 'ot', hhMmFormat(ot) || '00:00');
+    sum.setValueRaw(0, 'mn', hhMmFormat(night) || '00:00');
+    sum.setValueRaw(0, 'hw', String(holDays));
+    sum.setValueRaw(0, 'pd', paid.toFixed(1));
+    sum.setValueRaw(0, 'pb', remain.toFixed(1));
+    // 上の社員情報の有給残は「月初残」なので減らさず固定（PAID_START のまま）。当月取得後の残は合計表の有給残で見る。
+  }
+
+  // ===== 社員情報グリッド（colHeaders:false＝ヘッダ行なし。ラベルもデータセルで渡し1行に） =====
+  // ラベル列(偶数列)は cellClass で スレートのチップ見た目に。値列は内部キー(employeeId 等)で持つ＝
+  // getRows() は { lbl_*:..., employeeId:'000001', ... }。値だけ欲しければ employeeId 等を読めばよい。
+  const infoGrid = new TssGrid(document.getElementById('info'), {
+    name: 'info', colHeaders: false, rowHeaders: false, cursor: false, contextMenu: false, rowHeight: 28,
+    colWidths: [72, 92, 56, 110, 56, 130, 90, 78],
+    columns: [
+      { data: 'lbl_id', readOnly: true }, { data: 'employeeId', readOnly: true, align: 'center' },
+      { data: 'lbl_dept', readOnly: true }, { data: 'departmentName', readOnly: true, align: 'center' },
+      { data: 'lbl_name', readOnly: true }, { data: 'employeeName', readOnly: true, align: 'center' },
+      { data: 'lbl_paid', readOnly: true }, { data: 'paidLeaveRemaining', readOnly: true, align: 'center' },
+    ],
+    cellClass: (r, c) => c % 2 === 0 ? 'kv-lbl' : '',   // 偶数列＝ラベル（チップ見た目）
+    data: [{
+      lbl_id: '社員ID', employeeId: '000001',
+      lbl_dept: '所属', departmentName: '本社1',
+      lbl_name: '氏名', employeeName: '三星　太郎',
+      lbl_paid: '前月有給残', paidLeaveRemaining: PAID_START.toFixed(1) + ' 日',
+    }],
+  });
+
+  // ===== ② 設定グリッド（1行・ドロップダウンは value(内部コード)↔label(表示) を分離） =====
+  const MONTHS = [[2026, 2], [2028, 2], [2026, 6], [2026, 7]];   // 28日 / 29日(閏) / 30日 / 31日
+  const ymLabel = (y, m) => `${y}年${pad(m)}月（${new Date(Date.UTC(y, m, 0)).getUTCDate()}日）`;
+  // value='2026-6'(保存される内部コード) / label='2026年06月（30日）'(表示)
+  const ymOptions = MONTHS.map(([y, m]) => ({ value: y + '-' + m, label: ymLabel(y, m) }));
+  const settingsGrid = new TssGrid(document.getElementById('settings'), {
+    name: 'settings', colHeaders: false, rowHeaders: false, contextMenu: false, rowHeight: 28,
+    fillHandle: false,   // フィル無効（ドラッグ消去なし）
+    copyPaste: false,    // コピペ無効＝paste で年月/プロジェクトが消えるのを防止（ドロップダウン操作は生きたまま）
+    colWidths: [76, 150, 90, 200],
+    columns: [
+      { data: 'lbl_ym', readOnly: true },
+      { data: 'yearMonth', type: 'dropdown', options: ymOptions, allowEmpty: false },
+      { data: 'lbl_pj', readOnly: true },
+      { data: 'projectId', type: 'dropdown', allowEmpty: false,
+        options: [{ value: '1', label: '社内プロジェクト' }, { value: '2', label: '社内プロジェクト（時短）' }] },
+    ],
+    cellClass: (r, c) => c % 2 === 0 ? 'kv-lbl' : '',   // 偶数列＝ラベル
+    data: [{ lbl_ym: '勤怠年月', yearMonth: '2026-6', lbl_pj: 'プロジェクト', projectId: '1' }],   // 保存値は value
+    initialCell: { r: 0, c: 'yearMonth' },              // 初期カーソル＝年月ドロップダウン（ラベルでなく入力セル）
+    nextCell: ({ c }) => c === 1 ? { r: 0, c: 3 } : { r: 0, c: 1 },   // Tab/Enter は年月⇄プロジェクト（ラベル列を飛ばす）
+    onAfterChange: (changes) => {
+      for (const ch of changes) if (ch.c === 1) {            // 勤怠年月(列1)の value('YYYY-M') が変わったら再生成
+        const [y, m] = ch.newValue.split('-').map(Number);
+        data = buildMonth(y, m); grid.setData(data); updateSum();
+      }
+    },
+  });
+
+  // サンプル入力（平日 09:00-18:00 / 休憩1:00。先頭の平日は遅刻あり・先頭の休日は休日出勤＝新列のデモ）
+  document.getElementById('fill').addEventListener('click', () => {
+    let lateShown = false, holShown = false;
+    for (let r = 0; r < grid.ROWS; r++) {
+      if (grid.getValue(r, C.day) === '') continue;
+      const off = ['1', '2', '3'].includes(data[r] && data[r].holiday_kbn);
+      if (off) {
+        if (!holShown) { grid.setValue(r, C.start, '10:00'); grid.setValue(r, C.end, '15:00'); holShown = true; }  // 休出デモ
+        continue;
+      }
+      if (!lateShown) {   // 遅刻デモ（09:45 出勤＝基本始業 09:00 より遅い → 遅刻 45分）
+        grid.setValue(r, C.start, '09:45'); grid.setValue(r, C.end, '18:00'); grid.setValue(r, C.exbreak, '01:00');
+        lateShown = true; continue;
+      }
+      grid.setValue(r, C.start, '09:00');
+      grid.setValue(r, C.end, '18:00');
+      grid.setValue(r, C.exbreak, '01:00');
+    }
+  });
+  updateSum();
+
+  // 複数グリッドだと最後に作ったグリッドが focus を持つ（各コンストラクタが editor.focus するため）。
+  // 入力の主役＝勤怠グリッドを初期フォーカスに（出勤が緑・即入力可。他グリッドは非focusで薄く表示）。
+  grid.setActive(0, C.start);
+</script>
+</body>
+</html>

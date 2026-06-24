@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — セル内スパークライン（sparkline プラグイン）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:740px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:14px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .sp .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  .sp .tssgrid td.tg-readonly { background:#fbfdfd; }
+  .sp .tssgrid td.spark { padding:2px 6px; }     /* グラフセルは余白小さめ */
+  .lbl { font-size:12px; color:#64748b; margin:14px 0 4px; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>セル内スパークライン <span class="pill">sparkline プラグイン</span></h1>
+  <div class="note" style="margin-top:8px">
+  セルの<b>数列</b>を<b>ミニ折れ線/棒グラフ</b>で描く（<code>plugins/tss-sparkline.js</code>・<b>SVG自前描画</b>）。仕組みは <code>columns[c].html:true</code> ＋ <code>format</code> 関数（format が返す SVG がセルに入る）。<br>
+  ここでは月次の数値を <code>formula</code> で数列に組み立て→スパークライン化。<b>月の数字を編集すると動向グラフが即更新</b>します（数値しか SVG に入れないので安全）。Chart.js 等は不要＝ノービルドのまま。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">店舗別 月次売上と動向（4〜9月の数字を編集すると右の折れ線が変わります）</div>
+    <div class="sp"><div id="grid"></div></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-formula.js"></script>
+<script src="../plugins/tss-sparkline.js"></script>
+<script>
+  const MONTHS = ['m4', 'm5', 'm6', 'm7', 'm8', 'm9'];
+  const num = v => (v === '' || v == null) ? '' : Number(v).toLocaleString('ja-JP');
+  const monthCols = MONTHS.map((k, i) => ({ data: k, title: (i + 4) + '月', width: 70, type: 'number', align: 'right', format: num }));
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'sales', width: 760, rowHeight: 28, rowHeaders: false,
+    columns: [
+      { data: 'shop', title: '店舗', width: 90 },
+      ...monthCols,
+      // 動向＝月次を数列にまとめて(formula)スパークライン表示(html+format)。月を編集すると formula→再描画でライブ更新。
+      { data: 'trend', title: '動向', width: 110, html: true, readOnly: true, cellClass: () => 'spark',
+        format: TssSparkline({ width: 96, height: 24, strokeWidth: 1.6, fill: 'rgba(21,115,192,.12)' }),
+        formula: (row) => MONTHS.map(k => row[k]).filter(v => v !== '' && v != null).join(',') },
+    ],
+    plugins: [TssFormula],
+    data: [
+      { shop: '神田',   m4: '388070', m5: '329299', m6: '220057', m7: '348073', m8: '323343', m9: '165449' },
+      { shop: '品川',   m4: '388835', m5: '329299', m6: '220057', m7: '348073', m8: '274477', m9: '106903' },
+      { shop: '新宿',   m4: '269245', m5: '360263', m6: '368486', m7: '286489', m8: '358885', m9: '207269' },
+      { shop: '八王子', m4: '283675', m5: '308499', m6: '125730', m7: '275528', m8: '355067', m9: '291454' },
+      { shop: '', m4: '', m5: '', m6: '', m7: '', m8: '', m9: '' },
+    ],
+  });
+</script>
+</body>
+</html>
