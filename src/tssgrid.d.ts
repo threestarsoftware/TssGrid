@@ -126,6 +126,11 @@ export interface TssGridOptions {
   cursor?: boolean;
   stretchH?: 'none' | 'last' | 'all';
   rowHeaders?: boolean;
+  /** 行番号列の幅(px)。既定 40。大量行で桁数が増える時に広げる。 */
+  rowHeaderWidth?: number;
+  /** 仮想スクロール（固定行高ウィンドウイング）。大量行を可視窓だけ描画。true か { buffer:窓上下バッファ行数(既定6) }。
+   *  制約(v1): 行高一定／固定行列・折り返し・セル結合は非対応（指定時は自動無効化）。 */
+  virtual?: boolean | { buffer?: number };
   colHeaders?: boolean;
   hiddenColumns?: number[];
   wordWrap?: boolean;

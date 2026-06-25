@@ -66,6 +66,8 @@
 .tssgrid .tg-table tr:last-child > th { border-bottom: none; }
 .tssgrid .tg-table tr > td:last-child,
 .tssgrid .tg-table tr > th:last-child { border-right: none; }
+/* 仮想スクロールのスペーサ行（窓の上下を埋めて総高を保つだけの不可視行）。罫線/背景/余白を持たない。 */
+.tssgrid .tg-table tr.tg-vspace > td { border: none; padding: 0; background: transparent; }
 .tssgrid .tg-table th { background: var(--tg-colheader-bg); color: var(--tg-header-fg); font-weight: 600; text-align: center; }
 /* z-index 階層（.tg-wrap 内）: 通常セル 0 < 本体sticky(rowhead/frozen) 2 < 選択オーバーレイ 3
    < editor/select 4 < fillhandle 5 < ヘッダ thead 6 < 角/固定列ヘッダ 7 < リサイズ線 8。
