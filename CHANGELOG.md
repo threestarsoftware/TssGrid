@@ -15,9 +15,6 @@ TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Chang
 - README: 非破壊フィルタの説明を実測値に正確化（「絞り込み後が軽い」を自社調べ値で）＋仮想スクロール節を追加。
 - 比較表（`examples/compare.html`）に Tabulator を追加（公式デモ準拠）。
 
-### 内部
-- リリース機構 `publish` を incremental 化（公開リポを clone→上書き同期→差分だけコミット）＝公開リポに変更履歴が残り、リリース間の差分が見えるように。
-
 ## [0.0.4] - 2026-06-24
 
 ### 追加
@@ -30,7 +27,6 @@ TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Chang
 - グリッド外周の右・下が二重線になる不具合（最終行/列のセル罫線を枠線に一本化）。
 - 全幅見出し帯の結合セルで列/行選択が他列へ広がる不具合（Excel 流にクランプ）。
 - 結合解除で見出しラベルが消える不具合。
-- `publish` の staging を OS temp へ移動（入れ子 `.git` のロックで次回が EBUSY で落ちる再発を防止）。
 
 ## [0.0.3] - 2026-06-23
 
@@ -54,7 +50,6 @@ TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Chang
 
 - 初回公開。コア（編集グリッド／日本語 IME 堅牢・全角半角・セル結合・固定行列・非破壊フィルタ・条件付き書式・コピー/貼付・Undo/Redo ほか）＋同梱プラグイン＋サンプル一式。
 - 目玉デモ（方眼ガント／在庫管理）をサイトでライブ化。
-- リリース機構 `publish`（DEV-strip ＋検証ゲート＋公開デプロイ）。
 
 [0.0.5]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.5
 [0.0.4]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.4
