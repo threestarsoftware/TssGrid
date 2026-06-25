@@ -52,6 +52,7 @@
     "src/tssgrid.d.ts",
     "plugins/",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ]
 }

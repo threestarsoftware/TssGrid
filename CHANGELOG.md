@@ -1,0 +1,63 @@
+# 変更履歴 (Changelog)
+
+TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
+数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
+
+## [0.0.5] - 2026-06-25
+
+### 追加
+- **仮想スクロール `virtual: true`**（コア）— 大量行を「画面に見える窓ぶん＋バッファだけ」描画。全件を一度に DOM 化しないので、初期描画が一瞬・スクロールも軽い。有効化はオプション一行。
+  - 自社調べ: 10万行で初回描画 ≈ 46ms（全件描画 ≈ 10.5秒に対して）。デモ: `examples/virtual.html`。
+  - 制約(v1): 行高一定／固定行列・折り返し・セル結合は非対応（指定時は自動無効化）。
+- **`rowHeaderWidth` オプション**（コア）— 大量行で行番号の桁数が増える時に行ヘッダ幅を調整。
+
+### ドキュメント
+- README: 非破壊フィルタの説明を実測値に正確化（「絞り込み後が軽い」を自社調べ値で）＋仮想スクロール節を追加。
+- 比較表（`examples/compare.html`）に Tabulator を追加（公式デモ準拠）。
+
+### 内部
+- リリース機構 `publish` を incremental 化（公開リポを clone→上書き同期→差分だけコミット）＝公開リポに変更履歴が残り、リリース間の差分が見えるように。
+
+## [0.0.4] - 2026-06-24
+
+### 追加
+- 見積書デモ（`examples/quote.html`）— 印刷／日付ピッカー／列幅固定／Enter 横送り（`nextCell`）。
+- `navSkipReadOnly` オプション（Tab/Enter 送りで readonly セルを飛ばす＝伝票入力向け）。
+- プラグイン `tss-datetime`（日付＋時刻の同時ピッカー・曜日つき・別フィールド結合・時刻のみ対応）。
+
+### 修正
+- 編集中の `Ctrl+Z` で元の値に戻せない不具合（input 編集を Esc 同等でキャンセル）。
+- グリッド外周の右・下が二重線になる不具合（最終行/列のセル罫線を枠線に一本化）。
+- 全幅見出し帯の結合セルで列/行選択が他列へ広がる不具合（Excel 流にクランプ）。
+- 結合解除で見出しラベルが消える不具合。
+- `publish` の staging を OS temp へ移動（入れ子 `.git` のロックで次回が EBUSY で落ちる再発を防止）。
+
+## [0.0.3] - 2026-06-23
+
+### 追加
+- プラグイン `tss-sum`（条件付き合計）＋請求書デモで採用。
+
+### 修正
+- 請求書デモの合計欄を別グリッド化して金額列に完全整列／No. 列見出しが選択色になる不具合／印刷で選択枠を非表示。
+
+## [0.0.2] - 2026-06-22
+
+### 追加
+- **npm パッケージ化**（`@threestarsoftware/tssgrid`）＋公開 API の型定義 `tssgrid.d.ts`。
+- 請求書（インボイス対応）デモ。
+- サイト: `/docs` ドキュメント・`/api` リファレンス（`.d.ts` から自動生成）・会社名フッター。
+
+### 修正
+- 行/列ヘッダ選択中の右クリックで複数選択が解除される不具合。
+
+## [0.0.1] - 2026-06-19
+
+- 初回公開。コア（編集グリッド／日本語 IME 堅牢・全角半角・セル結合・固定行列・非破壊フィルタ・条件付き書式・コピー/貼付・Undo/Redo ほか）＋同梱プラグイン＋サンプル一式。
+- 目玉デモ（方眼ガント／在庫管理）をサイトでライブ化。
+- リリース機構 `publish`（DEV-strip ＋検証ゲート＋公開デプロイ）。
+
+[0.0.5]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.5
+[0.0.4]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.4
+[0.0.3]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.3
+[0.0.2]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.2
+[0.0.1]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.1
