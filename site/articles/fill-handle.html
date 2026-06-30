@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="../favicon.png">
+<link rel="apple-touch-icon" href="../favicon.png">
+<title>Excel の「右下を掴んで引っぱる」を軽量グリッドで実装する — TssGrid</title>
+<meta name="description" content="選択範囲の右下を掴んで連番やコピーを流し込む“フィルハンドル”。方向の自動判定・連番とコピーの出し分け・矩形タイル・1フィル1Undo を、依存ゼロのグリッドでどう設計したかの記録。">
+<link rel="canonical" href="https://tssgrid.threestarsoftware.co.jp/articles/fill-handle.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="TssGrid">
+<meta property="og:title" content="Excel の「右下を掴んで引っぱる」を軽量グリッドで実装する">
+<meta property="og:description" content="フィルハンドルの方向自動判定・連番とコピーの出し分け・矩形タイル・1フィル1Undo を、依存ゼロのグリッドでどう設計したか。">
+<meta property="og:url" content="https://tssgrid.threestarsoftware.co.jp/articles/fill-handle.html">
+<meta property="og:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Excel の「右下を掴んで引っぱる」を軽量グリッドで実装する">
+<meta name="twitter:description" content="フィルハンドルの方向自動判定・連番とコピーの出し分け・矩形タイル・1フィル1Undo の設計。">
+<meta name="twitter:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<link rel="stylesheet" href="../assets/lib/tssgrid.css">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="../"><img class="logo" src="../favicon.svg" width="28" height="28" alt="">TssGrid <span class="tag">MIT</span></a>
+    <button class="nav-toggle" aria-label="メニュー">≡</button>
+    <nav class="nav">
+      <a href="../#features">機能</a>
+      <a href="../#demo">デモ</a>
+      <a href="./">記事</a>
+      <a class="gh" href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<article class="article">
+  <div class="wrap">
+    <div class="crumbs"><a href="../">TssGrid</a> ／ <a href="./">記事</a></div>
+
+    <header class="art-head">
+      <h1>Excel の「右下を掴んで引っぱる」を軽量グリッドで実装する</h1>
+      <div class="art-meta">
+        <span class="cat">設計</span>
+        <time datetime="2026-06-30">2026-06-30</time>
+        <span>株式会社スリースターソフトウェア</span>
+      </div>
+    </header>
+
+    <div class="prose">
+      <p>
+        Excel で <code>1</code> と <code>2</code> を選んで、選択枠の<b>右下の小さな四角を下へ引っぱる</b>と
+        <code>3, 4, 5…</code> と連番が流れていく――あの操作を「フィルハンドル」と呼びます。
+        毎日 Excel を触っている人にとっては<b>息をするように使う機能</b>なので、
+        業務向けの Web グリッドでこれが無いと、それだけで「使えない」と判断されます。
+        この記事は、TssGrid がこのフィルハンドルを<b>依存ゼロ・コア数十行</b>でどう組んだか、
+        そして地味に効いてくる<b>設計の勘所</b>の記録です。
+      </p>
+
+      <div class="callout"><b>結論から:</b> フィルは
+        <b>①ポインタの幾何から「どの矩形を埋めるか」を決める関数</b>と、
+        <b>②元の値から「何を流すか（連番／コピー／タイル）」を決める関数</b>の<b>2つに割る</b>と素直になります。
+        そして全部の書き換えを<b>1つの履歴コマンド（＝1回の Undo で戻る）</b>に通すこと。この3点です。</p>
+
+      <h2>フィルが「やっていること」を分解する</h2>
+      <p>
+        ドラッグ操作はリッチに見えますが、確定の瞬間にやることは2つしかありません。
+      </p>
+      <ul>
+        <li><b>どこを埋めるか</b>＝元の選択範囲（src）と、いまポインタがある位置から、<b>塗りつぶす矩形（target）</b>を決める。</li>
+        <li><b>何で埋めるか</b>＝src のセル値を見て、<b>連番にするか・そのままコピーするか・パターンを繰り返すか</b>を決め、target に流し込む。</li>
+      </ul>
+      <p>
+        この2つを別々の関数にしておくと、ドラッグ中の<b>プレビュー枠</b>（どこが塗られるかを薄く見せる箱）は
+        前者だけを呼べばよく、確定時は前者＋後者を呼ぶ、という形に綺麗に分かれます。
+      </p>
+
+      <h2>解法①：方向は「はみ出し量が大きい方」へスナップする</h2>
+      <p>
+        いちばん最初に悩むのが<b>方向</b>です。右下のハンドルを斜め下に引っぱったとき、
+        ユーザーは「下に連番を入れたい」のか「右に入れたい」のか。Excel は<b>斜めには塗らず</b>、
+        ドラッグ方向の<b>支配的な軸</b>へスナップします。TssGrid も同じで、
+        <b>縦のはみ出し量と横のはみ出し量を比べ、大きい方の軸だけ</b>を採用します。
+      </p>
+      <pre class="code"><span class="c">// src=元の選択範囲, (pr,pc)=ポインタのいるセル。塗る矩形を返す。</span>
+fillRectFromPointer(pr, pc, src) {
+  <span class="t">if</span> (insideSrc(pr, pc)) <span class="t">return</span> <span class="t">null</span>;          <span class="c">// 範囲の中＝何もしない</span>
+  <span class="t">const</span> dDown = pr - src.r1, dUp = src.r0 - pr;   <span class="c">// 下/上へのはみ出し</span>
+  <span class="t">const</span> dRight = pc - src.c1, dLeft = src.c0 - pc; <span class="c">// 右/左へのはみ出し</span>
+  <span class="t">const</span> vOver = Math.max(dDown, dUp, <span class="s">0</span>);
+  <span class="t">const</span> hOver = Math.max(dRight, dLeft, <span class="s">0</span>);
+  <span class="t">if</span> (vOver &gt;= hOver)   <span class="c">// ★ 縦のはみ出しが勝てば縦フィル、横が勝てば横フィル</span>
+    <span class="t">return</span> (dUp &gt; dDown) ? rect(pr, src.r1, src.c0, src.c1)
+                       : rect(src.r0, pr, src.c0, src.c1);
+  <span class="t">return</span> (dLeft &gt; dRight) ? rect(src.r0, src.r1, pc, src.c1)
+                         : rect(src.r0, src.r1, src.c0, pc);
+}</pre>
+      <p>
+        この「<b>はみ出し量で軸を選ぶ</b>」だけで、斜めドラッグでも自然に縦／横へ吸い付きます。
+        分岐の中で <code>dUp &gt; dDown</code>（上へ伸ばすのか下へ伸ばすのか）も決めているので、
+        <b>上方向フィル・左方向フィル</b>も同じ1関数で扱えます。
+      </p>
+      <div class="callout"><b>2D（矩形タイル）だけは例外:</b> 「縦にも横にも同時に広げてタイル状に敷き詰めたい」場合だけは、
+        軸スナップを切って<b>選択とポインタを対角とする矩形</b>を返します。TssGrid では
+        <code>fillDirection:'both'</code> のときに <b>Alt を押しながらドラッグ</b>で発動――
+        誤爆を避けるため、わざと「明示の操作」にしてあります。</p>
+
+      <h2>解法②：連番か、コピーか――値から推測する</h2>
+      <p>
+        埋める矩形が決まったら、次は<b>中身</b>です。ここが Excel らしさの本体。判断はシンプルで、
+      </p>
+      <ul>
+        <li>元の値が<b>すべて数値</b>で、<b>2つ以上</b>あり、<b>差が一定（等差）</b>なら → <b>連番</b>として外挿（<code>10,20</code> → <code>30,40,50</code>）。</li>
+        <li>数値だけど等差でない／1つだけ → 既定は<b>コピー</b>。</li>
+        <li><b>文字や日付混じり</b>なら → 元のパターンを<b>周期で繰り返す</b>（<code>A,B</code> → <code>A,B,A,B</code>）。</li>
+      </ul>
+      <pre class="code">lineFill(srcVals, count, ctrl) {
+  <span class="t">const</span> nums = srcVals.map(toNum), numeric = nums.every(n =&gt; n !== <span class="t">null</span>);
+  <span class="t">let</span> isSeries = <span class="t">false</span>, step = <span class="s">0</span>;
+  <span class="t">if</span> (numeric &amp;&amp; srcVals.length &gt;= <span class="s">2</span>) {   <span class="c">// 等差かどうか調べる</span>
+    step = nums[<span class="s">1</span>] - nums[<span class="s">0</span>]; isSeries = <span class="t">true</span>;
+    <span class="t">for</span> (<span class="t">let</span> i = <span class="s">2</span>; i &lt; nums.length; i++)
+      <span class="t">if</span> (nums[i] - nums[i - <span class="s">1</span>] !== step) { isSeries = <span class="t">false</span>; <span class="t">break</span>; }
+  }
+  <span class="c">// Ctrl は意味を反転：連番上では「コピー」、ただの数値上では「強制連番(+1)」</span>
+  <span class="t">if</span> (numeric) isSeries = isSeries ? !ctrl : (ctrl ? (step = <span class="s">1</span>, <span class="t">true</span>) : <span class="t">false</span>);
+  <span class="t">const</span> out = [];
+  <span class="t">if</span> (isSeries) { <span class="t">const</span> last = nums[nums.length - <span class="s">1</span>];
+    <span class="t">for</span> (<span class="t">let</span> k = <span class="s">1</span>; k &lt;= count; k++) out.push(fmt(last + step * k)); }
+  <span class="t">else</span> <span class="t">for</span> (<span class="t">let</span> k = <span class="s">0</span>; k &lt; count; k++) out.push(srcVals[k % srcVals.length]); <span class="c">// 周期コピー</span>
+  <span class="t">return</span> out;
+}</pre>
+      <p>
+        ポイントは <b>Ctrl の扱い</b>です。Excel と同じく、Ctrl は<b>意味を反転</b>させます。
+        連番になる組み合わせの上で Ctrl を押せば「連番化せずそのままコピー」、
+        逆に <code>5</code> という1つの数値の上で Ctrl を押せば「<code>6,7,8…</code> と強制連番」。
+        <b>修飾キー1つで“ユーザーが今ほしい方”に倒せる</b>のが、地味ですが効きます。
+      </p>
+
+      <h2>解法③：タイルフィルは「剰余」で素直に書く</h2>
+      <p>
+        斜めに広げる 2D フィルは、元矩形を<b>タイルのように敷き詰める</b>だけ。
+        負のインデックスにも耐えるよう剰余を正規化しておけば、上方向・左方向にも同じ式で効きます。
+      </p>
+      <pre class="code"><span class="c">// 元の高さ sH・幅 sW のブロックを、target 全域にタイル配置</span>
+<span class="t">const</span> sr = src.r0 + (((r - src.r0) % sH) + sH) % sH;
+<span class="t">const</span> sc = src.c0 + (((c - src.c0) % sW) + sW) % sW;
+setCell(r, c, data[sr][sc]);   <span class="c">// (r,c) に対応する元セルを写す</span></pre>
+
+      <h2>いちばん効く設計：フィルは「1回の Undo」で戻る</h2>
+      <p>
+        どれだけ賢く連番を作っても、<b>1回ドラッグした結果が Undo 1発で消えない</b>と業務では使えません。
+        TssGrid では、フィルで書き換わる<b>全セルを1つの配列にためて、たった1回だけ履歴に積みます</b>。
+      </p>
+      <pre class="code">doFill(src, target, ctrl) {
+  <span class="t">if</span> (onBeforeAutofill(src, target) === <span class="t">false</span>) <span class="t">return</span>;  <span class="c">// 拒否できるフック</span>
+  <span class="t">const</span> changes = [];                          <span class="c">// ← 変更を全部ここに集める</span>
+  <span class="t">if</span> (vertical &amp;&amp; horizontal) tileFill(src, target, changes);
+  <span class="t">else</span> <span class="t">if</span> (vertical)         fillVertical(src, target, changes, ctrl);
+  <span class="t">else</span>                      fillHorizontal(src, target, changes, ctrl);
+  pushCmd(changes, before, after, <span class="s">'fill'</span>);   <span class="c">// ★ ここが唯一の“関所”＝1コマンド=1Undo</span>
+  onAfterAutofill(src, target);
+}</pre>
+      <p>
+        この <code>pushCmd</code> は、TssGrid のすべての値変更（手入力・貼り付け・削除・フィル）が<b>必ず通る1つの関所</b>です。
+        ＝フィルも特別扱いせず<b>同じ通り道</b>を使うので、<code>onBeforeChange</code> での検証も、
+        <code>source:'fill'</code> 付きの <code>onAfterChange</code> 通知も、Undo/Redo の粒度も、
+        <b>全部タダで揃います</b>。この「関所を1本に絞る」話は
+        <a href="ime-input.html">別記事の IME 設計</a>とも通じる、TssGrid の背骨です。
+      </p>
+
+      <h2>細部に宿るもの</h2>
+      <ul>
+        <li><b>ドラッグ中のプレビュー枠</b>：確定前に「ここが塗られる」を薄い箱で見せる。中身は <code>fillRectFromPointer</code> を呼ぶだけ。</li>
+        <li><b>隠し列はまたぐ</b>：フィルタや非表示列があっても、<b>見えている列だけ</b>に値を流す（隠し列は素通り）。</li>
+        <li><b>表の下までドラッグで行追加</b>：<code>autoInsertRow</code> を付けると、ハンドルを最下行より下へ落としたぶんだけ行が増える（伝票入力で効く）。</li>
+        <li><b>画面外まで伸ばせる</b>：端へドラッグするとビューが自動スクロールし、<b>窓の外のセルもモデル幾何から逆算</b>して塗る。仮想スクロールとも両立。</li>
+      </ul>
+
+      <h2>触ってみる</h2>
+      <p>
+        下のグリッドで試せます。<b>セルの選択枠の右下にある小さな四角（フィルハンドル）を掴んで</b>ドラッグしてください。
+      </p>
+      <ul>
+        <li><b>「数量」列で <code>10</code> と <code>20</code> の2セルを選び、下へ引っぱる</b> → <code>30, 40, 50…</code> と連番。</li>
+        <li><b>「担当」列の1セルを下へ引っぱる</b> → 同じ値がコピー。</li>
+        <li><b>連番を引っぱるとき Ctrl を押しっぱなし</b> → 連番化せずコピーに切り替わる（逆も同じ）。</li>
+      </ul>
+      <div class="embed" style="padding:14px"><div id="fill-demo"></div></div>
+
+      <div class="callout">
+        フィルハンドルは「Excel の小技」に見えて、実は<b>幾何（どこを）</b>と<b>系列推測（何を）</b>と
+        <b>履歴（どう戻す）</b>が交わる、グリッドの設計力が出る場所です。
+        この3つをそれぞれ素直な小さな関数に割り、値変更を<b>1本の関所</b>に通す――
+        それだけで、依存ゼロ・コア数十行のまま、毎日触っても違和感のないフィルになります。
+      </div>
+    </div>
+
+    <footer class="art-foot">
+      <a href="./">← 記事一覧へ</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub で TssGrid を見る →</a>
+    </footer>
+  </div>
+</article>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="f-brand">TssGrid</div>
+    <nav class="f-links">
+      <a href="../#features">機能</a>
+      <a href="./">記事</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.threestarsoftware.co.jp/" target="_blank" rel="noopener">運営会社</a>
+    </nav>
+    <div class="copy">MIT License ・ © <span id="year">2026</span> 株式会社スリースターソフトウェア（ThreeStarSoftware）</div>
+  </div>
+</footer>
+
+<script src="../assets/lib/tssgrid.js"></script>
+<script>
+  (function () {
+    var el = document.getElementById('fill-demo');
+    if (!el) return;
+    new TssGrid(el, {
+      name: 'fill-demo', width: '100%', rowHeight: 28, initialCell: { r: 0, c: 'qty' },
+      fillHandle: { autoInsertRow: true },   // 表の下までドラッグで行追加
+      columns: [
+        { data: 'item', title: '品目', width: 200 },
+        { data: 'qty', title: '数量（10,20を選んで連番）', type: 'number', width: 200 },
+        { data: 'owner', title: '担当（コピー）', width: 160, type: 'dropdown', options: ['佐藤', '鈴木', '田中', '高橋'] },
+      ],
+      data: [
+        { item: '商品 A', qty: 10, owner: '佐藤' },
+        { item: '商品 B', qty: 20, owner: '' },
+        { item: '商品 C', qty: '', owner: '' },
+        { item: '商品 D', qty: '', owner: '' },
+        { item: '商品 E', qty: '', owner: '' },
+        { item: '商品 F', qty: '', owner: '' },
+      ],
+    });
+  })();
+</script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

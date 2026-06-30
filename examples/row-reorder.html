@@ -3,57 +3,95 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TssGrid 例 — 行のドラッグ移動（つまみ）</title>
+<title>TssGrid 例 — 行のドラッグ移動と行ヘッダーの見た目</title>
 <link rel="stylesheet" href="../src/tssgrid.css">
 <style>
   body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
   h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
-  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 640px; }
-  .note b { color: #1573c0; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 660px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
   .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
-  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 640px; }
-  #log { font-size: 13px; color: #1a3a6b; min-height: 20px; }
+  .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12.5px; margin: 14px 0; }
+  .bar .grp { display: flex; gap: 4px; align-items: center; background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:4px 8px; }
+  .bar b { color: #1573c0; }
+  .bar button { font: inherit; font-size: 12px; padding: 4px 10px; border: 1px solid #cbd2dc; background: #fff; border-radius: 6px; cursor: pointer; }
+  .bar button.on { background: #1573c0; color: #fff; border-color: #1573c0; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 660px; }
+  #log { font-size: 13px; color: #1a3a6b; min-height: 20px; margin-top: 8px; }
 </style>
 </head>
 <body>
-<h1>TssGrid 例: 行のドラッグ移動 <span class="pill">rowReorder</span></h1>
+<h1>TssGrid 例: 行のドラッグ移動と行ヘッダーの見た目 <span class="pill">rowReorder</span></h1>
 
 <div class="note">
-行ヘッダ左の<b>つまみ「⠿」をドラッグ</b>すると行を並べ替えられます。ドロップ位置に<b>緑のガイド線</b>が出ます。<br>
-<b>複数行の移動</b>も可：行ヘッダで<b>範囲選択</b>（クリック→Shift＋クリック、または行ヘッダをドラッグ）してから、選択内のつまみを掴むと<b>まとめて移動</b>します。<br>
-データ実体ごと移動するので、<b>セルの値・整列・読み取り専用・隠しフィールドも追従</b>します（並べ替えと同じ仕組み）。行番号は自動で振り直し。
+行ヘッダー（左端の行番号の列）を使って行を<b>ドラッグで並べ替え</b>られます。ドロップ位置に<b>緑のガイド線</b>が出ます。
+<br>掴み方は2通り: <code>rowReorder: true</code>＝<b>⠿ アイコンだけ</b>が掴み手／<code>rowReorder: 'header'</code>＝<b>行ヘッダーセル全体</b>が掴み手（<b>クリック=行選択／ドラッグ=移動</b>）。
+<br>見た目は <code>rowReorderMark</code>（⠿ の前/後/なし）と <code>rowHeaderLabel</code>（番号の表示）で調整できます。
+<br>データ実体ごと移動するので<b>値・整列・読み取り専用・隠しフィールドも追従</b>、行番号は自動で振り直し。<b>複数行</b>は範囲選択してから掴むとまとめて移動します。
 </div>
 
-<h2>デモ（⠿ をドラッグ）</h2>
+<div class="bar">
+  <div class="grp"><b>掴み方</b>
+    <button data-mode="icon">⠿ アイコンだけ</button>
+    <button data-mode="whole">セル全体（header）</button>
+  </div>
+  <div class="grp"><b>マーク</b>
+    <button data-mark="before">前 ⠿1</button>
+    <button data-mark="after">後 1⠿</button>
+    <button data-mark="none">なし</button>
+  </div>
+  <div class="grp"><b>番号</b>
+    <button data-num="1">あり</button>
+    <button data-num="0">なし</button>
+  </div>
+</div>
+
 <div class="tssgrid-host"><div id="grid"></div></div>
 <div id="log">&nbsp;</div>
 
-<h2>差し込み（抜粋）</h2>
-<pre>new TssGrid(host, {
-  rowReorder: true,                       // 行ヘッダに「つまみ」を出してドラッグ移動
-  onAfterRowMove: (from, to) =&gt; { ... },  // 確定後に呼ばれる（任意）
-  data: rows,
-});
-// プログラムからは grid.moveRow(from, to) でも移動可</pre>
+<h2>差し込み（現在の設定）</h2>
+<pre id="code"></pre>
 
 <script src="../src/tssgrid.js"></script>
 <script>
-  const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'reorder', width: 460,
-    headers: ['順位', '名前', '部署', '備考'],
-    rowReorder: true,
-    onAfterRowMove: (from, to, count) => {
-      const what = count > 1 ? `${from + 1}〜 の ${count} 行` : `${from + 1} 行目`;
-      document.getElementById('log').textContent = `移動: ${what} → ${to + 1} 行目へ`;
-    },
-    data: [
-      ['1', '佐藤 一郎', '営業', ''],
-      ['2', '鈴木 花子', '開発', ''],
-      ['3', '高橋 次郎', '総務', ''],
-      ['4', '田中 三郎', '開発', ''],
-      ['5', '渡辺 桜', '営業', ''],
-    ],
-  });
+  let mode = 'whole', mark = 'before', num = true, grid = null;
+  const baseData = () => [
+    ['1', '佐藤 一郎', '営業', ''], ['2', '鈴木 花子', '開発', ''], ['3', '高橋 次郎', '総務', ''],
+    ['4', '田中 三郎', '開発', ''], ['5', '渡辺 桜', '営業', ''], ['6', '伊藤 大輔', '人事', ''],
+  ];
+  function build() {
+    if (grid) grid.destroy();
+    const opt = {
+      name: 'reorder', width: 480, headers: ['順位', '名前', '部署', '備考'],
+      rowReorder: (mode === 'whole') ? 'header' : true,
+      rowReorderMark: (mark === 'none') ? false : mark,
+      onAfterRowMove: (from, to, count) => {
+        const what = count > 1 ? `${from + 1}〜 の ${count} 行` : `${from + 1} 行目`;
+        document.getElementById('log').textContent = `移動: ${what} → ${to + 1} 行目へ`;
+      },
+      data: baseData(),
+    };
+    if (!num) opt.rowHeaderLabel = false;
+    grid = new TssGrid(document.getElementById('grid'), opt);
+
+    const L = ['new TssGrid(host, {'];
+    L.push("  rowReorder: " + (mode === 'whole' ? "'header'," : 'true,') + (mode === 'whole' ? '   // セル全体で移動（クリック=選択/ドラッグ=移動）' : '       // ⠿ アイコンだけ掴める'));
+    L.push("  rowReorderMark: " + (mark === 'none' ? 'false' : "'" + mark + "'") + ",   // ⠿ の位置: before/after/false");
+    if (!num) L.push("  rowHeaderLabel: false,   // 番号なし");
+    L.push("  onAfterRowMove: (from, to, count) => { ... },");
+    L.push("  data: rows,");
+    L.push("});");
+    L.push("// プログラムからは grid.moveRow(from, to) でも移動可");
+    document.getElementById('code').textContent = L.join('\n');
+
+    [...document.querySelectorAll('button[data-mode]')].forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+    [...document.querySelectorAll('button[data-mark]')].forEach(b => b.classList.toggle('on', b.dataset.mark === mark));
+    [...document.querySelectorAll('button[data-num]')].forEach(b => b.classList.toggle('on', (b.dataset.num === '1') === num));
+  }
+  document.querySelectorAll('button[data-mode]').forEach(b => b.onclick = () => { mode = b.dataset.mode; build(); });
+  document.querySelectorAll('button[data-mark]').forEach(b => b.onclick = () => { mark = b.dataset.mark; build(); });
+  document.querySelectorAll('button[data-num]').forEach(b => b.onclick = () => { num = b.dataset.num === '1'; build(); });
+  build();
 </script>
 </body>
 </html>

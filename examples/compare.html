@@ -99,7 +99,7 @@
     <tr class="grp"><td colspan="7">大規模・高度（他社が強い領域 ＝ TssGrid の伸びしろ）</td></tr>
     <tr><th>行固定（フリーズ行）</th><td class="me ok">✅ frozenRows</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
     <tr><th>フィルタUI</th><td class="me pt">⚠️ サンプルあり<span class="sub">setData+編集同期</span></td><td class="ok">✅ 強力<span class="sub">ヘッダフィルタ</span></td><td class="ok">✅</td><td class="ok">✅ 強力</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
-    <tr><th>仮想スクロール（大量行）</th><td class="me no">❌ <span class="sub">将来</span></td><td class="ok">✅ 仮想DOM</td><td class="ok">✅</td><td class="ok">✅ 最強</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>仮想スクロール（大量行）</th><td class="me pt">⚠️ 対応<span class="sub">virtual:true（窓描画・opt-in）／実測10万行で初期45ms。一部割り切りあり</span></td><td class="ok">✅ 仮想DOM</td><td class="ok">✅</td><td class="ok">✅ 最強</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
     <tr><th>セル結合（merge）</th><td class="me ok">✅ 横/縦/矩形<span class="sub">tss-merge＋ヘッダ結合</span></td><td class="no">❌<span class="sub">ヘッダ列グループのみ・データ結合なし</span></td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td><td class="ok">✅</td></tr>
     <tr><th>条件付き書式</th><td class="me ok">✅ cellClass<span class="sub">値/行でクラス付与</span></td><td class="ok">✅<span class="sub">formatter/rowFormatter</span></td><td class="ok">✅</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
     <tr><th>数式</th><td class="me no">❌ <span class="sub">方針として非搭載</span></td><td class="no">❌<span class="sub">数式エンジンなし（集計行は別途）</span></td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td><td class="ok">✅ Excel級</td></tr>
@@ -115,7 +115,7 @@
 <h2>他社が強い領域 → TssGrid の今後（伸びしろ）</h2>
 <p class="lead">「無料公開して終わり」ではなく、ここを着実に埋めていくのが方針です。正直に並べることが、次のバージョンの地図になります。</p>
 <ul class="road">
-  <li><b>仮想スクロール（AG Grid / SpreadJS が強い）</b> → 大量行対応。インデックスマッパとセットで設計予定（フィルタの基盤にもなる）。<b>ロードマップ上位</b>。</li>
+  <li><b>仮想スクロール（AG Grid / SpreadJS が強い）</b> → <b>対応済み</b>（<a href="virtual.html">virtual.html</a>・<code>virtual:true</code> でopt-in）。可視窓だけ描画する窓方式で、実測10万行＝初期45ms。フィルタの基盤とも共用。割り切り: 全機能フル対応の「100点」ではなく、まだ一部制約あり（インデックスマッパ整備は継続）。</li>
   <li><b>セル結合 merge</b> → <b>対応済み</b>。データセルの<b>横/縦/矩形結合</b>（<a href="merge.html">merge.html</a>・<code>plugins/tss-merge.js</code>）＝アンカー=左上が値/編集/選択、Undo対応・行列の挿入削除で座標追従。ヘッダ結合（<code>nestedHeaders</code>）も別途あり。割り切り: ソートは結合中ロック・縦結合中は行移動不可（分断回避）。</li>
   <li><b>フィルタUI（各社）</b> → <b>サンプルで対応済み</b>（<a href="filter.html">filter.html</a>：マスタ保持＋setData＋編集同期）。本体は太らせない方針。完全な非破壊フィルタ＋構造変更両立は行インデックスマッパとセット（将来）。</li>
   <li><b>条件付き書式</b> → <b>対応済み</b>（<code>cellClass</code> で値/行を見てクラス付与＋編集で即追従。見た目は業務側CSS）。Excel風の「ルール設定UI」は将来。</li>
@@ -138,7 +138,7 @@
 
 <p style="margin-top:30px; font-size:13px; color:#667;">
   <a href="showcase.html">導入事例 / Used by</a><br>
-  動くデモ: <a href="attendance.html">勤怠表</a> ／ <a href="inventory.html">在庫管理</a> ／ <a href="number-input.html">数値入力（全角→半角・エラー化）</a> ／ <a href="conditional-format.html">条件付き書式</a> ／ <a href="html-cells.html">画像/SVG/HTMLセル</a> ／ <a href="frozen-rows.html">行固定</a> ／ <a href="nested-headers.html">ヘッダ結合</a> ／ <a href="row-reorder.html">行ドラッグ移動</a> ／ <a href="excel-export.html">Excel出力</a> ／ <a href="excel-import.html">Excel読込</a> ／ <a href="calendar.html">休日カレンダー</a> ／ <a href="time.html">時刻ピッカー</a> ／ <a href="sort.html">並べ替え</a> ／ <a href="filter.html">フィルタ</a>
+  動くデモ: <a href="attendance.html">勤怠表</a> ／ <a href="inventory.html">在庫管理</a> ／ <a href="number-input.html">数値入力（全角→半角・エラー化）</a> ／ <a href="conditional-format.html">条件付き書式</a> ／ <a href="html-cells.html">画像/SVG/HTMLセル</a> ／ <a href="frozen-rows.html">行固定</a> ／ <a href="nested-headers.html">ヘッダ結合</a> ／ <a href="row-reorder.html">行ドラッグ移動</a> ／ <a href="excel-export.html">Excel出力</a> ／ <a href="excel-import.html">Excel読込</a> ／ <a href="calendar.html">休日カレンダー</a> ／ <a href="time.html">時刻ピッカー</a> ／ <a href="sort.html">並べ替え</a> ／ <a href="filter.html">フィルタ</a> ／ <a href="virtual.html">仮想スクロール</a>
 </p>
 
 </div>

@@ -134,6 +134,11 @@
 .tssgrid .tg-rowmove { cursor: grab; color: #b3b6c8; margin-right: 2px; font-size: 11px; line-height: 1; user-select: none; vertical-align: 1px; }
 .tssgrid .tg-rowmove:hover { color: var(--tg-accent); }
 .tssgrid .tg-rowmove:active { cursor: grabbing; }
+.tssgrid .tg-rowmove.tg-mark-after { margin-right: 0; margin-left: 4px; }   /* ⠿ を番号の後ろに置く時の間隔 */
+.tssgrid .tg-rowmove.tg-mark-only { margin: 0; }   /* 番号なし=⠿だけ＝前後の区別をやめて中央に */
+/* rowReorder:'header' = 行ヘッダーセル全体が移動ハンドル（クリック=選択／ドラッグ=移動） */
+.tssgrid .tg-table th.rowhead.tg-rowmove-cell { cursor: grab; }
+.tssgrid .tg-table th.rowhead.tg-rowmove-cell:active { cursor: grabbing; }
 .tssgrid .tg-colgrip:hover { background: var(--tg-edit-accent); opacity: .5; }
 .tssgrid .tg-rowgrip:hover { background: var(--tg-edit-accent); opacity: .5; }
 /* リサイズのプレビュー線（ドラッグ中だけ表示、離して確定） */

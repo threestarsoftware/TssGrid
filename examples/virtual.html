@@ -23,6 +23,13 @@
   .stat { font-size:12px; color:#64748b; }
   .stat b { color:#1573c0; font-variant-numeric: tabular-nums; }
   .badge { font-size:12px; color:#16794d; background:#e7f6ee; border:1px solid #bfe6d0; border-radius:6px; padding:2px 8px; }
+  /* #4: ライブ stat を専用行に固定（更新でツールバーが折り返さない＝レイアウトが動かない） */
+  .statline { min-height:18px; margin:2px 2px 8px; }
+  .hint { font-size:11.5px; color:#94a3b8; margin:7px 2px; }
+  /* #6: パネルを縦リサイズ可能に＝ドラッグで高さ変更→ResizeObserver→窓が追従 */
+  .panel.resizable { height:480px; resize:vertical; overflow:hidden; padding:10px; }
+  .panel.resizable .tg, .panel.resizable #grid, .panel.resizable .tssgrid { height:100%; }
+  .panel.resizable .tssgrid .tg-wrap { height:100%; max-height:none !important; }
 </style>
 </head>
 <body>
@@ -43,12 +50,14 @@
     &nbsp;<b>ジャンプ:</b>
     <input type="number" id="jump" min="1" placeholder="行番号">
     <button id="jumpBtn">その行へ</button>
-    <span class="stat" id="stat"></span>
   </div>
+  <div class="statline"><span class="stat" id="stat"></span></div>
 
-  <div class="panel"><div class="tg"><div id="grid"></div></div></div>
+  <div class="panel resizable"><div class="tg"><div id="grid"></div></div></div>
+  <div class="hint">↑ パネル右下をドラッグして高さを変えられます（スクロール途中で変えても窓が追従）。列が幅より多いので<b>横スクロール</b>もできます。</div>
   <div class="note" style="margin-top:12px;font-size:12px">
-  試す: ①<b>スクロール</b>してみる（窓だけ差し替わる）→ ②セルを<b>編集</b>（ダブルクリック or 直接入力）→ ③「その行へ」で<b>遠い行へジャンプ</b>（自動で可視化＆選択）。
+  試す: ①<b>スクロール</b>（縦＝窓だけ差し替え／横＝全列描画）→ ②セルを<b>編集</b>（ダブルクリック or 直接入力）→ ③「その行へ」で<b>遠い行へジャンプ</b>。
+  <br><b>自動スクロール</b>: セルを選択して<b>ドラッグしたまま上下端／左右端の外へ</b>運ぶと、ビューが一緒にスクロールしながら選択が伸びます（フィルハンドルのドラッグも同様）。
   下の <span class="stat" style="display:inline"><b id="ind">…</b></span> が「実際に DOM にある行数」。総行数に関わらず小さく保たれます。
   </div>
 </div>
@@ -56,15 +65,27 @@
 <script src="../src/tssgrid.js"></script>
 <script>
   const cats = ['営業', '開発', '総務', '人事', '経理'];
+  const roles = ['一般', '主任', '係長', '課長', '部長'];
+  const offices = ['東京', '大阪', '名古屋', '福岡', '札幌'];
   const sei  = ['佐藤', '鈴木', '高橋', '田中', '伊藤', '渡辺', '山本', '中村'];
   function gen(n) {
     const d = new Array(n);
-    for (let r = 0; r < n; r++) d[r] = [
-      'E' + String(r + 1).padStart(6, '0'),
-      sei[r % 8] + (r + 1),
-      cats[r % 5],
-      String((r * 37 % 90 + 10) * 1000),
-    ];
+    for (let r = 0; r < n; r++) {
+      const id = r + 1;
+      d[r] = [
+        'E' + String(id).padStart(6, '0'),         // 社員番号
+        sei[r % 8] + id,                            // 氏名
+        cats[r % 5],                                // 部署
+        roles[r % 5],                               // 役職
+        String((r * 37 % 90 + 10) * 1000),          // 給与
+        '2018-' + String((r % 12) + 1).padStart(2, '0') + '-' + String((r % 28) + 1).padStart(2, '0'),  // 入社日
+        String(1000 + (r % 8999)),                  // 内線
+        'user' + id + '@example.co.jp',             // メール
+        offices[r % 5],                             // 拠点
+        String((r % 5) + 1),                        // 評価
+        (r % 7 === 0) ? '要フォロー' : '',          // 備考
+      ];
+    }
     return d;
   }
 
@@ -74,11 +95,17 @@
     const t0 = performance.now();
     grid = new TssGrid(document.getElementById('grid'), {
       name: 'staff', width: 760, height: '460px', rowHeaders: true, rowHeaderWidth: 64, virtual: true,
-      headers: ['社員番号', '氏名', '部署', '給与'],
-      colWidths: [110, 170, 90, 130],
+      headers: ['社員番号', '氏名', '部署', '役職', '給与', '入社日', '内線', 'メール', '拠点', '評価', '備考'],
+      colWidths: [110, 150, 90, 90, 110, 110, 80, 200, 90, 70, 150],   // 合計1250+行ヘッダ＝幅760を超えて横スクロール
       columns: [
-        { data: 'id' }, { data: 'name' }, { data: 'dept', type: 'dropdown', source: cats },
+        { data: 'id' }, { data: 'name' },
+        { data: 'dept', type: 'dropdown', options: cats },
+        { data: 'role', type: 'dropdown', options: roles },
         { data: 'salary', type: 'number', format: { thousands: true } },
+        { data: 'hire' }, { data: 'ext' }, { data: 'email' },
+        { data: 'office', type: 'dropdown', options: offices },
+        { data: 'rating', type: 'dropdown', options: ['1', '2', '3', '4', '5'] },
+        { data: 'note' },
       ],
       data: gen(n),
     });
