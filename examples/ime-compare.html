@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 日本語IME体感デモ（「あ」は「あ」のまま）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 0; }
+  .note { background:#f5f7fa; border:1px solid #dde3ea; border-radius:6px; padding:12px 16px; font-size:13px; max-width:900px; }
+  .note b { color:#1573c0; } code { background:#eef; padding:0 4px; border-radius:3px; }
+  .cols { display:flex; gap:32px; flex-wrap:wrap; margin-top:20px; align-items:flex-start; }
+  .card { flex:0 1 380px; }
+  .tag { display:inline-block; border-radius:10px; padding:1px 9px; font-size:12px; margin-left:6px; }
+  .tag.ng { background:#ffecec; color:#c0392b; } .tag.ok { background:#e7f7ee; color:#1a8f4f; }
+  /* 左：素朴グリッド */
+  .naive-wrap { position:relative; display:inline-block; }
+  table.naive { border-collapse:collapse; }
+  table.naive td { border:1px solid #cbd3dc; width:120px; height:30px; padding:0 6px; cursor:text; outline:none; font-size:14px; background:#fff; white-space:nowrap; overflow:hidden; }
+  table.naive td:focus { box-shadow: inset 0 0 0 2px #2456b0; }
+  .naive-input { position:absolute; border:2px solid #2456b0; font-size:14px; padding:0 5px; box-sizing:border-box; outline:none; background:#fff; }
+  .hint { font-size:12.5px; color:#667; margin-top:8px; min-height:20px; max-width:380px; }
+  .foot { font-size:12.5px; color:#556; margin-top:24px; max-width:900px; }
+  .foot a { color:#1573c0; }
+</style>
+</head>
+<body>
+<h1>日本語IME体感デモ ―「あ」と打って「あ」と出るか <span class="tag ok">自分で試せます</span></h1>
+
+<div class="note">
+  <b>日本語入力（IME）をオンにして</b>、下の表のセルを<b>クリックし、そのまま「あ」と打って</b>みてください。<br>
+  ・<b>左（よくある作り）</b>＝クリックしたセルに"本物の <code>&lt;input&gt;</code>"が無く、<b>初打鍵でinputを生成</b>します。→ <b>1文字目が化ける/消える</b>（例：「あ」→「a」、「てすと」→「tえすと」。Windows＋IMEで顕著）。<br>
+  ・<b>右（TssGrid）</b>＝アクティブなセルに<b>常に本物の <code>&lt;input&gt;</code> を重ねている</b>。→ <b>「あ」はそのまま</b>。変換確定の <code>Enter</code> でもセルが飛びません。<br>
+  ※体感差はIME・ブラウザに依存します。うまく再現しないときは、日本語入力をオンにして、セルを一度クリックしてから続けて打ってみてください。
+</div>
+
+<div class="cols">
+  <div class="card">
+    <h2>左：よくある作り <span class="tag ng">初打鍵でinput生成</span></h2>
+    <div class="naive-wrap"><table class="naive" id="naive"></table></div>
+    <div class="hint" id="naiveHint">セルをクリック → そのまま「あ」と打ってみて（1文字目が化けるはず）</div>
+  </div>
+  <div class="card">
+    <h2>右：TssGrid <span class="tag ok">常時input重ね</span></h2>
+    <div class="tssgrid-host"><div id="grid"></div></div>
+    <div class="hint">セルをクリック → そのまま「あ」と打ってみて（Enter確定でも飛ばない）</div>
+  </div>
+</div>
+
+<p class="foot">
+  なぜ左は化けるのか・TssGridはどう直したのか、の解説 → 記事「<a href="https://tssgrid.threestarsoftware.co.jp/">TssGrid</a>」。
+  ソース: <a href="https://github.com/threestarsoftware/TssGrid">GitHub</a> ／ <code>npm i @threestarsoftware/tssgrid</code>
+</p>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+/* ============================================================
+ * 左：素朴な「初打鍵でinputを生成」グリッド
+ *   ＝フォーカス中のセル(td)で打鍵が始まって"から"inputを作る作り。
+ *     IMEの変換開始に間に合わず、1文字目を取りこぼす（＝よくある不具合の再現）。
+ * ============================================================ */
+(function naiveGrid () {
+  const tbl = document.getElementById('naive');
+  const wrap = tbl.parentElement;
+  const ROWS = 4, COLS = 3;
+  const store = {};
+  let editingTd = null, input = null;
+
+  for (let r = 0; r < ROWS; r++) {
+    const tr = tbl.insertRow();
+    for (let c = 0; c < COLS; c++) {
+      const td = tr.insertCell();
+      td.tabIndex = 0;
+      td.dataset.rc = r + '_' + c;
+      td.addEventListener('mousedown', () => { commit(); setTimeout(() => td.focus(), 0); });
+      td.addEventListener('keydown', e => {
+        if (editingTd) return;
+        if (e.key === 'Tab' || e.key === 'Enter' || e.key.indexOf('Arrow') === 0) return;
+        // 印字キー or IME(Process) で編集開始 ← このタイミングでinput生成＝手遅れ
+        if (e.key === 'Process' || e.key === 'Unidentified' || e.key.length === 1) {
+          openEditor(td);
+        }
+      });
+    }
+  }
+  function openEditor (td) {
+    editingTd = td;
+    input = document.createElement('input');
+    input.className = 'naive-input';
+    input.value = store[td.dataset.rc] || '';
+    const box = td.getBoundingClientRect(), wb = wrap.getBoundingClientRect();
+    input.style.left = (box.left - wb.left) + 'px';
+    input.style.top = (box.top - wb.top) + 'px';
+    input.style.width = box.width + 'px';
+    input.style.height = box.height + 'px';
+    wrap.appendChild(input);
+    input.focus();   // ← ここで初めてinputにフォーカス。IMEの開始には間に合わない
+    input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) commit(); });
+    input.addEventListener('blur', commit);
+  }
+  function commit () {
+    if (!editingTd || !input) return;
+    store[editingTd.dataset.rc] = input.value;
+    editingTd.textContent = input.value;
+    input.remove(); input = null; editingTd = null;
+  }
+})();
+
+/* ============================================================
+ * 右：TssGrid（アクティブセルに常に本物のinputを重ねる作り）
+ * ============================================================ */
+new TssGrid(document.getElementById('grid'), {
+  name: 'ime-demo',
+  headers: ['氏名', 'ふりがな', 'メモ'],
+  data: [['', '', ''], ['', '', ''], ['', '', ''], ['', '', '']],
+  width: 380,
+});
+</script>
+</body>
+</html>
