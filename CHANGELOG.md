@@ -3,6 +3,16 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.0.7] - 2026-07-10
+
+### 修正
+- カスタムエディタ（`tss-calendar` / `tss-datetime` 等、`body` 直下にポップアップを出す型）を**開いたままフィルタ/ソート/フリーズ/再描画**すると、ポップアップが画面に取り残されて浮く不具合を修正（`buildTable()` が開いているエディタを閉じていなかった）。1修正で全カスタムエディタに効く。
+- ポップアップ型エディタ（`tss-calendar` / `tss-time` / `tss-datetime` / `tss-autocomplete`）で、**別のセルを続けて開く**と前のポップアップと `document` リスナが片付かず取り残し／リークする不具合を修正（各 `show()` 冒頭で `teardown()` するよう統一）。
+
+### 補足（挙動変化・影響範囲）
+- カスタムエディタを開いたまま再描画/フィルタ/ソートすると、そのエディタは**キャンセル確定**となり `onEditEnd({ canceled: true })` が発火するようになりました（従来は発火せずポップアップだけ取り残していた）。
+- ネイティブのドロップダウン（`<select>`）は永続要素のため上記いずれの影響も受けません（確認済み）。
+
 ## [0.0.6] - 2026-06-30
 
 ### 追加
@@ -67,6 +77,7 @@ TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Chang
 - 初回公開。コア（編集グリッド／日本語 IME 堅牢・全角半角・セル結合・固定行列・非破壊フィルタ・条件付き書式・コピー/貼付・Undo/Redo ほか）＋同梱プラグイン＋サンプル一式。
 - 目玉デモ（方眼ガント／在庫管理）をサイトでライブ化。
 
+[0.0.7]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.7
 [0.0.6]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.6
 [0.0.5]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.5
 [0.0.4]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.4

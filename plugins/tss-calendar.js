@@ -98,6 +98,7 @@
       if (k === 'PageUp' || k === 'PageDown') { e.preventDefault(); view = new Date(view.getFullYear(), view.getMonth() + (k === 'PageUp' ? -1 : 1), 1); render(); }
     }
     function show(anchor, value, onPick, onCancel) {
+      teardown();   // 既に開いていれば先に片付ける（前の pop 除去＋outside リスナ解除・open-while-open の取り残し防止）
       done = false; sel = parseISO(value);
       view = sel ? new Date(sel.getFullYear(), sel.getMonth(), 1) : new Date();
       focus = sel ? new Date(sel) : new Date();

@@ -61,6 +61,7 @@
       else if (e.key === 'Enter') { e.preventDefault(); commit(readValue()); }
     }
     function show(anchor, value, onPick, onCancel) {
+      teardown();   // 既に開いていれば先に片付ける（open-while-open の取り残し防止・tss-calendar と同方針）
       done = false;
       pop = document.createElement('div'); pop.className = 'tss-time' + (opts.className ? ' ' + opts.className : ''); pop.tabIndex = -1;
       document.body.appendChild(pop);

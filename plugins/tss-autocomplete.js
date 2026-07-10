@@ -88,6 +88,7 @@
       pop.style.minWidth = r.width + 'px';
     }
     function show(anchor, value, ctx) {
+      teardown();   // 既に開いていれば先に片付ける（open-while-open の取り残し防止・tss-calendar と同方針）
       done = false; ref = { ctx: ctx };
       pop = document.createElement('div'); pop.className = 'tss-ac' + (opts.className ? ' ' + opts.className : ''); pop.tabIndex = -1;
       pop.innerHTML = '<input class="tss-ac-input" type="text"><div class="tss-ac-list"></div>';

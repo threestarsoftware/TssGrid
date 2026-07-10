@@ -1095,6 +1095,7 @@
       });
     }
     buildTable() {
+      if (this._customEditor && this._customCancel) this._customCancel();   // 開いているカスタムエディタを閉じる（body直下ポップアップの取り残し防止・_commitActive と同じ扱い）
       this._selhdrFg = null;   // 選択ヘッダ文字色キャッシュ破棄（テーマ変更に追従）
       const rh = this.rowHeaders;
       let html = '<colgroup>' + (rh ? '<col style="width:40px">' : '');

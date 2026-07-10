@@ -137,6 +137,7 @@
       else if (e.key === 'Enter') { e.preventDefault(); commit(value()); }
     }
     function show(anchor, val, onPick, onCancel) {
+      teardown();   // 既に開いていれば先に片付ける（open-while-open の取り残し防止・tss-calendar と同方針）
       done = false;
       var p = parseDT(val), tp = p ? null : parseTimeOnly(val);   // 日付付き or 時刻のみ
       selD = p ? p.d : null;
