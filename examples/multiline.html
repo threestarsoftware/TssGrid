@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — セル内の改行（複数行入力）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 24px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 820px; }
+  .note b { color: #1573c0; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 820px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  .ctl { margin: 14px 0; font-size: 13px; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .ctl fieldset { border: 1px solid #dde3ea; border-radius: 6px; padding: 6px 12px; margin: 0; }
+  .ctl legend { color: #1573c0; font-weight: bold; padding: 0 6px; }
+  .ctl label { cursor: pointer; }
+  .ctl .hint { color: #78849a; font-size: 12px; }
+  kbd { background: #eef2f7; border: 1px solid #cdd6e0; border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 12px; font-family: inherit; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: セル内の改行（複数行入力）</h1>
+
+<div class="note">
+列に <b><code>multiline: true</code></b> を付けるだけで、その列だけ<b>セル内で改行</b>できます。編集は<b>隠しテキストエリア</b>で行うので、TssGrid の本命である<b>日本語IMEの直打ち（セルに来ていきなり変換入力・1文字目が落ちない）</b>はそのまま。表示は改行を保持（<code>white-space: pre-wrap</code>）。<br>
+<b>行の高さは固定</b>（内容で伸びません＝行高一定なので大量行・仮想スクロールでも崩れない）。<code>rowHeight</code>（または <code>rowHeights</code>）で見せる行数ぶんの高さを確保し、<b>はみ出した分はクリップ</b>されます。複数行セルの<b>右上に薄いマーク</b>が出て「ここは複数行」と分かる（<code>multilineMark:false</code> で消す／CSS変数 <code>--tg-ml-mark</code> で色替え）。<br>
+<b>Enter の意味は起動時に選べます</b>（同一画面で混在なし前提）。既定は<b>「Enterで確定」</b>（改行は <kbd>Alt</kbd>+<kbd>Enter</kbd>／Excel風）。<b>「Enterで改行」</b>（確定は <kbd>Ctrl</kbd>+<kbd>Enter</kbd>／メモ帳風）も選べます。下のトグルで切り替えて試せます。
+</div>
+
+<div class="ctl">
+  <fieldset>
+    <legend>改行モード（multilineEnter）</legend>
+    <label><input type="radio" name="mle" value="commit" checked> <b>Enterで確定</b>（改行は <kbd>Alt</kbd>+<kbd>Enter</kbd>）<span class="hint">— Excel風（既定）</span></label>
+    &nbsp;
+    <label><input type="radio" name="mle" value="newline"> <b>Enterで改行</b>（確定は <kbd>Ctrl</kbd>+<kbd>Enter</kbd>）<span class="hint">— メモ帳風</span></label>
+  </fieldset>
+</div>
+
+<h2>デモ（「メモ」列が複数行・3行ぶんの高さ）</h2>
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>設定（抜粋）</h2>
+<pre>new TssGrid(host, {
+  defaultRowHeight: 64,          // 3行ぶんの高さを確保（固定・自動では伸びない）
+  multilineEnter: 'commit',      // 既定=Excel風（Enter=確定 / Alt+Enter=改行）。'newline' でメモ帳風
+  multilineEditMaxLines: 10,     // 編集で伸びる箱の最大行数（既定10・超えたら箱内スクロール）
+  columns: [
+    { data: 'task', title: '項目', width: 160 },
+    { data: 'status', title: '状態', width: 110, type: 'dropdown', options: ['未着手','進行中','完了'] },
+    { data: 'memo', title: 'メモ', width: 340, multiline: true },   // ← これだけ
+  ],
+  data: rows,
+});</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  // 30行の長文メモ（編集で伸びる箱＝10行で頭打ち＋箱内スクロールを体感するサンプル）
+  const longMemo = '■議事録 2026/07/12（全30行の長文サンプル）\n' +
+    Array.from({ length: 28 }, (_, i) => (i + 1) + '. 検討事項：項目' + (i + 1) + 'の対応方針を確認・決定').join('\n') +
+    '\n（ここまで30行。ダブルクリック/F2 で編集→箱は最大10行まで伸びて以降スクロール）';
+  const rows = () => ([
+    { task: '要件ヒアリング', status: '進行中', memo: '先方の希望：\n・納期は月末\n・帳票はA4横' },
+    { task: '見積作成', status: '未着手', memo: '' },
+    { task: '契約書レビュー', status: '完了', memo: '第3条の\n損害賠償の上限を\n確認済み' },
+    { task: '議事メモ', status: '進行中', memo: '2026/07/12 打合せ\n・仕様は次週確定\n・見積は木曜まで\n・請求は月末締め\n（続きあり…右上マーク）' },
+    { task: '長文メモ(30行)', status: '進行中', memo: longMemo },
+    { task: '', status: '未着手', memo: '' },
+  ]);
+  let grid = null;
+  function build(mode) {
+    if (grid && grid.destroy) grid.destroy();
+    grid = new TssGrid(document.getElementById('grid'), {
+      name: 'ml', width: 720, defaultRowHeight: 64,
+      multilineEnter: mode,
+      columns: [
+        { data: 'task', title: '項目', width: 160 },
+        { data: 'status', title: '状態', width: 110, type: 'dropdown', options: ['未着手', '進行中', '完了'] },
+        { data: 'memo', title: 'メモ（複数行）', width: 340, multiline: true },
+      ],
+      data: rows(),
+    });
+  }
+  build('commit');
+  document.querySelectorAll('input[name="mle"]').forEach(r => {
+    r.addEventListener('change', e => { if (e.target.checked) build(e.target.value); });
+  });
+</script>
+</body>
+</html>

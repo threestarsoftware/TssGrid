@@ -60,6 +60,14 @@
   border-right: 1px solid var(--tg-border); border-bottom: 1px solid var(--tg-border); padding: 0 6px;
   font-size: var(--tg-font-size); box-sizing: border-box; white-space: nowrap; overflow: hidden;
 }
+/* 外周の二重線を解消＝最終行の下罫線・最終列の右罫線は描かない（外枠は .tg-wrap の単線が担当）。
+   右下だけ「セル罫線＋枠線」が重なって昔のHTMLTable風に見えるのを防ぐ＝上下左右が均一な単線になる。 */
+.tssgrid .tg-table tr:last-child > td,
+.tssgrid .tg-table tr:last-child > th { border-bottom: none; }
+.tssgrid .tg-table tr > td:last-child,
+.tssgrid .tg-table tr > th:last-child { border-right: none; }
+/* 仮想スクロールのスペーサ行（窓の上下を埋めて総高を保つだけの不可視行）。罫線/背景/余白を持たない。 */
+.tssgrid .tg-table tr.tg-vspace > td { border: none; padding: 0; background: transparent; }
 .tssgrid .tg-table th { background: var(--tg-colheader-bg); color: var(--tg-header-fg); font-weight: 600; text-align: center; }
 /* z-index 階層（.tg-wrap 内）: 通常セル 0 < 本体sticky(rowhead/frozen) 2 < 選択オーバーレイ 3
    < editor/select 4 < fillhandle 5 < ヘッダ thead 6 < 角/固定列ヘッダ 7 < リサイズ線 8。
@@ -126,6 +134,11 @@
 .tssgrid .tg-rowmove { cursor: grab; color: #b3b6c8; margin-right: 2px; font-size: 11px; line-height: 1; user-select: none; vertical-align: 1px; }
 .tssgrid .tg-rowmove:hover { color: var(--tg-accent); }
 .tssgrid .tg-rowmove:active { cursor: grabbing; }
+.tssgrid .tg-rowmove.tg-mark-after { margin-right: 0; margin-left: 4px; }   /* ⠿ を番号の後ろに置く時の間隔 */
+.tssgrid .tg-rowmove.tg-mark-only { margin: 0; }   /* 番号なし=⠿だけ＝前後の区別をやめて中央に */
+/* rowReorder:'header' = 行ヘッダーセル全体が移動ハンドル（クリック=選択／ドラッグ=移動） */
+.tssgrid .tg-table th.rowhead.tg-rowmove-cell { cursor: grab; }
+.tssgrid .tg-table th.rowhead.tg-rowmove-cell:active { cursor: grabbing; }
 .tssgrid .tg-colgrip:hover { background: var(--tg-edit-accent); opacity: .5; }
 .tssgrid .tg-rowgrip:hover { background: var(--tg-edit-accent); opacity: .5; }
 /* リサイズのプレビュー線（ドラッグ中だけ表示、離して確定） */
@@ -143,6 +156,15 @@
 .tssgrid .tg-editor.nav     { color: transparent; background: transparent; border: none; caret-color: transparent; pointer-events: none; }
 .tssgrid .tg-editor.edit    { color: #222; background: var(--tg-edit-bg); border: 2px solid var(--tg-edit-accent); caret-color: auto; pointer-events: auto; }
 .tssgrid .tg-editor.invalid { border-color: #e23; background: #fff3f4; }
+/* 複数行(改行)エディタ = 隠し textarea。nav=透明sink / edit=可視。列は columns[c].multiline:true */
+.tssgrid .tg-editor-multi { padding: 3px 5px; line-height: 1.35; white-space: pre-wrap; overflow: hidden; resize: none; vertical-align: top; }
+.tssgrid .tg-editor-multi.edit { overflow: auto; }
+/* 複数行セル表示: 内容を絶対配置のクリップ箱に入れ、td を押し広げない＝行高一定（仮想スクロール維持）。行高ぶんだけ見せて残りはクリップ。 */
+.tssgrid .tg-table td.tg-multiline-cell { position: relative; padding: 0; vertical-align: top; }
+.tssgrid .tg-multiline-cell .tg-ml-clip { position: absolute; inset: 0; overflow: hidden; box-sizing: border-box; padding: 3px 5px; white-space: pre-wrap; word-break: break-word; line-height: 1.35; }
+/* 右上の「複数行」ヒント（非interactive・薄色）。掴める誤解を避け右下でなく右上。色は --tg-ml-mark、tg-no-ml-mark で無効。 */
+.tssgrid .tg-multiline-cell::after { content: ""; position: absolute; top: 0; right: 0; border: 6px solid transparent; border-top-color: var(--tg-ml-mark, rgba(20,40,80,.18)); border-right-color: var(--tg-ml-mark, rgba(20,40,80,.18)); pointer-events: none; z-index: 1; }
+.tssgrid.tg-no-ml-mark .tg-multiline-cell::after { display: none; }
 
 /* チェックボックス列: セル中央に配置（クリックでトグル） */
 .tssgrid .tg-table td .tg-cb { display: block; margin: 0 auto; cursor: pointer; }

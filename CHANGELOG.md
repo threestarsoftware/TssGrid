@@ -3,6 +3,17 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.0.8] - 2026-07-12
+
+### 追加
+- **セル内改行（複数行入力）`columns[c].multiline: true`**（コア）— 指定した列だけ**セル内で改行**できる一級の列タイプ。TssGrid の本命である**日本語 IME の直打ち（セルに来ていきなり変換入力・1文字目が落ちない）**をそのまま維持したまま複数行入力に対応（隠し `<textarea>` を編集時だけ使う二枚持ち設計）。
+  - **行の高さは固定**（内容で伸びない＝行高一定なので**大量行・仮想スクロールでも崩れない**）。`defaultRowHeight`/`rowHeights` で見せる行数ぶんを確保し、はみ出しはクリップ。複数行セルの**右上に薄いヒント**が出て「ここは複数行」と分かる。
+  - **編集時は箱が内容ぶん下へ伸びて全行が見える**（浮いたオーバーレイなので行高・スクロールには不干渉・確定で戻る）。最大行数は `multilineEditMaxLines`（既定 10）で頭打ち＋箱内スクロール、画面端では上へフリップしてビューポートからはみ出さない。
+  - オプション: `multilineEnter`（`'commit'` 既定＝Excel 風 Enter=確定/Alt+Enter=改行 ／ `'newline'`＝メモ帳風）・`multilineMark`（右上ヒントの ON/OFF・CSS 変数 `--tg-ml-mark` で色替え）・`multilineEditMaxLines`。デモ `examples/multiline.html`。
+
+### 修正・強化
+- **コピー/貼り付けの TSV を引用符対応（Excel/Sheets 互換）に**（コア）— タブ・改行・引用符を含むセルを `"…"` で囲んで往復するようにし、**セル内に改行を含む値が Excel コピペで崩れない**ように修正。多列・タブ混じりの値にも効く。
+
 ## [0.0.7] - 2026-07-10
 
 ### 修正
@@ -77,6 +88,7 @@ TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Chang
 - 初回公開。コア（編集グリッド／日本語 IME 堅牢・全角半角・セル結合・固定行列・非破壊フィルタ・条件付き書式・コピー/貼付・Undo/Redo ほか）＋同梱プラグイン＋サンプル一式。
 - 目玉デモ（方眼ガント／在庫管理）をサイトでライブ化。
 
+[0.0.8]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.8
 [0.0.7]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.7
 [0.0.6]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.6
 [0.0.5]: https://github.com/threestarsoftware/TssGrid/releases/tag/v0.0.5

@@ -199,6 +199,12 @@
       this.stretchH = opts.stretchH || 'none';
       // セル内折り返し（既定 nowrap）。grid 全体 or columns[c].wordWrap。
       this.wordWrap = !!opts.wordWrap;
+      // 複数行(改行)編集の Enter 挙動: 'commit'(既定・Excel風: Enter=確定 / Alt+Enter=改行) | 'newline'(メモ帳風: Enter=改行 / Ctrl+Enter=確定)。列は columns[c].multiline:true で有効化。
+      this.multilineEnter = opts.multilineEnter === 'newline' ? 'newline' : 'commit';
+      // multiline セル右上の「複数行」ヒント（既定 ON）。色は CSS 変数 --tg-ml-mark で。false で消す。
+      this.multilineMark = opts.multilineMark !== false;
+      // multiline 編集時に伸びる箱の最大行数（既定 10）。超えた分はボックス内スクロール。
+      this.multilineEditMaxLines = opts.multilineEditMaxLines > 0 ? opts.multilineEditMaxLines : 10;
       // 空セルのヒント表示（grid 全体 or columns[c].placeholder）。getData には入らない。
       this.placeholder = opts.placeholder != null ? String(opts.placeholder) : null;
       // 機能トグル
@@ -596,6 +602,7 @@
         '<div class="tg-copybox"></div><div class="tg-fillpreview"></div><div class="tg-fillhandle"></div>' +
         '<div class="tg-resizeguide"></div>' +
         '<input class="tg-editor nav" type="text" autocomplete="off" spellcheck="false">' +
+        '<textarea class="tg-editor tg-editor-multi nav" autocomplete="off" spellcheck="false" style="display:none"></textarea>' +
         '<select class="tg-select" style="display:none"></select>' +
         '</div>' + (this.showDump ? '<pre class="tg-dump"></pre>' : '') +
         '<div class="tg-menu" style="display:none"></div></div>';
@@ -604,11 +611,13 @@
       this.selrange = q('.tg-selrange'); this.selbox = q('.tg-selbox');
       this.copybox = q('.tg-copybox'); this.fillhandle = q('.tg-fillhandle'); this.fillpreview = q('.tg-fillpreview');
       this.resizeGuide = q('.tg-resizeguide');
-      this.editor = q('.tg-editor'); this.select = q('.tg-select'); this.dumpEl = q('.tg-dump');
+      this._edInput = q('input.tg-editor'); this._edMulti = q('.tg-editor-multi'); this.editor = this._edInput;
+      this.select = q('.tg-select'); this.dumpEl = q('.tg-dump');
       this.menuEl = q('.tg-menu');
       this.root = q('.tssgrid');
       if (this.className) this.root.className += ' ' + this.className;  // 任意クラス（テーマ付け）
       if (this.wordWrap) this.root.classList.add('tg-wordwrap');        // グリッド全体の折り返し
+      if (!this.multilineMark) this.root.classList.add('tg-no-ml-mark'); // multiline の右上ヒントを消す
       if (!this.cursor) this.root.classList.add('tg-no-cursor');        // 表示専用（選択枠なし＋セルカーソル既定）
       if (this.width) {
         this.wrap.style.width = this.width;                      // 幅制約（横スクロール／固定列用）
@@ -887,7 +896,7 @@
       return null;
     }
     _usesTextEditor(c) {
-      if (this.colCfg(c).editor) return false;   // カスタムエディタは共有 input を使わない
+      if (this.colCfg(c).editor && !this.colCfg(c).multiline) return false;   // カスタムエディタは共有 input を使わない（multiline は textarea を優先）
       const t = this.colType(c);
       return t !== 'checkbox' && t !== 'dropdown' && !this._nativeInputType(c);
     }
@@ -925,7 +934,10 @@
       if (this.data[r][c] === '' && this._placeholder(c) != null) return TssGrid.esc(this._placeholder(c));
       // html:true の列は表示だけ生HTML（値はテキスト保存のまま）。エスケープを外す＝XSS責任は format/値の提供側。
       if (this.colCfg(c).html) return this._displayValue(r, c);
-      return TssGrid.esc(this._displayValue(r, c));
+      const _h = TssGrid.esc(this._displayValue(r, c));
+      // 複数行セルは絶対配置のクリップ箱で包む＝行を押し広げない（行高一定・仮想スクロール維持／行高ぶんだけ表示）
+      if (this.colCfg(c).multiline) return '<div class="tg-ml-clip">' + _h + '</div>';
+      return _h;
     }
     // 条件付き書式: 列版 columns[c].cellClass(value,{r,c,row,src}) ＋ 全体版 cellClass(r,c,value,row,src)。
     // src = 元レコード（オブジェクトデータ時。非表示フィールドも見える＝休日区分など隠し列基準の色付けに）。
@@ -972,7 +984,7 @@
       if (this._merges && this._isCovered(r, c)) return;   // 従属セルは描画対象なし（cellEl はアンカーへ解決＝誤って上書きしない）
       const td = this.cellEl(r, c); if (!td) return;
       const ph = (this.data[r][c] === '' && this.colType(c) !== 'checkbox') ? this._placeholder(c) : null;
-      if (this.colType(c) === 'checkbox' || (this.colCfg(c).html && ph == null)) td.innerHTML = this._cellHTML(r, c);
+      if (this.colType(c) === 'checkbox' || ((this.colCfg(c).html || this.colCfg(c).multiline) && ph == null)) td.innerHTML = this._cellHTML(r, c);
       else td.textContent = ph != null ? ph : this._displayValue(r, c);
       td.classList.toggle('tg-placeholder', ph != null);
       if (this._marksInvalid) {
@@ -1145,6 +1157,7 @@
         if (this.colType(c) === 'number') cls.push('tg-num');  // 数値は右寄せ
         if (this._isReadOnly(r, c)) cls.push('tg-readonly');  // 読み取り専用（淡色＋カーソル既定）
         if (this.colCfg(c).wordWrap) cls.push('tg-wrap-cell');  // 列単位の折り返し
+        if (this.colCfg(c).multiline) cls.push('tg-multiline-cell');  // 複数行（改行保持＝pre-wrap）
         if (this.data[r][c] === '' && this._placeholder(c) != null) cls.push('tg-placeholder');  // 空セルのヒント
         const al = this._cellAlign(r, c);   // 整列（列既定＋セル上書き）
         if (al.h) cls.push('tg-h-' + al.h); if (al.v) cls.push('tg-v-' + al.v);
@@ -1360,6 +1373,8 @@
       elem.style.left = R.left + 'px'; elem.style.top = R.top + 'px';
       elem.style.width = R.width + 'px'; elem.style.height = R.height + 'px';
       this._clipOverlay(elem, R.left, R.top, c, r);
+      // multiline を編集中に置き直した時は grow をやり直す（_reflow/ResizeObserver が高さを戻すのを打ち消す）
+      if (elem === this._edMulti && this.mode === 'edit') this._growMultiEditor();
     }
     placeRect(elem, r0, c0, r1, c1) {
       const L = this._colLefts, T = this._rowTops;
@@ -1504,23 +1519,73 @@
         this._clipOverlay(this.fillhandle, fhL, fhT, c1, r1);   // 固定ペインに潜ったら隠す
       } else this.fillhandle.style.display = 'none';
     }
+    _isMultiline(c) { return !!this.colCfg(c).multiline; }
+    // アクティブ列に応じて this.editor を input↔textarea に張り替える（非アクティブ側は隠す）。
+    _pickEditor(c) {
+      const next = this._isMultiline(c) ? this._edMulti : this._edInput;
+      if (next === this.editor) return;
+      this.editor.style.display = 'none'; this.editor.value = '';
+      this.editor = next; next.style.display = '';
+    }
+    // 「アクティブ editor を貼り直して nav へ」= 各選択メソッド共通の choke point（張り替えを place より前に）。
+    _syncEditorNav() { this._pickEditor(this.active.c); this.place(this.editor, this.activeTd()); this.toNav(); }
+    // カーソル位置に文字列を差し込む（multiline の改行挿入用）。
+    _insertText(s) {
+      const el = this.editor, st = el.selectionStart, en = el.selectionEnd, v = el.value;
+      el.value = v.slice(0, st) + s + v.slice(en);
+      const p = st + s.length; el.setSelectionRange(p, p);
+      if (this.editor === this._edMulti) this._growMultiEditor();
+    }
+    // multiline 編集中: textarea を内容ぶん下へ伸ばす（浮いてる箱だけ＝行高/スクロールには不干渉・確定で元に戻る）。
+    _growMultiEditor() {
+      const el = this._edMulti;
+      if (this.editor !== el || this.mode !== 'edit' || !this.wrap) return;
+      const td = this.activeTd(); if (!td) return;
+      const tdRect = td.getBoundingClientRect(), cellH = Math.round(tdRect.height);
+      el.style.height = 'auto';                                   // 一旦リセットして内容高さを測る
+      const content = el.scrollHeight;
+      // 行数上限（既定 multilineEditMaxLines）→ px。超えた分はボックス内スクロール。
+      const cs = getComputedStyle(el);
+      let lineH = parseFloat(cs.lineHeight); if (!lineH || isNaN(lineH)) lineH = (parseFloat(cs.fontSize) || 13) * 1.35;
+      const vpad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0) + 4;
+      const capByLines = Math.round(this.multilineEditMaxLines * lineH + vpad);
+      // 収める枠 = wrap の可視域 ∩ ビューポート（下優先／足りなければ上へフリップ／それでも足りなければ広い方＋内部スクロール）＝ブラウザからはみ出さない
+      const wr = this.wrap.getBoundingClientRect(), vh = (typeof window !== 'undefined' && window.innerHeight) || 800, m = 6;
+      const boundTop = Math.max(wr.top, 0), boundBot = Math.min(wr.bottom, vh);
+      const spaceDown = boundBot - tdRect.top - m, spaceUp = tdRect.bottom - boundTop - m;
+      let want = Math.max(cellH, Math.min(content, capByLines)), h, up = false;
+      if (want <= spaceDown) h = want;                           // 下にそのまま収まる
+      else if (want <= spaceUp) { h = want; up = true; }         // 上に開けば収まる
+      else if (spaceDown >= spaceUp) h = Math.max(cellH, spaceDown);   // 下が広い→下＋内部スクロール
+      else { h = Math.max(cellH, spaceUp); up = true; }          // 上が広い→上＋内部スクロール
+      el.style.height = h + 'px';
+      el.style.overflowY = content > h ? 'auto' : 'hidden';
+      const baseTop = parseFloat(el.style.top) || 0;             // place がセル上端(content座標)を入れている
+      el.style.top = (up ? baseTop + cellH - h : baseTop) + 'px';   // up なら下端をセル下端に合わせて上へ伸ばす
+    }
     toNav() {
-      this.mode = 'nav'; this.editor.className = 'tg-editor nav';
-      this.editor.type = 'text'; this.editor.value = '';
+      this.mode = 'nav';
+      this.editor.className = (this.editor === this._edMulti) ? 'tg-editor tg-editor-multi nav' : 'tg-editor nav';
+      if (this.editor === this._edInput) this.editor.type = 'text';   // type は input 専用（textarea は readonly で throw する）
+      this.editor.value = '';
       if (this.select) this.select.style.display = 'none';
     }
     toEdit(value, caretEnd) {
       if (this._isReadOnly(this.active.r, this.active.c)) return;  // 読み取り専用は編集モードに入らない
       const starting = this.mode !== 'edit';
       if (starting) this.clearCopyMarquee();   // 編集開始でコピー/カットのマーキー（点線）を消す（Excel 流）
-      this.mode = 'edit'; this.editor.className = 'tg-editor edit'; this.fillhandle.style.display = 'none';
-      this.editor.type = this._nativeInputType(this.active.c) || 'text';
+      this.mode = 'edit';
+      this.editor.className = (this.editor === this._edMulti) ? 'tg-editor tg-editor-multi edit' : 'tg-editor edit';
+      this.fillhandle.style.display = 'none';
+      if (this.editor === this._edInput) this.editor.type = this._nativeInputType(this.active.c) || 'text';   // type は input 専用
       const _ml = this.colCfg(this.active.c).maxLength;   // 桁数(文字数)上限＝打鍵をブロック（貼付/投入は _coerceCell で切り詰め）
       if (typeof _ml === 'number' && _ml > 0) this.editor.maxLength = _ml; else this.editor.removeAttribute('maxlength');
       if (value != null) this.editor.value = value;
       this.editor.focus();
-      // setSelectionRange は text 系のみ対応（date/time input は例外を投げる）
-      if (caretEnd && this.editor.type === 'text') { const l = this.editor.value.length; this.editor.setSelectionRange(l, l); }
+      // setSelectionRange は text / textarea のみ（date/time/number input は例外を投げる）
+      const _t = this.editor.type;
+      if (caretEnd && _t !== 'date' && _t !== 'time' && _t !== 'number') { const l = this.editor.value.length; this.editor.setSelectionRange(l, l); }
+      if (this.editor === this._edMulti) this._growMultiEditor();   // multiline は編集開始時に内容ぶん伸ばす
       if (starting && this.onEditStart) { try { this.onEditStart({ r: this.active.r, c: this.active.c, value: this.editor.value }); } catch (_) {} }
     }
     _fireSelection() {
@@ -1541,7 +1606,7 @@
       this._headerSel = null;
       this.active = a; this.extent = { ...a };
       if (this.virtual) this._vEnsureVisible(a.r);   // 窓に入れてから placement（窓外なら activeTd=null になるため）
-      this.place(this.editor, this.activeTd()); this.toNav(); this.editor.focus(); this.updateSelectionUI();
+      this._syncEditorNav(); this.editor.focus(); this.updateSelectionUI();
       if (!this.virtual) this.activeTd().scrollIntoView({ block: 'nearest', inline: 'nearest' });   // 仮想は _vEnsureVisible が可視化済み
       this._fireSelection();
     }
@@ -1559,13 +1624,13 @@
       if (!this._beforeSel(a, e)) return;
       this._headerSel = null;
       this.active = a; this.extent = e;
-      this.place(this.editor, this.activeTd()); this.toNav(); this.editor.focus(); this.updateSelectionUI();
+      this._syncEditorNav(); this.editor.focus(); this.updateSelectionUI();
       this._fireSelection();
     }
     focusAndSelect(sel) {
       this.active = { ...sel.active }; this.extent = { ...sel.extent };
       if (this.virtual) this._vEnsureVisible(this.active.r);
-      this.place(this.editor, this.activeTd()); this.toNav(); this.editor.focus(); this.updateSelectionUI();
+      this._syncEditorNav(); this.editor.focus(); this.updateSelectionUI();
       if (!this.virtual) this.activeTd().scrollIntoView({ block: 'nearest', inline: 'nearest' });
       this._fireSelection();
     }
@@ -1575,9 +1640,9 @@
     selectRow(r) { r = this.clampR(r); this._rowAnchor = r; this.selectRect(r, 0, r, this.COLS - 1); this._headerSel = 'row'; this.updateSelectionUI(); }
     selectAll() { this._colAnchor = 0; this._rowAnchor = 0; this.selectRect(0, 0, this.ROWS - 1, this.COLS - 1); this._headerSel = 'all'; this.updateSelectionUI(); }
     _extendCol(c) { const a = { r: 0, c: this._colAnchor }, e = { r: this.ROWS - 1, c: this.clampC(c) }; if (!this._beforeSel(a, e)) return; this._headerSel = 'col'; this.active = a; this.extent = e;
-      this.place(this.editor, this.activeTd()); this.toNav(); this.updateSelectionUI(); this._fireSelection(); }
+      this._syncEditorNav(); this.updateSelectionUI(); this._fireSelection(); }
     _extendRow(r) { const a = { r: this._rowAnchor, c: 0 }, e = { r: this.clampR(r), c: this.COLS - 1 }; if (!this._beforeSel(a, e)) return; this._headerSel = 'row'; this.active = a; this.extent = e;
-      this.place(this.editor, this.activeTd()); this.toNav(); this.updateSelectionUI(); this._fireSelection(); }
+      this._syncEditorNav(); this.updateSelectionUI(); this._fireSelection(); }
     // ---- 列幅 / 行高 のリサイズ ----
     setColWidth(c, w) {
       w = Math.max(this.minColW, Math.round(w)); this.colW[c] = w;
@@ -2150,7 +2215,7 @@
       const before = cut ? this.onBeforeCut : this.onBeforeCopy;
       if (before) { let r; try { r = before(buf, info); } catch (_) {} if (r === false) return; if (Array.isArray(r)) buf = r; }
       sharedClip = buf;
-      this._writeClip(buf.map(row => row.join('\t')).join('\n'));
+      this._writeClip(TssGrid.toTSV(buf));
       this.pendingCut = cut ? { ...sel } : null;
       this.placeRect(this.copybox, sel.r0, sel.c0, sel.r1, sel.c1); this.copybox.style.display = 'block';
       if (this.onAfterCopy) { try { this.onAfterCopy(buf, info); } catch (_) {} }
@@ -2163,7 +2228,33 @@
       const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
       document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (_) {} document.body.removeChild(ta); this.editor.focus();
     }
-    static parseTSV(t) { t = t.replace(/\r\n/g, '\n').replace(/\r/g, '\n'); if (t.endsWith('\n')) t = t.slice(0, -1); return t.split('\n').map(l => l.split('\t')); }
+    // 2次元配列 → クリップボード TSV。セル内に タブ/改行/引用符 を含む値は "…" で囲み、内部の " は "" に（Excel/Sheets 互換）。
+    static toTSV(rows) {
+      return rows.map(row => row.map(v => {
+        const s = v == null ? '' : String(v);
+        return /[\t\n\r"]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join('\t')).join('\n');
+    }
+    // クリップボード TSV → 2次元配列。引用符で囲まれたフィールド内の タブ/改行 はセルの中身として保持（＝Excel の複数行セルが崩れない）。
+    static parseTSV(t) {
+      t = String(t).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const rows = []; let row = [], f = '', inQ = false, i = 0;
+      const endField = () => { row.push(f); f = ''; };
+      const endRow = () => { endField(); rows.push(row); row = []; };
+      while (i < t.length) {
+        const ch = t[i];
+        if (inQ) {
+          if (ch === '"') { if (t[i + 1] === '"') { f += '"'; i += 2; continue; } inQ = false; i++; continue; }   // "" → "／単独 " で引用終了
+          f += ch; i++; continue;
+        }
+        if (ch === '"' && f === '') { inQ = true; i++; continue; }   // フィールド先頭の " のみ引用開始
+        if (ch === '\t') { endField(); i++; continue; }
+        if (ch === '\n') { endRow(); i++; continue; }
+        f += ch; i++;
+      }
+      if (f !== '' || row.length > 0 || inQ) endRow();   // 末尾行を確定（\n 終端の空行は足さない）
+      return rows.length ? rows : [['']];
+    }
     async paste() {
       if (!this.copyPaste) return;
       let text = null;
@@ -2293,25 +2384,29 @@
 
     _bind() {
       if (this.virtual) this.wrap.addEventListener('scroll', () => this._vSync(), { passive: true });  // 仮想スクロール: 窓再描画
-      this.editor.addEventListener('keydown', (e) => this._onKey(e));
-      this.editor.addEventListener('compositionstart', () => {
-        if (this.mode !== 'nav') return;
-        if (this._usesTextEditor(this.active.c)) this.toEdit(null, false);
+      // input と textarea(multiline) の両方に同じ編集入口リスナを張る（this.editor はアクティブ列で張り替わる）。
+      [this._edInput, this._edMulti].forEach((ed) => {
+        ed.addEventListener('keydown', (e) => this._onKey(e));
+        ed.addEventListener('compositionstart', () => {
+          if (this.mode !== 'nav') return;
+          if (this._usesTextEditor(this.active.c)) this.toEdit(null, false);
+        });
+        ed.addEventListener('beforeinput', (e) => {
+          if (this.mode !== 'nav' || !(e.inputType || '').startsWith('insert')) return;
+          const c = this.active.c, t = this.colType(c);
+          if (this._usesTextEditor(c)) { this.toEdit(null, false); return; }  // text / multiline / parse・format 付き date・time
+          e.preventDefault();
+          if (this.colCfg(c).editor) this._openCustomEditor(this.active.r, c);   // カスタムエディタ
+          else if (t === 'dropdown') this._openSelect();
+          else if (t === 'date' || t === 'time') this.toEdit(this.data[this.active.r][c], true);  // ネイティブピッカー
+          // checkbox は文字入力を無視（Space / クリックでトグル）
+        });
+        ed.addEventListener('blur', () => {
+          if (this._customEditor) return;   // カスタムエディタが奪ったフォーカスでの blur は無視
+          if (this.mode === 'edit' && (!this.select || this.select.style.display === 'none')) { this.commit(); this.toNav(); this.updateSelectionUI(); }
+        });
       });
-      this.editor.addEventListener('beforeinput', (e) => {
-        if (this.mode !== 'nav' || !(e.inputType || '').startsWith('insert')) return;
-        const c = this.active.c, t = this.colType(c);
-        if (this._usesTextEditor(c)) { this.toEdit(null, false); return; }  // text / parse・format 付き date・time
-        e.preventDefault();
-        if (this.colCfg(c).editor) this._openCustomEditor(this.active.r, c);   // カスタムエディタ
-        else if (t === 'dropdown') this._openSelect();
-        else if (t === 'date' || t === 'time') this.toEdit(this.data[this.active.r][c], true);  // ネイティブピッカー
-        // checkbox は文字入力を無視（Space / クリックでトグル）
-      });
-      this.editor.addEventListener('blur', () => {
-        if (this._customEditor) return;   // カスタムエディタが奪ったフォーカスでの blur は無視
-        if (this.mode === 'edit' && (!this.select || this.select.style.display === 'none')) { this.commit(); this.toNav(); this.updateSelectionUI(); }
-      });
+      this._edMulti.addEventListener('input', () => this._growMultiEditor());   // 入力で内容ぶん伸ばす（multiline のみ）
       this.select.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); this._commitSelect(); this._advance('enter', e.shiftKey); }
         else if (e.key === 'Tab') { e.preventDefault(); this._commitSelect(); this._advance('tab', e.shiftKey); }
@@ -2598,6 +2693,12 @@
       if (!composing && this._runShortcuts(e)) return;
       if (this.mode === 'edit') {
         if (composing) return;
+        if (this.editor === this._edMulti && e.key === 'Enter') {   // multiline: 案1 Enter=改行/Ctrl+Enter=確定, 案2 Enter=確定/Alt+Enter=改行
+          const commit = this.multilineEnter === 'newline' ? (e.ctrlKey || e.metaKey) : !e.altKey;
+          e.preventDefault();
+          if (commit) { this.commit(); this._advance('enter', e.shiftKey); } else this._insertText('\n');
+          return;
+        }
         if (e.key === 'Enter') { e.preventDefault(); this.commit(); this._advance('enter', e.shiftKey); return; }
         if (e.key === 'Tab') { e.preventDefault(); this.commit(); this._advance('tab', e.shiftKey); return; }
         // Esc／編集中の Ctrl+Z ＝ この編集をキャンセルして元値に戻す（nav へ）。

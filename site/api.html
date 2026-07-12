@@ -29,8 +29,8 @@
   .nav-head { font-size:11px; font-weight:800; letter-spacing:.08em; color:#9aa7b5; padding:6px 12px; }
   #doc { flex:1; min-width:0; max-width:900px; padding:24px 0 80px; }
   #doc h1 { font-size:30px; margin:6px 0 10px; }
-  #doc h2 { font-size:22px; margin:42px 0 12px; padding-top:16px; border-top:1px solid #e3e9f0; scroll-margin-top:76px; }
-  #doc h3 { font-size:16px; margin:26px 0 10px; color:#1573c0; scroll-margin-top:76px; }
+  #doc h2 { font-size:22px; margin:42px 0 12px; padding-top:16px; border-top:1px solid #e3e9f0; scroll-margin-top:18px; }
+  #doc h3 { font-size:16px; margin:26px 0 10px; color:#1573c0; scroll-margin-top:18px; }
   #doc p, #doc li { font-size:14px; line-height:1.8; color:#33414f; }
   #doc a { color:#1573c0; }
   #doc code { background:#eef2f7; color:#1d4e7a; padding:1px 6px; border-radius:4px; font-size:.9em; font-family:'SFMono-Regular',Consolas,Menlo,monospace; }
@@ -87,7 +87,7 @@
 <h1>API リファレンス</h1>
 <p class="lead">公開API（オプション・イベント・メソッド）の一覧。<b><code>src/tssgrid.d.ts</code> を正本に自動生成</b>しています。使い方・サンプルは <a href="docs.html">ドキュメント（ガイド）</a> をどうぞ。</p>
 <h2 id="options">グリッド オプション</h2>
-<p>54 項目（<code>new TssGrid(el, options)</code>）。</p>
+<p>62 項目（<code>new TssGrid(el, options)</code>）。</p>
 <table>
 <thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
 <tbody>
@@ -122,9 +122,18 @@
 <tr><td><code>cursor</code></td><td><code class="ty">boolean</code></td><td>false で選択カーソルを非表示（表示専用グリッド向け・内部選択は保持）。</td></tr>
 <tr><td><code>stretchH</code></td><td><code class="ty">'none' | 'last' | 'all'</code></td><td></td></tr>
 <tr><td><code>rowHeaders</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>rowHeaderWidth</code></td><td><code class="ty">number</code></td><td>行番号列の幅(px)。既定 40。大量行で桁数が増える時に広げる。</td></tr>
+<tr><td><code>rowHeaderLabel</code></td><td><code class="ty">false | ((r: number) =&gt; string | number)</code></td><td>行ヘッダの表示内容。未指定=行番号(r+1) / false=数字なし(空) / (r)=&gt;文字列=カスタム表示。</td></tr>
+<tr><td><code>rowReorder</code></td><td><code class="ty">boolean | 'header'</code></td><td>行のドラッグ並べ替え。true=行ヘッダーセルの ⠿ アイコンを掴んで移動 / 'header'=行ヘッダーセル全体が移動ハンドル（クリック=選択／ドラッグ=移動）。</td></tr>
+<tr><td><code>rowReorderMark</code></td><td><code class="ty">'before' | 'after' | false</code></td><td>行ヘッダーの ⠿ マークの位置。'before'=番号の前（既定）/ 'after'=番号の後 / false=マークを出さない。</td></tr>
+<tr><td><code>virtual</code></td><td><code class="ty">boolean | { buffer?: number }</code></td><td>仮想スクロール（固定行高ウィンドウイング）。大量行を可視窓だけ描画。true か { buffer:窓上下バッファ行数(既定6) }。
+制約(v1): 行高一定／固定行列・折り返し・セル結合は非対応（指定時は自動無効化）。</td></tr>
 <tr><td><code>colHeaders</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>hiddenColumns</code></td><td><code class="ty">number[]</code></td><td></td></tr>
 <tr><td><code>wordWrap</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>multilineEnter</code></td><td><code class="ty">'commit' | 'newline'</code></td><td>multiline 列の Enter 挙動。'commit'(既定・Excel風): Enter=確定 / Alt+Enter=改行。'newline'(メモ帳風): Enter=改行 / Ctrl+Enter=確定。</td></tr>
+<tr><td><code>multilineMark</code></td><td><code class="ty">boolean</code></td><td>multiline セル右上の「複数行」ヒント表示（既定 true）。色は CSS 変数 --tg-ml-mark。false で非表示。</td></tr>
+<tr><td><code>multilineEditMaxLines</code></td><td><code class="ty">number</code></td><td>multiline 編集時に伸びる箱の最大行数（既定 10）。超えた分はボックス内スクロール。ビューポート/wrap を超える時はそちらが優先。</td></tr>
 <tr><td><code>placeholder</code></td><td><code class="ty">string</code></td><td></td></tr>
 <tr><td><code>className</code></td><td><code class="ty">string</code></td><td></td></tr>
 <tr><td><code>fillHandle</code></td><td><code class="ty">boolean | { direction?: 'vertical' | 'horizontal' | 'both'; autoInsertRow?: boolean }</code></td><td>false でフィル完全OFF。詳細指定も可。</td></tr>
@@ -199,6 +208,7 @@
 <tr><td><code>cellStyle</code></td><td><code class="ty">(r: number, c: number, value: any, row: any) =&gt; Partial&lt;CSSStyleDeclaration&gt; | Record&lt;string, string&gt;</code></td><td>セル単位のインラインスタイル（連続色・データバー等）。</td></tr>
 <tr><td><code>html</code></td><td><code class="ty">boolean</code></td><td>true で表示だけ生HTML（値はテキスト保存のまま）。</td></tr>
 <tr><td><code>wordWrap</code></td><td><code class="ty">boolean</code></td><td>列単位の折り返し。</td></tr>
+<tr><td><code>multiline</code></td><td><code class="ty">boolean</code></td><td>複数行(改行)入力を有効化。編集は隠し textarea（IME 直打ち対応）、表示は改行保持(pre-wrap)。行高は自動で伸びないので rowHeights 等で確保する。</td></tr>
 <tr><td><code>placeholder</code></td><td><code class="ty">string</code></td><td>空セルの薄いヒント文字。</td></tr>
 </tbody>
 </table>

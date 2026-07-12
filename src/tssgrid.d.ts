@@ -77,6 +77,8 @@ export interface ColumnDef {
   html?: boolean;
   /** 列単位の折り返し。 */
   wordWrap?: boolean;
+  /** 複数行(改行)入力を有効化。編集は隠し textarea（IME 直打ち対応）、表示は改行保持(pre-wrap)。行高は自動で伸びないので rowHeights 等で確保する。 */
+  multiline?: boolean;
   /** 空セルの薄いヒント文字。 */
   placeholder?: string;
   [k: string]: any;
@@ -140,6 +142,12 @@ export interface TssGridOptions {
   colHeaders?: boolean;
   hiddenColumns?: number[];
   wordWrap?: boolean;
+  /** multiline 列の Enter 挙動。'commit'(既定・Excel風): Enter=確定 / Alt+Enter=改行。'newline'(メモ帳風): Enter=改行 / Ctrl+Enter=確定。 */
+  multilineEnter?: 'commit' | 'newline';
+  /** multiline セル右上の「複数行」ヒント表示（既定 true）。色は CSS 変数 --tg-ml-mark。false で非表示。 */
+  multilineMark?: boolean;
+  /** multiline 編集時に伸びる箱の最大行数（既定 10）。超えた分はボックス内スクロール。ビューポート/wrap を超える時はそちらが優先。 */
+  multilineEditMaxLines?: number;
   placeholder?: string;
   className?: string;
   /** false でフィル完全OFF。詳細指定も可。 */

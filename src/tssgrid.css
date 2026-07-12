@@ -156,6 +156,15 @@
 .tssgrid .tg-editor.nav     { color: transparent; background: transparent; border: none; caret-color: transparent; pointer-events: none; }
 .tssgrid .tg-editor.edit    { color: #222; background: var(--tg-edit-bg); border: 2px solid var(--tg-edit-accent); caret-color: auto; pointer-events: auto; }
 .tssgrid .tg-editor.invalid { border-color: #e23; background: #fff3f4; }
+/* 複数行(改行)エディタ = 隠し textarea。nav=透明sink / edit=可視。列は columns[c].multiline:true */
+.tssgrid .tg-editor-multi { padding: 3px 5px; line-height: 1.35; white-space: pre-wrap; overflow: hidden; resize: none; vertical-align: top; }
+.tssgrid .tg-editor-multi.edit { overflow: auto; }
+/* 複数行セル表示: 内容を絶対配置のクリップ箱に入れ、td を押し広げない＝行高一定（仮想スクロール維持）。行高ぶんだけ見せて残りはクリップ。 */
+.tssgrid .tg-table td.tg-multiline-cell { position: relative; padding: 0; vertical-align: top; }
+.tssgrid .tg-multiline-cell .tg-ml-clip { position: absolute; inset: 0; overflow: hidden; box-sizing: border-box; padding: 3px 5px; white-space: pre-wrap; word-break: break-word; line-height: 1.35; }
+/* 右上の「複数行」ヒント（非interactive・薄色）。掴める誤解を避け右下でなく右上。色は --tg-ml-mark、tg-no-ml-mark で無効。 */
+.tssgrid .tg-multiline-cell::after { content: ""; position: absolute; top: 0; right: 0; border: 6px solid transparent; border-top-color: var(--tg-ml-mark, rgba(20,40,80,.18)); border-right-color: var(--tg-ml-mark, rgba(20,40,80,.18)); pointer-events: none; z-index: 1; }
+.tssgrid.tg-no-ml-mark .tg-multiline-cell::after { display: none; }
 
 /* チェックボックス列: セル中央に配置（クリックでトグル） */
 .tssgrid .tg-table td .tg-cb { display: block; margin: 0 auto; cursor: pointer; }
