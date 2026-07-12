@@ -1030,6 +1030,30 @@ new TssGrid(el, {
 - 読み取り専用セルは淡色表示（`td.tg-readonly`）。checkbox は `disabled`、dropdown は ▾ を出しません。
 - 検証（`validator`）とは独立。`invalidMode` に関係なく常に元の値へ戻します。
 
+### セル内改行（複数行入力・multiline）
+
+列に `multiline: true` を付けると、その列だけ**セル内で改行**できます（メモ・議事録・備考など）。TssGrid の本命である**日本語 IME の直打ち（セルに来ていきなり変換入力・1文字目が落ちない）はそのまま**——編集は隠しテキストエリアで行いますが、開いてから打つのではなく**そのまま打ち始められます**（→ 動く例: [`examples/multiline.html`](https://tssgrid.threestarsoftware.co.jp/examples/multiline.html)）。
+
+```js
+new TssGrid(el, {
+  defaultRowHeight: 64,          // 見せる行数ぶんの高さを確保（固定・自動では伸びない）
+  multilineEnter: 'commit',      // 既定=Excel風（Enter=確定 / Alt+Enter=改行）。'newline' でメモ帳風
+  columns: [
+    { data: 'task', title: '項目' },
+    { data: 'memo', title: 'メモ', width: 340, multiline: true },   // ← これだけ
+  ],
+  data: rows,
+});
+```
+
+- **行の高さは固定**（内容で伸びない＝行高一定なので**大量行・仮想スクロールでも崩れない**）。`defaultRowHeight` / `rowHeights` で見せる行数ぶんを確保し、はみ出しはクリップ。複数行セルの**右上に薄いヒント**が出て「ここは複数行」と分かります。
+- **編集を始めると箱が内容ぶん下へ伸びて全行が見えます**（浮いたオーバーレイなので**行の高さ・スクロールには不干渉**・確定で元のクランプ表示に戻る）。`multilineEditMaxLines`（既定 `10`）で頭打ち＋箱内スクロール、画面端では上へフリップしてビューポートからはみ出しません。
+- **`multilineEnter`**: `'commit'`（既定・Excel風＝Enter で確定 / **Alt+Enter で改行**）／ `'newline'`（メモ帳風＝Enter で改行 / **Ctrl+Enter で確定**）。同一画面での混在は非対応（起動時に選ぶ）。
+- **`multilineMark`**: 右上ヒントの表示（既定 `true`）。`false` で消す。色は CSS 変数 **`--tg-ml-mark`** で列/業務ごとに変えられます。
+- **`multilineEditMaxLines`**: 編集で伸びる箱の最大行数（既定 `10`）。
+- **コピー / 貼り付け**は Excel / Sheets と往復しても崩れません（改行を含むセルは引用符付き TSV で入出力）。改行コードは内部 **LF** に統一されます（貼り付け・入力とも CRLF→LF 正規化。`setData` で渡した値のみ無改変）。
+- ネイティブの日付/時刻ピッカー（素の `type:'date'`/`'time'`）は従来どおり（別要素なので multiline と競合しません）。
+
 ### 右クリックメニュー（行/列の挿入・削除）
 
 セルやヘッダを**右クリック**すると、行/列の挿入・削除メニューが出ます。複数行/列を選択しておけば**まとめて削除**できます。挿入・削除は **Undo/Redo に1操作で積まれ**（`Ctrl+Z` / `Ctrl+Y`）、列の挿入・削除では `frozenCols` も自動で追従します。
