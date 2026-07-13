@@ -163,7 +163,10 @@ export interface TssGridOptions {
   maxCols?: number;
   /** グリッド全体を読み取り専用（ビューア用途）。 */
   readOnly?: boolean;
-  contextMenu?: boolean | any[] | { items: any[] };
+  /** 右クリックメニュー。true=既定 / false=無効 / 配列 or {items} =構成（組込キー文字列＋カスタム MenuItem）。 */
+  contextMenu?: boolean | Array<string | MenuItem> | { items: Array<string | MenuItem> };
+  /** Ctrl+ヘッダで行/列を飛び飛び複数選択（既定 true）。false で Ctrl+クリックは単一選択に戻る。 */
+  disjointSelect?: boolean;
   allowInsertRows?: boolean;
   allowDeleteRows?: boolean;
   allowInsertCols?: boolean;
@@ -192,6 +195,8 @@ export interface TssGridOptions {
   onAfterAutofill?: (src: SelectionRange, target: SelectionRange) => void;
   onBeforeKeyDown?: (e: KeyboardEvent) => boolean | void;
   onHeaderClick?: (c: number, e: MouseEvent) => boolean | void;
+  /** 各列ヘッダ th の生成後に呼ぶ（再描画毎に自動で再実行）。ソートアイコン等の要素差し込み用。 */
+  onHeaderRender?: (th: HTMLTableCellElement, c: number) => void;
   onInvalid?: (rejections: Rejection[], source: ChangeSource) => void;
   onReadOnly?: (blocked: ReadOnlyBlock[], source: ChangeSource) => void;
   onChange?: (grid: TssGrid) => void;
@@ -200,7 +205,24 @@ export interface TssGridOptions {
   [k: string]: any;
 }
 
-export interface CsvOptions { formatted?: boolean; delimiter?: string; [k: string]: any; }
+export interface CsvOptions {
+  headers?: boolean; formatted?: boolean; skipEmpty?: boolean; eol?: string;
+  /** CSV数式インジェクション無害化（既定 true）。=@+- 始まりの非数値セルを ' で保護。生値が要る用途は false。 */
+  sanitizeFormula?: boolean;
+  delimiter?: string; [k: string]: any;
+}
+
+/** 右クリックの対象種別。カスタムメニュー項目の name/disabled/hidden の第2引数、callback の {ctx} で受け取る。 */
+export interface MenuContext { on: 'col' | 'row' | 'cell' | 'corner'; r: number; c: number; }
+
+/** 右クリックメニューのカスタム項目。name/disabled/hidden は関数なら (range, ctx) で呼ばれる。 */
+export interface MenuItem {
+  name?: string | ((range: SelectionRange, ctx: MenuContext) => string);
+  callback?: (arg: { range: SelectionRange; key?: string; ctx: MenuContext }) => void;
+  disabled?: boolean | ((range: SelectionRange, ctx: MenuContext) => boolean);
+  hidden?: boolean | ((range: SelectionRange, ctx: MenuContext) => boolean);
+  danger?: boolean; separator?: boolean; key?: string; submenu?: Array<string | MenuItem>;
+}
 
 /** Undo/Redo 履歴。複数グリッドで共有すると Undo タイムラインが繋がる。 */
 export declare class HistoryManager {
@@ -259,6 +281,8 @@ export declare class TssGrid {
   // ---- 並べ替え / フィルタ -------------------------------------------------
   /** 列で並べ替え（c は index か data キー）。 */
   sortBy(cOrKey: number | string, dir?: 'asc' | 'desc'): void;
+  /** 多段（複数列）で並べ替え。specs は優先順（先頭=第1キー）。各段は sortBy と同じ比較規則。 */
+  sortByCols(specs: Array<{ col: number | string; dir?: 'asc' | 'desc' }>): void;
   /** 比較関数で並べ替え。 */
   sortRows(cmp: (a: any[], b: any[]) => number): void;
   /** 並べ替え解除（入力順に戻す）。 */
@@ -279,6 +303,14 @@ export declare class TssGrid {
   selectRow(r: number): void;
   selectCol(c: number): void;
   selectAll(): void;
+  /** 選択中の列インデックス（Ctrl+ヘッダクリックの飛び飛び選択に対応・昇順）。列選択モードでなければ `[]`。 */
+  getSelectedColumns(): number[];
+  /** 選択中の行インデックス（Ctrl+行ヘッダクリックの飛び飛び選択に対応・昇順）。行選択モードでなければ `[]`。 */
+  getSelectedRows(): number[];
+  /** 飛び飛びの複数列をまとめて削除（高index側から。右クリック「N 列を削除」の実体）。 */
+  deleteColsSet(cols: number[]): void;
+  /** 飛び飛びの複数行をまとめて削除（高index側から。右クリック「N 行を削除」の実体）。 */
+  deleteRowsSet(rows: number[]): void;
 
   // ---- 行 / 列 構造 -------------------------------------------------------
   insertRow(ri: number, where?: 'above' | 'below'): void;

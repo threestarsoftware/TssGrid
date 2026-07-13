@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 多段（複数列）ソート：ヘッダのソートアイコン</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 26px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 840px; }
+  .note b { color: #1573c0; }
+  .keys { display: inline-block; background: #eef4ff; color: #2456b0; border: 1px solid #cdddf5; border-radius: 5px; padding: 0 6px; font-size: 12px; font-family: Consolas, monospace; }
+  code, pre { font-family: Consolas, "Courier New", monospace; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 840px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  #state { font-size: 12.5px; color: #555; margin-top: 8px; min-height: 1.4em; }
+
+  /* ===== ヘッダのソートアイコン（この例のCSS。コアは onHeaderRender フックだけ提供） ===== */
+  .tssgrid thead th[data-c] { position: relative; padding-right: 40px; cursor: pointer; }  /* 右にマーク枠を確保＝数字が出ても幅が動かない */
+  .ms-grp { position: absolute; right: 8px; top: 0; bottom: 0; display: flex; align-items: center; gap: 3px; pointer-events: none; }  /* 本体クリックを邪魔しない */
+  .ms-num { min-width: 11px; text-align: right; font-size: 9px; font-weight: 700; letter-spacing: -.02em; color: #64707e; font-variant-numeric: tabular-nums; }
+  .ms-sort { display: inline-flex; flex-direction: column; gap: 1px; pointer-events: auto; }  /* ▲▼ だけクリックを受ける */
+  .ms-seg { width: 18px; height: 14px; display: flex; align-items: center; justify-content: center; border-radius: 3px; cursor: pointer; }
+  .ms-seg:hover { background: rgba(31,111,196,.15); }
+  .ms-seg::before { content: ""; display: block; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; }
+  .ms-up::before { border-bottom: 5px solid #b9c3cf; }   /* ふだんは薄いグレー（常時表示＝出入りのピコピコ無し） */
+  .ms-dn::before { border-top: 5px solid #b9c3cf; }
+  .ms-up:hover::before { border-bottom-color: #8a97a6; }
+  .ms-dn:hover::before { border-top-color: #8a97a6; }
+  .ms-sort.asc .ms-up::before { border-bottom-color: #1f6fc4; }   /* 確定した向きだけアクセント色で点灯 */
+  .ms-sort.desc .ms-dn::before { border-top-color: #1f6fc4; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 多段（複数列）ソート <span class="pill">onHeaderRender + sortByCols</span></h1>
+
+<div class="note">
+ヘッダ右端の <b>▲▼ がソート</b>（▲=昇順・▼=降順、<b>点灯中をもう一度押すと解除</b>）。普通のクリックは単独ソート＝別の列を押せば置き換わるので<b>全消しも一発</b>、<span class="keys">Ctrl</span>+クリックで<b>多段</b>（押した順＝優先度。マーク左に小さく番号）。<br>
+<b>ヘッダ本体クリックは列選択</b>（<span class="keys">Shift</span>+クリックで列の範囲選択）＝ソートと選択が<b>別の場所</b>で両立します。▲▼ は <b>onHeaderRender</b> フックで差し込み（再描画でも自動）、並べ替えの中身は <b>grid.sortByCols(specs)</b>。
+</div>
+
+<h2>デモ</h2>
+<div id="grid"></div>
+<div id="state">ソートなし（入力順）</div>
+
+<h2>要点</h2>
+<pre>let specs = [];                                  // [{col, dir}] 位置＝優先度
+const find = c =&gt; specs.findIndex(s =&gt; s.col === c);
+
+const grid = new TssGrid(host, {
+  headers, columns, data,
+  // ★ 各ヘッダthの生成後に呼ばれる（再描画毎に自動）＝ここで ▲▼ を差し込む
+  onHeaderRender(th, c) {
+    const i = find(c), active = i &gt;= 0 ? specs[i].dir : '';
+    const num = (i &gt;= 0 &amp;&amp; specs.length &gt;= 2) ? (i + 1) : '';
+    const g = document.createElement('span');
+    g.className = 'ms-grp';
+    g.innerHTML = '&lt;span class="ms-num"&gt;' + num + '&lt;/span&gt;' +
+      '&lt;span class="ms-sort ' + active + '"&gt;' +
+        '&lt;span class="ms-seg ms-up" data-dir="asc"&gt;&lt;/span&gt;' +
+        '&lt;span class="ms-seg ms-dn" data-dir="desc"&gt;&lt;/span&gt;' +
+      '&lt;/span&gt;';
+    th.appendChild(g);
+  },
+  // ★ マーク上ならソート（return false で列選択を抑止）／本体なら列選択（そのまま通す）
+  onHeaderClick(c, e) {
+    const seg = e.target.closest('.ms-seg');
+    if (!seg) return;                              // 本体クリック＝コアの列選択に任せる
+    const dir = seg.dataset.dir, i = find(c);
+    if (e.ctrlKey || e.metaKey) {                  // Ctrl＝多段（押した順＝優先度・点灯向き再クリックで解除）
+      if (i &gt;= 0 &amp;&amp; specs[i].dir === dir) specs.splice(i, 1);
+      else if (i &gt;= 0) specs[i].dir = dir; else specs.push({ col: c, dir });
+    } else {                                       // 単独（置換）＝点灯中を再クリックで全解除
+      if (specs.length === 1 &amp;&amp; specs[0].col === c &amp;&amp; specs[0].dir === dir) specs = [];
+      else specs = [{ col: c, dir }];
+    }
+    apply();
+    return false;
+  },
+});
+function apply() { specs.length ? grid.sortByCols(specs) : (grid.clearSort() || grid.redraw()); }</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const headers = ['部署', '役職', '売上', '年齢'];
+  const rows = [
+    ['営業', '課長', '980',  '45'],
+    ['開発', '主任', '2400', '38'],
+    ['営業', '一般', '1200', '29'],
+    ['開発', '一般', '800',  '41'],
+    ['営業', '一般', '1200', '33'],
+    ['総務', '部長', '1500', '52'],
+    ['開発', '主任', '2400', '36'],
+    ['営業', '課長', '980',  '48'],
+  ];
+
+  let specs = [];                                  // [{col, dir}] 位置＝優先度（唯一の状態＝sortByCols の引数）
+  const find = c => specs.findIndex(s => s.col === c);
+  const stateEl = document.getElementById('state');
+
+  function apply() {
+    if (specs.length) grid.sortByCols(specs);      // sortByCols→buildTable→onHeaderRender が再実行＝マークの状態も更新
+    else if (!grid.clearSort()) grid.redraw();
+    stateEl.textContent = specs.length
+      ? '優先順: ' + specs.map((s, i) => `${i + 1}. ${headers[s.col]} ${s.dir === 'asc' ? '昇順▲' : '降順▼'}`).join(' → ')
+      : 'ソートなし（入力順）';
+  }
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'multisort', width: 580,
+    headers: headers.slice(),
+    columns: [{}, {}, { type: 'number', thousands: true, prefix: '¥' }, { type: 'number' }],
+    data: rows,
+    // 各ヘッダthの生成後に ▲▼ を差し込む（再描画毎に自動で再実行される）
+    onHeaderRender(th, c) {
+      const i = find(c), active = i >= 0 ? specs[i].dir : '';
+      const num = (i >= 0 && specs.length >= 2) ? (i + 1) : '';
+      const g = document.createElement('span');
+      g.className = 'ms-grp';
+      g.innerHTML = '<span class="ms-num">' + num + '</span>' +
+        '<span class="ms-sort ' + active + '">' +
+          '<span class="ms-seg ms-up" data-dir="asc"></span>' +
+          '<span class="ms-seg ms-dn" data-dir="desc"></span>' +
+        '</span>';
+      th.appendChild(g);
+    },
+    // マーク上ならソート（return false で選択を抑止）／本体なら列選択（そのまま通す）
+    onHeaderClick(c, e) {
+      const seg = e.target.closest('.ms-seg');
+      if (!seg) return;                            // 本体＝コアの列選択（Shiftで範囲選択）に任せる
+      const dir = seg.dataset.dir, i = find(c);
+      if (e.ctrlKey || e.metaKey) {
+        if (i >= 0 && specs[i].dir === dir) specs.splice(i, 1);   // 点灯向きを再クリック→その列を解除（繰り上げ）
+        else if (i >= 0) specs[i].dir = dir;                      // 向きだけ変更
+        else specs.push({ col: c, dir });                         // 追加（押した順＝優先度）
+      } else {
+        if (specs.length === 1 && specs[0].col === c && specs[0].dir === dir) specs = [];   // 点灯中を再クリック→全解除
+        else specs = [{ col: c, dir }];                                                      // この列だけで単独
+      }
+      apply();
+      return false;
+    },
+  });
+</script>
+</body>
+</html>

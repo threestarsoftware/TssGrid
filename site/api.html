@@ -87,7 +87,7 @@
 <h1>API リファレンス</h1>
 <p class="lead">公開API（オプション・イベント・メソッド）の一覧。<b><code>src/tssgrid.d.ts</code> を正本に自動生成</b>しています。使い方・サンプルは <a href="docs.html">ドキュメント（ガイド）</a> をどうぞ。</p>
 <h2 id="options">グリッド オプション</h2>
-<p>62 項目（<code>new TssGrid(el, options)</code>）。</p>
+<p>63 項目（<code>new TssGrid(el, options)</code>）。</p>
 <table>
 <thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
 <tbody>
@@ -147,7 +147,8 @@
 <tr><td><code>minCols</code></td><td><code class="ty">number</code></td><td></td></tr>
 <tr><td><code>maxCols</code></td><td><code class="ty">number</code></td><td></td></tr>
 <tr><td><code>readOnly</code></td><td><code class="ty">boolean</code></td><td>グリッド全体を読み取り専用（ビューア用途）。</td></tr>
-<tr><td><code>contextMenu</code></td><td><code class="ty">boolean | any[] | { items: any[] }</code></td><td></td></tr>
+<tr><td><code>contextMenu</code></td><td><code class="ty">boolean | Array&lt;string | MenuItem&gt; | { items: Array&lt;string | MenuItem&gt; }</code></td><td>右クリックメニュー。true=既定 / false=無効 / 配列 or {items} =構成（組込キー文字列＋カスタム MenuItem）。</td></tr>
+<tr><td><code>disjointSelect</code></td><td><code class="ty">boolean</code></td><td>Ctrl+ヘッダで行/列を飛び飛び複数選択（既定 true）。false で Ctrl+クリックは単一選択に戻る。</td></tr>
 <tr><td><code>allowInsertRows</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>allowDeleteRows</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>allowInsertCols</code></td><td><code class="ty">boolean</code></td><td></td></tr>
@@ -157,7 +158,7 @@
 </tbody>
 </table>
 <h2 id="events">イベント / コールバック</h2>
-<p>21 個。値変更系（onBeforeChange/onAfterChange）は編集・貼付・フィル・Delete の全経路を通ります。</p>
+<p>22 個。値変更系（onBeforeChange/onAfterChange）は編集・貼付・フィル・Delete の全経路を通ります。</p>
 <table>
 <thead><tr><th>イベント</th><th>シグネチャ</th><th>説明</th></tr></thead>
 <tbody>
@@ -178,6 +179,7 @@
 <tr><td><code>onAfterAutofill</code></td><td><code class="ty">(src: SelectionRange, target: SelectionRange) =&gt; void</code></td><td></td></tr>
 <tr><td><code>onBeforeKeyDown</code></td><td><code class="ty">(e: KeyboardEvent) =&gt; boolean | void</code></td><td></td></tr>
 <tr><td><code>onHeaderClick</code></td><td><code class="ty">(c: number, e: MouseEvent) =&gt; boolean | void</code></td><td></td></tr>
+<tr><td><code>onHeaderRender</code></td><td><code class="ty">(th: HTMLTableCellElement, c: number) =&gt; void</code></td><td>各列ヘッダ th の生成後に呼ぶ（再描画毎に自動で再実行）。ソートアイコン等の要素差し込み用。</td></tr>
 <tr><td><code>onInvalid</code></td><td><code class="ty">(rejections: Rejection[], source: ChangeSource) =&gt; void</code></td><td></td></tr>
 <tr><td><code>onReadOnly</code></td><td><code class="ty">(blocked: ReadOnlyBlock[], source: ChangeSource) =&gt; void</code></td><td></td></tr>
 <tr><td><code>onChange</code></td><td><code class="ty">(grid: TssGrid) =&gt; void</code></td><td></td></tr>
@@ -213,7 +215,7 @@
 </tbody>
 </table>
 <h2 id="methods">メソッド</h2>
-<p>公開メソッド 57 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
+<p>公開メソッド 62 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
 <h3 id="m-0">データ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
@@ -229,6 +231,7 @@
 <h3 id="m-1">並べ替え / フィルタ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">sortBy(cOrKey: number | string, dir?: 'asc' | 'desc'): void</code><p>列で並べ替え（c は index か data キー）。</p></div>
+<div class="api-m"><code class="sig">sortByCols(specs: Array&lt;{ col: number | string; dir?: 'asc' | 'desc' }&gt;): void</code><p>多段（複数列）で並べ替え。specs は優先順（先頭=第1キー）。各段は sortBy と同じ比較規則。</p></div>
 <div class="api-m"><code class="sig">sortRows(cmp: (a: any[], b: any[]) =&gt; number): void</code><p>比較関数で並べ替え。</p></div>
 <div class="api-m"><code class="sig">clearSort(): void</code><p>並べ替え解除（入力順に戻す）。</p></div>
 <div class="api-m"><code class="sig">isSorted(): boolean</code></div>
@@ -245,6 +248,10 @@
 <div class="api-m"><code class="sig">selectRow(r: number): void</code></div>
 <div class="api-m"><code class="sig">selectCol(c: number): void</code></div>
 <div class="api-m"><code class="sig">selectAll(): void</code></div>
+<div class="api-m"><code class="sig">getSelectedColumns(): number[]</code><p>選択中の列インデックス（Ctrl+ヘッダクリックの飛び飛び選択に対応・昇順）。列選択モードでなければ `[]`。</p></div>
+<div class="api-m"><code class="sig">getSelectedRows(): number[]</code><p>選択中の行インデックス（Ctrl+行ヘッダクリックの飛び飛び選択に対応・昇順）。行選択モードでなければ `[]`。</p></div>
+<div class="api-m"><code class="sig">deleteColsSet(cols: number[]): void</code><p>飛び飛びの複数列をまとめて削除（高index側から。右クリック「N 列を削除」の実体）。</p></div>
+<div class="api-m"><code class="sig">deleteRowsSet(rows: number[]): void</code><p>飛び飛びの複数行をまとめて削除（高index側から。右クリック「N 行を削除」の実体）。</p></div>
 </div>
 <h3 id="m-3">行 / 列 構造</h3>
 <div class="api-list">
