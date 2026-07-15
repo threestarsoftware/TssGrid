@@ -1471,6 +1471,7 @@
       let max = 0, worst = null;
       for (let r = 0; r < this.ROWS; r++) for (let c = 0; c < this.COLS; c++) {
         if (this._merges && this._isCovered(r, c)) continue;
+        if (!this.cellEl(r, c)) continue;   // 仮想スクロール: 窓外の未描画セルは DOM 実測なし＝スキップ（仮想でも _geomDelta を回せる）
         const d = this._cellRect(r, c), m = this._cellRectModel(r, c);
         const e = Math.max(Math.abs(d.left - m.left), Math.abs(d.top - m.top), Math.abs(d.width - m.width), Math.abs(d.height - m.height));
         if (e > max) { max = e; worst = { r, c, dom: d, model: m }; }

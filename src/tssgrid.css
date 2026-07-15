@@ -188,6 +188,15 @@
 .tssgrid .tg-table td.tg-readonly.tg-haspicker { padding-right: 6px; }   /* 読取専用は出さない */
 .tssgrid .tg-table td.tg-readonly.tg-haspicker::after { display: none; }
 
+/* 固定列(frozen)は dropdown/haspicker/multiline でも sticky を維持する。
+   これら型の position:relative は .tg-frozen と同じ詳細度(0,3,1)で後勝ち＝固定列の
+   sticky を潰し、_applyFrozen の inline left が相対オフセットになってセルが右へずれる。
+   複合セレクタ(0,4,1)で sticky を勝たせて解消（sticky も ::after 絶対配置の基準になるのでキャレットはそのまま）。
+   ※ frozen-row(tr.tg-frozen-row > td)は子結合子で詳細度(0,3,2)＝既に relative に勝つため対処不要。 */
+.tssgrid .tg-table td.tg-frozen.tg-dropdown,
+.tssgrid .tg-table td.tg-frozen.tg-haspicker,
+.tssgrid .tg-table td.tg-frozen.tg-multiline-cell { position: sticky; }
+
 /* dropdown 編集用の <select>（editor と同じ位置に重ねる）。
    ネイティブ矢印を消し、非編集セルの ▾ と同じ見た目のキャレットを描いて統一する。 */
 .tssgrid .tg-select {

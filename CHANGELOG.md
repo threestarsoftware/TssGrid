@@ -3,6 +3,12 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.0.10] - 2026-07-15
+
+### 修正
+- **固定列(`frozenCols`)＋dropdown/日付ピッカー/複数行セルで、そのセルが右にずれる不具合を修正**（コアCSS）— 2番目以降の固定列が `dropdown`（または `tg-haspicker`/`tg-multiline-cell`）だと、これら型の `position:relative` が固定列の `position:sticky` と**同じ詳細度で後勝ち**し、`sticky` が潰れて `_applyFrozen` の inline `left` が相対オフセットとして効き、body セルだけが固定ペイン幅ぶん右にずれていた（表示のみ・データは無影響だが実用不可）。複合セレクタ `td.tg-frozen.tg-dropdown` 等（詳細度を1段上げる）で `sticky` を維持するよう修正。行固定(`tr.tg-frozen-row > td`)は子結合子で詳細度が既に高く影響なし。tssgrid-kintone の実機で発覚→ヘッドレス最小再現。
+- **開発用の幾何自己検査 `_geomDelta()` が仮想スクロール時に throw していたのを修正**（内部ヘルパ）— 窓外の未描画セルを `if(!cellEl)continue` でスキップし、仮想でも幾何検査を回せるようにした（実害は無いが回帰テストで使える）。
+
 ## [0.0.9] - 2026-07-13
 
 ### セキュリティ
