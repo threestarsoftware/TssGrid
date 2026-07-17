@@ -24,7 +24,9 @@
   <h1>オートコンプリート <span class="pill">autocomplete エディタ</span></h1>
   <div class="note" style="margin-top:8px">
   自由入力＋<b>候補の絞り込み</b>（<code>plugins/tss-autocomplete.js</code>）。固定ドロップダウンの上位版で、<b>「だいたい決まってるが新規もある」</b>項目（取引先・商品名など）向け。↑↓で候補移動・Enterで確定・Escで取消・クリックで選択。<br>
-  <b>IME変換中の Enter は奪いません</b>（変換確定が最優先＝TssGrid の流儀）。<code>取引先</code>は候補から自由に、<code>支払方法</code>は <code>strict:true</code>（候補のみ許可）。
+  <b>この例は <code>inline: true</code></b>＝<b>セルにそのまま打ち始められます</b>（打った1文字目が消えない・<b>IME直打ち（変換）でもそのまま開始</b>）。入力は本体の共有 input に乗り、プラグインは候補を出すだけ＝フォーカスを奪いません。<br>
+  <b>IME変換中の ↑↓/Enter は奪いません</b>（変換確定が最優先＝TssGrid の流儀）。<code>取引先</code>は候補から自由に、<code>支払方法</code>は <code>strict:true</code>（候補のみ許可）。<br>
+  ※ <code>inline</code> を付けない従来型（クリック/F2 でポップアップの自前入力を開く）も引き続き使えます。
   </div>
 
   <div class="panel">
@@ -43,9 +45,10 @@
   const grid = new TssGrid(document.getElementById('grid'), {
     name: 'orders', width: 660, rowHeight: 26, rowHeaders: false, initialCell: { r: 0, c: 'client' },
     columns: [
-      { data: 'client',  title: '取引先',  width: 200, editor: TssAutocomplete({ source: clients }) },           // 自由入力可
-      { data: 'product', title: '商品名',  width: 220, editor: TssAutocomplete({ source: products }) },
-      { data: 'pay',     title: '支払方法', width: 160, editor: TssAutocomplete({ source: pays, strict: true }) }, // 候補のみ
+      // inline:true ＝セルに打ちながら絞る（打鍵の1文字目もIME直打ちも素のテキスト列と同じに効く）
+      { data: 'client',  title: '取引先',  width: 200, editor: TssAutocomplete({ source: clients, inline: true }) },           // 自由入力可
+      { data: 'product', title: '商品名',  width: 220, editor: TssAutocomplete({ source: products, inline: true }) },
+      { data: 'pay',     title: '支払方法', width: 160, editor: TssAutocomplete({ source: pays, strict: true, inline: true }) }, // 候補のみ
     ],
     data: [
       { client: '三星商事', product: 'A4 コピー用紙', pay: '振込' },

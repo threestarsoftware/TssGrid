@@ -154,6 +154,7 @@
       this._headerSel = null;   // 'col'/'row'/'all'=列/行/全選択モード（結合に拡張せず実列/行にクランプ＝Excel流）。null=通常セル選択
       this._selCols = new Set(); // 飛び飛びの列選択（Ctrl+ヘッダクリック）。_headerSel==='col' の時だけ有効。連続選択は矩形と一致
       this._selRows = new Set(); // 飛び飛びの行選択（Ctrl+行ヘッダクリック）。_headerSel==='row' の時だけ有効
+      this._inlineEd = null; this._inlineCtx = null;   // inline エディタ（editor.inline=true）: 共有 input に乗るエディタの現在値
       this.disjointSelect = opts.disjointSelect !== false;   // Ctrl+ヘッダで行/列を飛び飛び複数選択（false で無効＝Ctrl+クリックは単一選択に戻る）
       // リサイズ（列幅・行高）
       // 列幅 colW[c]=px（未指定は既定）。指定方法は3通り、優先度＝実行時リサイズ/明示colW > columns[c].width > 既定:
@@ -495,6 +496,7 @@
       if (typeof pred === 'object') {
         const conds = Object.keys(pred).map(k => {
           let ci = this._resolveCol(k); if (ci < 0) ci = this.headers.indexOf(k);   // data キー → 見出し名でも解決
+          if (ci < 0 && /^\d+$/.test(k) && +k < this.COLS) ci = +k;   // 数値文字列キー {0:…} は列 index として解決（Object.keys が数値キーを文字列化するため。data キー優先＝上で未解決の時だけ）
           const want = pred[k]; return { ci, test: typeof want === 'function' ? want : (v => String(v) === String(want)) };
         }).filter(x => x.ci >= 0);
         return row => conds.every(cd => cd.test(row[cd.ci]));
@@ -928,9 +930,12 @@
       return null;
     }
     _usesTextEditor(c) {
-      if (this.colCfg(c).editor && !this.colCfg(c).multiline) return false;   // カスタムエディタは共有 input を使わない（multiline は textarea を優先）
+      const ed = this.colCfg(c).editor;
+      // カスタムエディタは共有 input を使わない（multiline は textarea を優先）。
+      // ただし editor.inline=true は「入力は本体の IME 堅牢な共有 input に任せ、エディタは候補を描くだけ」＝共有 input に乗る。
+      if (ed && !ed.inline && !this.colCfg(c).multiline) return false;
       const t = this.colType(c);
-      return t !== 'checkbox' && t !== 'dropdown' && !this._nativeInputType(c);
+      return t !== 'checkbox' && t !== 'dropdown' && !this._nativeInputType(c);   // inline でも dropdown/checkbox/ネイティブ日付は対象外
     }
     // 保存値 → セル表示文字列（format 適用）。getData は保存値のまま。
     _displayValue(r, c) {
@@ -1310,6 +1315,7 @@
       if (this.onHeaderRender && this.colHeaders) this._applyHeaderRender();   // 外部がヘッダthを装飾（ソートアイコン等）。高さ確定前に走らせて幾何へ反映
       const thd = this.table.querySelector('thead');
       this._theadH = (this.colHeaders && thd) ? thd.offsetHeight : 0;   // ヘッダ高をキャッシュ（クリップ計算用）
+      this.wrap.style.setProperty('--tg-thead-h', this._theadH + 'px');   // scrollIntoView が sticky ヘッダに潜らないよう td の scroll-margin-top に使う（動的ヘッダ高に追従）
       this._applyTableWidth();
       this._applyStretch();
       this._applyHeaderSticky();
@@ -1619,7 +1625,35 @@
       const baseTop = parseFloat(el.style.top) || 0;             // place がセル上端(content座標)を入れている
       el.style.top = (up ? baseTop + cellH - h : baseTop) + 'px';   // up なら下端をセル下端に合わせて上へ伸ばす
     }
+    // inline エディタ（editor.inline=true）を開く。入力は共有 input のまま＝打鍵の1文字目も IME 直打ちも殺さない。
+    // エディタはフォーカスを持たない前提（ポップアップ側は mousedown を preventDefault すること）。
+    // 確定は本体 commit＝関所を通るので検証/整形/readOnly/履歴はそのまま効く。
+    _openInlineEditor() {
+      const r = this.active.r, c = this.active.c, def = this.colCfg(c).editor;
+      if (!def || !def.inline || this._inlineEd) return;
+      const ed = typeof def === 'function' ? def() : def;
+      if (!ed || typeof ed.open !== 'function') return;
+      const grid = this;
+      const ctx = {
+        grid, r, c, inline: true,
+        value: this.data[r][c],
+        td: this.cellEl(r, c),
+        input: this.editor,                                     // 打鍵/IME が入る共有 input（読み取り・listen 用）
+        setValue(v) { grid.editor.value = grid._cellStr(v); },  // 候補で置き換える用（確定はしない）
+        commit(v) { if (v != null) grid.editor.value = grid._cellStr(v); grid.commit(); grid.toNav(); grid.updateSelectionUI(); },
+        cancel() { grid.setActive(r, c); },                     // 元値に戻して nav（Esc 相当）
+      };
+      this._inlineEd = ed; this._inlineCtx = ctx;
+      try { ed.open(ctx); } catch (_) { this._inlineEd = null; this._inlineCtx = null; }
+    }
+    _closeInlineEditor() {
+      const ed = this._inlineEd;
+      if (!ed) return;
+      this._inlineEd = null; this._inlineCtx = null;
+      if (ed.close) { try { ed.close(); } catch (_) {} }
+    }
     toNav() {
+      this._closeInlineEditor();   // 編集終了の締めどころ（commit/Esc/blur/選択移動＝全経路がここを通る）
       this.mode = 'nav';
       this.editor.className = (this.editor === this._edMulti) ? 'tg-editor tg-editor-multi nav' : 'tg-editor nav';
       if (this.editor === this._edInput) this.editor.type = 'text';   // type は input 専用（textarea は readonly で throw する）
@@ -1642,6 +1676,7 @@
       const _t = this.editor.type;
       if (caretEnd && _t !== 'date' && _t !== 'time' && _t !== 'number') { const l = this.editor.value.length; this.editor.setSelectionRange(l, l); }
       if (this.editor === this._edMulti) this._growMultiEditor();   // multiline は編集開始時に内容ぶん伸ばす
+      if (starting) this._openInlineEditor();   // inline エディタ列なら ed.open(ctx)（共有 input はそのまま＝打鍵/IME を維持）
       if (starting && this.onEditStart) { try { this.onEditStart({ r: this.active.r, c: this.active.c, value: this.editor.value }); } catch (_) {} }
     }
     _fireSelection() {
@@ -2542,6 +2577,10 @@
       // input と textarea(multiline) の両方に同じ編集入口リスナを張る（this.editor はアクティブ列で張り替わる）。
       [this._edInput, this._edMulti].forEach((ed) => {
         ed.addEventListener('keydown', (e) => this._onKey(e));
+        // inline エディタへ入力を通知（打った/変換確定した内容で候補を絞る用）
+        ed.addEventListener('input', () => {
+          if (this._inlineEd && this._inlineEd.onInput) { try { this._inlineEd.onInput(this.editor.value, this._inlineCtx); } catch (_) {} }
+        });
         ed.addEventListener('compositionstart', () => {
           if (this.mode !== 'nav') return;
           if (this._usesTextEditor(this.active.c)) this.toEdit(null, false);
@@ -2596,7 +2635,7 @@
         // ドロップダウンはシングルクリックで即開く
         if (this.colType(c) === 'dropdown') { this.dragging = false; this._openSelect(); }
         // カスタムエディタが openOnClick を申告していれば、ドロップダウン同様シングルクリックで開く（再クリックは開かない＝トグル）
-        else { const ed = this.colCfg(c).editor; if (ed && ed.openOnClick && !wasOpenHere) { this.dragging = false; this._openCustomEditor(r, c); } }
+        else { const ed = this.colCfg(c).editor; if (ed && ed.openOnClick && !wasOpenHere) { this.dragging = false; if (ed.inline) this._beginEdit(r, c); else this._openCustomEditor(r, c); } }   // inline は共有 input を開く（_beginEdit→toEdit→ed.open）
       });
       // ヘッダ全選択チェックは mousedown で処理済み。click のネイティブ・トグルを止めて二重反転を防ぐ
       this.table.addEventListener('click', (e) => {
@@ -2733,7 +2772,8 @@
     // ---- 型に応じた編集の入口 ----
     _beginEdit(r, c) {
       this.clearCopyMarquee();   // 編集開始でコピー/カットのマーキー（点線）を消す（dropdown/checkbox/カスタム含む）
-      if (this.colCfg(c).editor) { this._openCustomEditor(r, c); return; }   // カスタムエディタ
+      const _ed = this.colCfg(c).editor;
+      if (_ed && !_ed.inline) { this._openCustomEditor(r, c); return; }   // カスタムエディタ（inline は共有 input の経路へ落として toEdit が open する）
       const t = this.colType(c);
       if (t === 'checkbox') { this._toggleCheckbox(r, c); return; }
       if (t === 'dropdown') { this._openSelect(); return; }
@@ -2845,6 +2885,12 @@
       const composing = e.isComposing || e.keyCode === 229;
       // onBeforeKeyDown: グリッドより先にユーザーへ。false / preventDefault で既定を止める。
       if (this.onBeforeKeyDown) { let r; try { r = this.onBeforeKeyDown(e); } catch (_) {} if (r === false || e.defaultPrevented) return; }
+      // inline エディタにもキーを先に渡す（IME 変換中も渡す＝「変換中の↑↓は奪わない」実装を書けるように。
+      // 本体の `if (composing) return` より前＝エディタ側で isComposing/keyCode 229 を見て手を引ける）。false で既定を止める。
+      if (this._inlineEd && this._inlineEd.onKeyDown) {
+        let r; try { r = this._inlineEd.onKeyDown(e, this._inlineCtx); } catch (_) {}
+        if (r === false || e.defaultPrevented) return;
+      }
       // カスタムショートカット（IME 変換中は除く）
       if (!composing && this._runShortcuts(e)) return;
       if (this.mode === 'edit') {

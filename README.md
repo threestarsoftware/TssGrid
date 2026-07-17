@@ -364,6 +364,30 @@ new TssGrid(el, { columns: [{ editor: myEditor }] });
 - `open` が受け取る `{ grid, r, c, value, td, commit, cancel }` だけ知っていれば作れます。F2 / ダブルクリック / 文字入力で開きます。
 - **`commit(value)` は通常の確定経路（pushCmd）を通る**ので、`validator`/`parse`/`format`/読み取り専用がそのまま効き、**Undo にも積まれます**。
 - 編集中に別セルをクリックすると `cancel()` 相当で閉じます。描画（セルの見た目）は従来どおり `format` 等で制御。
+- ⚠️ 上記の（フォーカスを奪う）エディタは **クリック / F2 で開く**型です。**打鍵の1文字目や IME 直打ちから始めたい**なら次の `inline` を使ってください。
+
+### `editor.inline`: 打鍵・IME 直打ちを殺さないエディタ（サジェスト向け）
+
+`editor.inline = true` を宣言すると、**入力は本体の IME 堅牢な共有 input のまま**で、エディタは「候補を描く」役に徹します。＝**打った1文字目が残り、IME 直打ち（変換）も素のテキスト列と完全に同じ**に効きます。「セルに打ちながら候補を絞るサジェスト／ルックアップ」はこの型で作ります。
+
+```js
+const suggest = {
+  inline: true, icon: '🔍',                 // icon / openOnClick は inline でも使えます
+  open(ctx) { /* ctx.input = 打鍵/IMEが入る共有input。ここに候補ポップアップを添える（フォーカスは奪わない） */ },
+  onInput(value, ctx) { /* 打つたびに呼ばれる＝候補を絞る */ },
+  onKeyDown(e, ctx) {                       // 本体より先に受ける。IME 変換中も呼ばれる
+    if (e.isComposing || e.keyCode === 229) return;   // ★変換中は手を引く（↑↓を奪わない）
+    if (e.key === 'ArrowDown') { /* 候補を選ぶ */ return false; }   // false で本体既定を止める
+    if (e.key === 'Enter') { ctx.commit(選んだ値); return false; }  // commit＝関所を通る
+  },
+  close() { /* 候補を片付ける */ },
+};
+new TssGrid(el, { columns: [{ editor: suggest }] });
+```
+- `ctx` は通常の `{grid,r,c,value,td,commit,cancel}` に加えて **`input`（共有input）/ `setValue(v)`（候補で置換・確定はしない）/ `inline:true`** が入ります。
+- **確定は本体の `commit()`＝関所を通る**ので `validator`/`parse`/`format`/読み取り専用/Undo はそのまま効きます。
+- ポップアップ側は **`mousedown` を `preventDefault`** してフォーカスを奪わないこと（共有 input に打ち続けられる）。
+- 対象は **text/number 系の列**（`dropdown`/`checkbox`/ネイティブ日付は従来どおり対象外）。**`inline` を書かない既存エディタの挙動は一切変わりません**（完全 opt-in）。
 
 ### 同梱プラグイン: 休日カレンダー対応の日付ピッカー
 
@@ -769,7 +793,7 @@ new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
 | `onBeforeAutofill` / `onAfterAutofill` | `(src,target)=>…` | — | フィル前後。before は `false` で取消。`src`/`target` = `{r0,c0,r1,c1}` |
 | `autoColumnSize` | `boolean \| number` | `false` | 初期化時に列幅を内容に合わせて自動調整（数値=上限px）。`autoSizeColumn`/`autoSizeAllColumns` API・列境界ダブルクリックでも |
 | `columns[c].align` / `valign` | `string` | — | 列既定の整列（→ [整列](#整列--セル単位の読み取り専用実行時)） |
-| `columns[c].editor` | `object \| ()=>object` | — | カスタム編集UI（→ [カスタムエディタ](#カスタムエディタ)） |
+| `columns[c].editor` | `object \| ()=>object` | — | カスタム編集UI（→ [カスタムエディタ](#カスタムエディタ)）。`editor.inline:true` で**打鍵の1文字目・IME 直打ちを殺さない**サジェスト型に（→ [`editor.inline`](#editorinline-打鍵ime-直打ちを殺さないエディタサジェスト向け)） |
 | `copyPaste` | `boolean` | `true` | `false` でコピー/カット/ペーストを無効化 |
 | `minSpareRows` | `number` | `0` | 末尾に常に確保する空行数（Excel風に下へ打ち足せる） |
 | `autoWrapRow` / `autoWrapCol` | `boolean` | `false` | Tab で行末→次行頭 / Enter で列末→次列頭に折り返し |

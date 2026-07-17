@@ -60,7 +60,7 @@ export interface ColumnDef {
   /** 入力検証。編集/貼付/フィルの全経路に効く。 */
   validator?: (value: any, cell: CellCoord) => ValidatorResult;
   /** カスタム編集UI（薄いオブジェクト契約 or それを返す関数）。 */
-  editor?: object | (() => object);
+  editor?: EditorDef | (() => EditorDef);
   /** 入力の正規化（保存値へ変換）。 */
   parse?: (input: string, cell: CellCoord) => any;
   /** 表示の整形（保存値→表示）。文字列 or 宣言的 CellFormat。 */
@@ -210,6 +210,39 @@ export interface CsvOptions {
   /** CSV数式インジェクション無害化（既定 true）。=@+- 始まりの非数値セルを ' で保護。生値が要る用途は false。 */
   sanitizeFormula?: boolean;
   delimiter?: string; [k: string]: any;
+}
+
+/** カスタム編集UIが `open` で受け取る ctx。確定は commit＝本体の関所（検証/整形/readOnly/履歴）を通る。 */
+export interface EditorContext {
+  grid: TssGrid; r: number; c: number; value: any; td: HTMLTableCellElement | null;
+  commit(value?: any): void; cancel(): void;
+  /** inline エディタのみ: true。 */
+  inline?: boolean;
+  /** inline エディタのみ: 打鍵/IME が入る本体の共有 input（読み取り・listen 用）。 */
+  input?: HTMLInputElement | HTMLTextAreaElement;
+  /** inline エディタのみ: 共有 input の値を差し替える（候補で置換する用・確定はしない）。 */
+  setValue?(value: any): void;
+  [k: string]: any;
+}
+/** カスタム編集UIの契約（`columns[c].editor`）。 */
+export interface EditorDef {
+  open(ctx: EditorContext): void;
+  close?(): void;
+  /** セル右端に出すアイコン。 */
+  icon?: string;
+  /** シングルクリックで開く（ドロップダウン同様）。 */
+  openOnClick?: boolean;
+  /**
+   * `true` で「本体の共有 input に乗るエディタ」＝**打鍵の1文字目・IME 直打ちが素のテキスト列と同じに効く**。
+   * 入力は本体（IME 堅牢な共有 input）に任せ、エディタは候補表示等だけを担当する型。text/number 系の列で有効
+   * （dropdown/checkbox/ネイティブ日付は従来どおり対象外）。未指定なら従来のフォーカスを奪うエディタ（挙動不変）。
+   */
+  inline?: boolean;
+  /** inline のみ: 本体より先にキーを受ける（**IME 変換中も呼ばれる**＝変換中の↑↓を奪わない実装が書ける）。`false` で本体既定を止める。 */
+  onKeyDown?(e: KeyboardEvent, ctx: EditorContext): boolean | void;
+  /** inline のみ: 共有 input の入力通知（候補の絞り込み用）。 */
+  onInput?(value: string, ctx: EditorContext): void;
+  [k: string]: any;
 }
 
 /** 右クリックの対象種別。カスタムメニュー項目の name/disabled/hidden の第2引数、callback の {ctx} で受け取る。 */

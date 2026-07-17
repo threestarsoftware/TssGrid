@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — ソート＋フィルタ両載せ（ヘッダのアイコン共存）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-filter.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 26px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 840px; }
+  .note b { color: #1573c0; }
+  .keys { display: inline-block; background: #eef4ff; color: #2456b0; border: 1px solid #cdddf5; border-radius: 5px; padding: 0 6px; font-size: 12px; font-family: Consolas, monospace; }
+  code, pre { font-family: Consolas, "Courier New", monospace; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 840px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  #state { font-size: 12.5px; color: #555; margin-top: 8px; min-height: 1.4em; }
+
+  /* ===== ヘッダのアイコン共存レイアウト（この例のCSS） =====
+     ※ <th> に display:flex は不可（table-cell でなくなりテーブルが壊れる）。
+     正解: th は position:relative のまま、padding-right で右レーンを確保し、
+     ソート▲▼(onHeaderRender) と 漏斗(.tg-filter-btn) を両方その右レーンに絶対配置。
+     ▲▼を right:24px、漏斗を right:4px に置けば「ラベル … ▲▼ 🔽」の一列になる。 */
+  .tssgrid .tg-table thead th[data-c] { position: relative; padding-right: 46px; }   /* 右にアイコン用レーンを確保 */
+  .ms-grp { position: absolute; right: 24px; top: 0; bottom: 0; display: flex; align-items: center; gap: 2px; }   /* ソート▲▼ */
+  /* この例では漏斗も同じ右レーンへ絶対配置して▲▼の右隣に（tss-filter 既定はインライン＝ここだけ上書き） */
+  .tssgrid .tg-table thead th .tg-filter-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); margin: 0; }
+  .ms-num { min-width: 10px; text-align: right; font-size: 9px; font-weight: 700; letter-spacing: -.02em; color: #64707e; font-variant-numeric: tabular-nums; }
+  .ms-sort { display: inline-flex; flex-direction: column; gap: 1px; line-height: 0; }
+  .ms-seg { display: flex; width: 18px; height: 12px; align-items: center; justify-content: center; border-radius: 3px; cursor: pointer; }
+  .ms-seg:hover { background: rgba(31,111,196,.15); }
+  .ms-seg::before { content: ""; display: block; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; }
+  .ms-up::before { border-bottom: 5px solid #b9c3cf; }   /* 常時うっすらグレー */
+  .ms-dn::before { border-top: 5px solid #b9c3cf; }
+  .ms-up:hover::before { border-bottom-color: #8a97a6; }
+  .ms-dn:hover::before { border-top-color: #8a97a6; }
+  .ms-sort.asc .ms-up::before { border-bottom-color: #1f6fc4; }   /* 確定した向きだけアクセント色 */
+  .ms-sort.desc .ms-dn::before { border-top-color: #1f6fc4; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: ソート＋フィルタ両載せ <span class="pill">multisort ＋ tss-filter</span></h1>
+
+<div class="note">
+1つのヘッダに <b>ソート(▲▼)</b> と <b>フィルタ(漏斗)</b> を共存させる例。<b>右端に <code>▲▼ 🔽</code> が一列</b>に並びます。<br>
+・<b>▲▼</b>＝ソート（▲昇順/▼降順・点灯中を再クリックで解除・<span class="keys">Ctrl</span>+クリックで多段）。本体クリックで列選択。<br>
+・<b>🔽(漏斗)</b>＝tss-filter のオートフィルタ（クリックで値チェックリスト・複数列AND）。<br>
+両立のキモは <b>th に右レーン(<code>padding-right</code>)を確保し、▲▼と漏斗を両方"絶対配置"で右に並べる</b>こと（<code>&lt;th&gt;</code>は <code>display:flex</code> にできない＝table-cellが壊れるため）。▲▼を <code>right:24px</code>、漏斗を <code>right:4px</code> に置けば <code>ラベル … ▲▼ 🔽</code> の一列になります。
+</div>
+
+<h2>デモ</h2>
+<div id="grid"></div>
+<div id="state">ソートなし（入力順）</div>
+<p style="font-size:12.5px"><button id="clearf">フィルタを全解除</button></p>
+
+<h2>要点（共存レイアウト）</h2>
+<pre>/* &lt;th&gt;はflex不可(table-cellが壊れる)。position:relative のまま右レーンを確保し両方を絶対配置 */
+.tssgrid .tg-table thead th[data-c] { position: relative; padding-right: 46px; }
+.ms-grp { position: absolute; right: 24px; top: 0; bottom: 0; }   /* ソート▲▼ */
+.tssgrid thead th .tg-filter-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }  /* 漏斗を▲▼の右隣へ */
+
+const grid = new TssGrid(host, {
+  headers, columns, data,
+  plugins: [ TssFilter.plugin() ],    // ← フィルタUI（漏斗）
+  onHeaderRender(th, c) { /* ▲▼ を差し込む（multisort と同じ） */ },
+  onHeaderClick(c, e) { /* ▲▼ でソート / 本体で列選択 */ },
+});</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-filter.js"></script>
+<script>
+  const headers = ['部署', '役職', '売上', '年齢'];
+  const rows = [
+    ['営業', '課長', '980',  '45'],
+    ['開発', '主任', '2400', '38'],
+    ['営業', '一般', '1200', '29'],
+    ['開発', '一般', '800',  '41'],
+    ['営業', '一般', '1200', '33'],
+    ['総務', '部長', '1500', '52'],
+    ['開発', '主任', '2400', '36'],
+    ['営業', '課長', '980',  '48'],
+  ];
+
+  let specs = [];
+  const find = c => specs.findIndex(s => s.col === c);
+  const stateEl = document.getElementById('state');
+
+  function apply() {
+    if (specs.length) grid.sortByCols(specs);
+    else if (!grid.clearSort()) grid.redraw();
+    stateEl.textContent = specs.length
+      ? '優先順: ' + specs.map((s, i) => `${i + 1}. ${headers[s.col]} ${s.dir === 'asc' ? '昇順▲' : '降順▼'}`).join(' → ')
+      : 'ソートなし（入力順）';
+  }
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'sortfilter', width: 600,
+    headers: headers.slice(),
+    columns: [{}, {}, { type: 'number', thousands: true, prefix: '¥' }, { type: 'number' }],
+    data: rows,
+    plugins: [TssFilter.plugin()],   // ← 漏斗フィルタUI（全列）
+    // ソート▲▼を差し込む（multisort と同じ・再描画毎に自動再実行）
+    onHeaderRender(th, c) {
+      const i = find(c), active = i >= 0 ? specs[i].dir : '';
+      const num = (i >= 0 && specs.length >= 2) ? (i + 1) : '';
+      const g = document.createElement('span');
+      g.className = 'ms-grp';
+      g.innerHTML = '<span class="ms-num">' + num + '</span>' +
+        '<span class="ms-sort ' + active + '">' +
+          '<span class="ms-seg ms-up" data-dir="asc"></span>' +
+          '<span class="ms-seg ms-dn" data-dir="desc"></span>' +
+        '</span>';
+      th.appendChild(g);
+    },
+    onHeaderClick(c, e) {
+      const seg = e.target.closest('.ms-seg');
+      if (!seg) return;                            // 本体＝列選択／漏斗はプラグインが処理
+      const dir = seg.dataset.dir, i = find(c);
+      if (e.ctrlKey || e.metaKey) {
+        if (i >= 0 && specs[i].dir === dir) specs.splice(i, 1);
+        else if (i >= 0) specs[i].dir = dir;
+        else specs.push({ col: c, dir });
+      } else {
+        if (specs.length === 1 && specs[0].col === c && specs[0].dir === dir) specs = [];
+        else specs = [{ col: c, dir }];
+      }
+      apply();
+      return false;
+    },
+  });
+
+  document.getElementById('clearf').onclick = () => { const f = grid.getPlugin('filter'); if (f && f.clearAll) f.clearAll(); };
+</script>
+</body>
+</html>

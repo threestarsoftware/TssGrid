@@ -3,6 +3,16 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.0] - 2026-07-17
+
+### 追加
+- **`TssAutocomplete({ inline: true })`＝「セルに打ちながら候補を絞る」サジェスト**（プラグイン）— 上記 `editor.inline` に載せた版。従来の同プラグインは**自前 input を持つポップアップ**（クリック/F2 で開き、その中に打つ）だったため、**セルに直接打ち始める／IME 直打ちで始める**経路が使えなかった（サンプルは「開いてから打つ」ので症状が見えていなかった）。`inline: true` を付けると自前 input を作らずフォーカスも奪わず、**打鍵の1文字目も IME 直打ちも素のテキスト列と同じ**に効き、候補リストだけを出す。**IME 変換中の ↑↓/Enter は奪わない**（変換確定が最優先＝従来からの流儀を維持）。確定は本体 `commit()`＝関所を通る。`examples/autocomplete.html` を inline 版に更新。**`inline` 無しは従来どおり（挙動不変・opt-in）**。
+- **`editor.inline`＝打鍵の1文字目・IME 直打ちを殺さないカスタムエディタ**（コア）— 従来 `columns[c].editor` を付けた列は**クリック/F2 でしか編集を開始できず**、打鍵は `preventDefault` されて1文字目が捨てられ、IME 直打ち（`compositionstart`）は素通りで編集にすら入れなかった（＝TssGrid の看板である IME 堅牢な直打ちがカスタムエディタ列だけ効かない）。`editor.inline = true` を宣言すると **入力は本体の共有 input のまま**＝**打鍵も IME も素のテキスト列と完全に同じ**になり、エディタは候補表示に徹する型になる（「セルに打ちながら候補を絞るサジェスト/ルックアップ」がこれで作れる）。エディタ側の口: `open(ctx)`（ctx に **`input`**＝共有input / **`setValue(v)`** / `inline:true` を追加）・**`onKeyDown(e, ctx)`**（本体より先に受ける。**IME 変換中も呼ばれる**＝変換中の↑↓を奪わない実装が書ける。`false` で本体既定を止める）・**`onInput(value, ctx)`**（候補の絞り込み用）・`close()`。`icon`/`openOnClick` は inline でもそのまま使える。確定は本体 `commit()`＝関所を通るので validator/parse/format/readOnly/Undo はそのまま。対象は text/number 系（dropdown/checkbox/ネイティブ日付は従来どおり対象外）。**完全 opt-in＝`inline` を書かない既存エディタ（TssCalendar 等）の挙動は一切変わらない**。tssgrid-kintone のルックアップ実装で必要になり起票。
+
+### 修正
+- **非仮想グリッドで↑キー等で先頭行へ移動すると、その行が sticky な列ヘッダの下に潜って読めなくなる不具合を修正**（コアCSS＋JS）— キーボード移動の可視化に使う `scrollIntoView({block:'nearest'})` が、枠内に浮く sticky ヘッダ（≈29px）を考慮せず「一部でも見えていれば再スクロールしない」ため、先頭行がヘッダ下に潜ったまま止まっていた。`buildTable` でヘッダ高を CSS 変数 `--tg-thead-h` にセットし、`td { scroll-margin-top: var(--tg-thead-h) }` でヘッダ高ぶんの余白を確保（`scrollIntoView` がヘッダ下に潜らなくなる。ヘッダ高の変化にも追従・ヘッダ無しは0px）。tssgrid-kintone 実機(Chrome)で発覚・実測。
+- **`filter({ 0: '営業' })` のように「列 index を数値キー」にした絞り込みが効かなかったのを修正**（コア）— `Object.keys` が数値キーを文字列化する（`{0:…}`→`'0'`）ため `_resolveCol('0')` が列 index に解決できず、条件が空＝全行 true（絞り込まれない）になっていた。数値文字列キーは列 index として解決するフォールバックを追加（data キー/見出し名が優先＝未解決の時だけ index 扱い）。関数述語・data キー・見出し名・関数値・AND は従来どおり。tss-filter の漏斗UI経由は元々無影響。
+
 ## [0.0.10] - 2026-07-15
 
 ### 修正

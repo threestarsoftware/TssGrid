@@ -201,7 +201,7 @@
 <tr><td><code>valign</code></td><td><code class="ty">'top' | 'middle' | 'bottom'</code></td><td></td></tr>
 <tr><td><code>readOnly</code></td><td><code class="ty">boolean | ((value: any, cell: CellCoord) =&gt; boolean)</code></td><td>列単位の読み取り専用。関数でセル単位判定も可。</td></tr>
 <tr><td><code>validator</code></td><td><code class="ty">(value: any, cell: CellCoord) =&gt; ValidatorResult</code></td><td>入力検証。編集/貼付/フィルの全経路に効く。</td></tr>
-<tr><td><code>editor</code></td><td><code class="ty">object | (() =&gt; object)</code></td><td>カスタム編集UI（薄いオブジェクト契約 or それを返す関数）。</td></tr>
+<tr><td><code>editor</code></td><td><code class="ty">EditorDef | (() =&gt; EditorDef)</code></td><td>カスタム編集UI（薄いオブジェクト契約 or それを返す関数）。</td></tr>
 <tr><td><code>parse</code></td><td><code class="ty">(input: string, cell: CellCoord) =&gt; any</code></td><td>入力の正規化（保存値へ変換）。</td></tr>
 <tr><td><code>format</code></td><td><code class="ty">string | object | ((value: any, cell: CellCoord) =&gt; string)</code></td><td>表示の整形（保存値→表示）。文字列 or 宣言的 CellFormat。</td></tr>
 <tr><td><code>thousands</code></td><td><code class="ty">boolean</code></td><td>数値型: 千区切り表示。</td></tr>

@@ -77,7 +77,7 @@
 .tssgrid .tg-table thead th { height: 28px; position: sticky; top: 0; z-index: 6; }
 /* ヘッダはクリックで行/列選択（角は全選択） */
 .tssgrid .tg-table thead th[data-c], .tssgrid .tg-table th.rowhead[data-r], .tssgrid .tg-table th.corner { cursor: pointer; }
-.tssgrid .tg-table td { background: var(--tg-cell-bg); cursor: cell; }
+.tssgrid .tg-table td { background: var(--tg-cell-bg); cursor: cell; scroll-margin-top: var(--tg-thead-h, 0px); }   /* キーボード移動の scrollIntoView が sticky ヘッダ下に潜らないよう、ヘッダ高ぶん余白を確保（--tg-thead-h は buildTable が設定） */
 /* 表示専用（cursor:false）: セルのカーソルを既定に（選択枠・ハイライトは JS 側で非表示） */
 .tssgrid.tg-no-cursor .tg-table td { cursor: default; }
 /* 非表示列: col を幅0にし、セルは padding/罫線を消して内容を overflow:hidden で畳む。
