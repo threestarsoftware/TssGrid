@@ -142,10 +142,10 @@
       onInput: inline ? function (v, ctx) {
         if (!pop) return;
         var d = null;
-        try {
-          var p = ctx.grid.colCfg(ctx.c).parse;
-          d = parseISO(typeof p === 'function' ? p(v, { r: ctx.r, c: ctx.c }) : v);
-        } catch (e) { d = null; }
+        // ★ 解釈は本体に訊く（ctx.parseCell＝セルの確定と同じ読み方）。ここで自前パーサを使うと
+        //    「セルは受け付けるのにカレンダーは動かない」食い違いになる（col.parse を書かない列＝format だけの
+        //    自然な使い方で 'yyyy/mm/dd' を打つと追従しなかった実バグ）。
+        try { d = parseISO(ctx.parseCell ? ctx.parseCell(v) : v); } catch (e) { d = null; }
         if (!d) return;                               // 打ちかけ/不正はカレンダーを動かさない
         sel = d; focus = new Date(d); view = new Date(d.getFullYear(), d.getMonth(), 1); render();
       } : undefined,

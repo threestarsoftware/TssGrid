@@ -861,22 +861,29 @@
         .replace(/dd/g, d).replace(/d/g, String(+d));
     }
     // 1セルの型強制 / 検証。{ ok, value, message } を返す。入力→保存値の正規化(parse)もここで。
+    // 入力文字列 → 保存値。解釈できなければ null（＝この列はその文字を受け付けない）。
+    // 「この列が入力をどう読むか」の唯一の定義。_coerceCell（確定の関所）と ctx.parseCell（inline エディタ）が
+    // ここを共有する＝エディタ側が独自パーサを持って本体と食い違う事故を構造的に防ぐ。
+    _parseInput(r, c, v) {
+      const cfg = this.colCfg(c), t = cfg.type || 'text';
+      if (v === '') return '';
+      if (typeof cfg.parse === 'function') {   // カスタム parse 優先
+        let p; try { p = cfg.parse(v, { r, c }); } catch (_) { p = null; }
+        return (p == null || p === false) ? null : String(p);
+      }
+      if (t === 'date') return TssGrid._parseDate(v);     // parse を書かない列は型ごとの組込パーサに落ちる
+      if (t === 'time') return TssGrid._parseTime(v);
+      if (t === 'number') return TssGrid._parseNumber(v, cfg);
+      return v;
+    }
     _coerceCell(r, c, value) {
       const cfg = this.colCfg(c); let v = value;
       const t = cfg.type || 'text';
       // parse: 入力文字列 → 保存値（カスタム優先 / 無ければ date・time の組込）
       if (v !== '') {
-        if (typeof cfg.parse === 'function') {
-          let p; try { p = cfg.parse(v, { r, c }); } catch (_) { p = null; }
-          if (p == null || p === false) return { ok: false };
-          v = String(p);
-        } else if (t === 'date') {
-          const p = TssGrid._parseDate(v); if (p == null) return { ok: false }; v = p;
-        } else if (t === 'time') {
-          const p = TssGrid._parseTime(v); if (p == null) return { ok: false }; v = p;
-        } else if (t === 'number') {
-          const p = TssGrid._parseNumber(v, cfg); if (p == null) return { ok: false }; v = p;
-        }
+        const p = this._parseInput(r, c, v);
+        if (p == null) return { ok: false };
+        v = p;
       }
       if (t === 'dropdown') {
         if (v === '') { if (cfg.allowEmpty === false) return { ok: false }; }   // allowEmpty:false＝必須選択（空は不可）
@@ -1639,6 +1646,9 @@
         value: this.data[r][c],
         td: this.cellEl(r, c),
         input: this.editor,                                     // 打鍵/IME が入る共有 input（読み取り・listen 用）
+        // 打たれた文字を「この列の保存値」に解釈する＝セルの確定と同じ読み方（col.parse があればそれ、無ければ型の組込）。
+        // 解釈できなければ null（打ちかけ等）。エディタが独自パーサを持つと本体と食い違うので、必ずこれを使うこと。
+        parseCell(val) { return grid._parseInput(r, c, val); },
         setValue(v) { grid.editor.value = grid._cellStr(v); },  // 候補で置き換える用（確定はしない）
         commit(v) { if (v != null) grid.editor.value = grid._cellStr(v); grid.commit(); grid.toNav(); grid.updateSelectionUI(); },
         cancel() { grid.setActive(r, c); },                     // 元値に戻して nav（Esc 相当）

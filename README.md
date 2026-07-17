@@ -374,7 +374,11 @@ new TssGrid(el, { columns: [{ editor: myEditor }] });
 const suggest = {
   inline: true, icon: '🔍',                 // icon / openOnClick は inline でも使えます
   open(ctx) { /* ctx.input = 打鍵/IMEが入る共有input。ここに候補ポップアップを添える（フォーカスは奪わない） */ },
-  onInput(value, ctx) { /* 打つたびに呼ばれる＝候補を絞る */ },
+  onInput(value, ctx) {
+    // 打つたびに呼ばれる＝候補を絞る。値として解釈したいなら ctx.parseCell（＝セルと同じ読み方。
+    // 独自パーサを書くと本体と食い違う）。解釈できない打ちかけは null。
+    const v = ctx.parseCell(value); if (v == null) return;
+  },
   onKeyDown(e, ctx) {                       // 本体より先に受ける。IME 変換中も呼ばれる
     if (e.isComposing || e.keyCode === 229) return;   // ★変換中は手を引く（↑↓を奪わない）
     if (e.key === 'ArrowDown') { /* 候補を選ぶ */ return false; }   // false で本体既定を止める
@@ -384,7 +388,8 @@ const suggest = {
 };
 new TssGrid(el, { columns: [{ editor: suggest }] });
 ```
-- `ctx` は通常の `{grid,r,c,value,td,commit,cancel}` に加えて **`input`（共有input）/ `setValue(v)`（候補で置換・確定はしない）/ `inline:true`** が入ります。
+- `ctx` は通常の `{grid,r,c,value,td,commit,cancel}` に加えて **`input`（共有input）/ `setValue(v)`（候補で置換・確定はしない）/ `parseCell(v)` / `inline:true`** が入ります。
+- **打った内容に追従するなら `ctx.parseCell(v)` を使ってください**＝**セルの確定と同じ読み方**（`columns[c].parse` があればそれ、無ければ型ごとの組込＝date/time/number）で保存値に解釈し、解釈できなければ `null`（打ちかけ）。**エディタが独自パーサを持つと「セルは受け付けるのに UI は追従しない」食い違い**になります（実際 `TssCalendar` がこれを踏みました）。
 - **確定は本体の `commit()`＝関所を通る**ので `validator`/`parse`/`format`/読み取り専用/Undo はそのまま効きます。
 - ポップアップ側は **`mousedown` を `preventDefault`** してフォーカスを奪わないこと（共有 input に打ち続けられる）。
 - 対象は **text/number 系の列**（`dropdown`/`checkbox`/ネイティブ日付は従来どおり対象外）。

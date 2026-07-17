@@ -222,6 +222,12 @@ export interface EditorContext {
   input?: HTMLInputElement | HTMLTextAreaElement;
   /** inline エディタのみ: 共有 input の値を差し替える（候補で置換する用・確定はしない）。 */
   setValue?(value: any): void;
+  /**
+   * inline エディタのみ: 打たれた文字を**この列の保存値**に解釈する（＝セルの確定と同じ読み方。
+   * `columns[c].parse` があればそれ、無ければ型ごとの組込＝date/time/number）。解釈できなければ `null`。
+   * **エディタが独自パーサを持つと本体と食い違う**ので、打った内容に追従する実装は必ずこれを使うこと。
+   */
+  parseCell?(value: any): any;
   [k: string]: any;
 }
 /** カスタム編集UIの契約（`columns[c].editor`）。 */
