@@ -22,8 +22,15 @@
  *    sum.refresh();   // 手動再計算 / sum.detach();   // フック解除＋集計グリッド破棄
  *
  *  行の定義:
- *    { label, when?(row)->bool, of(row)->number }  … when に一致するデータ行で of(row) を合計（when 省略＝全行）
+ *    { label, when?(row)->bool, of(row)->number, after?(sum)->number }
+ *        … when に一致するデータ行で of(row) を合計（when 省略＝全行）。after は**その合計に対して最後に1回だけ**走る。
  *    { label, total(priorValues[])->number }        … それまでの行の値配列から派生（小計＋税 など）
+ *
+ *  after が要る理由（of では書けない）: **適格請求書の消費税は「税率ごとに1回だけ」端数処理する**のが法要件で、
+ *  「行ごとに丸めて合計」ではない。of の中で丸めると行ごとになってしまうため、「集めてから1回丸める」を書く口が要る。
+ *    { label:'消費税（10%）', when: r => tax(r)==='10%', of: r => amount(r), after: s => Math.round(s*0.10) }  // 税率ごと1回（正）
+ *    { label:'消費税（10%）', when: r => tax(r)==='10%', of: r => Math.round(amount(r)*0.10) }                 // 行ごと（旧来式）
+ *  105円×2行@10% で after あり=¥21 / 行ごと=¥20 と1円ずれる。when で税率ごとに行が分かれるので複数税率でも正しい。
  *  opts: rows(必須) / valueCol(既定=最終列) / sumCol(of 省略時に合計する列) / format / rowHeight(既定28)
  *        / onCompute(vals) / name / TssGrid(モジュール利用時にコンストラクタを注入)
  *  返り値: { grid, refresh, detach }
@@ -83,6 +90,12 @@
             v += spec.of ? num(spec.of(row)) : num(row[(opts.sumCol != null) ? opts.sumCol : valueCol]);
           }
         }
+        // 集計後フック: 集めた合計に対して最後に1回だけ走る（行ごとではない）。
+        // 適格請求書の消費税は「税率ごとに1回」端数処理するのが法要件＝ of の中で丸めると「行ごと」になり
+        // 1円ずれる（105円×2行@10%: after=端数処理(210*0.10)=21 / 行ごと=floor(10.5)*2=20）。
+        // when で税率ごとに行が分かれているので after はその税率の合計に対して走る（請求書全体で1回ではない）。
+        // ここ（vals[i] の直前）なので、後続の total(vals) 行は「丸めた後の税額」を見る＝合計が合う。
+        if (typeof spec.after === 'function') v = spec.after(v);
         vals[i] = v;
         tg.data[i][valueCol] = String(v);
       }

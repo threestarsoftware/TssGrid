@@ -493,15 +493,17 @@ const sum = TssSum.attach(grid, document.getElementById('sumgrid'), {
   format: v => '¥' + Number(v).toLocaleString('ja-JP'),
   rows: [
     { label: '小計（税抜）',  of: r => (+r[2]||0)*(+r[3]||0) },                                  // 全データ行の合計
-    { label: '消費税（10%）', when: r => r[4]==='10%', of: r => Math.round((+r[2]||0)*(+r[3]||0)*0.10) }, // 条件付き
-    { label: '消費税（8%）',  when: r => r[4]==='8%',  of: r => Math.round((+r[2]||0)*(+r[3]||0)*0.08) },
+    // 条件付き＋集計後フック: of で税抜を集めて、after でその合計に 1 回だけ端数処理
+    { label: '消費税（10%）', when: r => r[4]==='10%', of: r => (+r[2]||0)*(+r[3]||0), after: s => Math.round(s*0.10) },
+    { label: '消費税（8%）',  when: r => r[4]==='8%',  of: r => (+r[2]||0)*(+r[3]||0), after: s => Math.round(s*0.08) },
     { label: '合計（税込）',  total: v => v[0]+v[1]+v[2] },                                      // 既出行から派生
   ],
   onCompute: vals => { /* 上部の総額表示など */ },
 });
 // sum.refresh() 手動再計算 / sum.detach() フック解除＋集計グリッド破棄
 ```
-- 行は **`{label, when?, of}`**（`when` 一致行で `of(row)` を合計＝SUMIF）または **`{label, total}`**（既出行の値から派生）。`row` は内部配列（列index）で受ける。
+- 行は **`{label, when?, of, after?}`**（`when` 一致行で `of(row)` を合計＝SUMIF）または **`{label, total}`**（既出行の値から派生）。`row` は内部配列（列index）で受ける。
+- **`after(sum)`＝集めた合計に対して最後に1回だけ**走る（行ごとではない）。**適格請求書の消費税は「税率ごとに1回だけ」端数処理する**のが要件で、`of` の中で丸めると**明細行ごと**になってしまうため（`105円×2行@10%`: `after`＝`端数処理(210×0.10)=¥21` / 行ごと＝`floor(10.5)×2=¥20` で**1円ずれる**）。`when` で税率ごとに行が分かれるので、`after` は**その税率の合計**に対して走る（請求書全体で1回ではない）。`after` の結果は後続の `total(vals)` にも渡る＝**合計（税込）が丸め後の税額を見る**。
 - ソースの **`onAfterChange`/`onStructureChange` を自動で包んで再計算**＝編集・行追加削除・Undo すべてに追従。集計グリッドは**表示専用**（同一列幅で `金額` 列が揃う）。
 
 ### 同梱プラグイン: 残高／累計（running total・縦の連鎖）

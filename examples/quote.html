@@ -146,7 +146,7 @@
     <div class="remarks">
       <div class="remarks-label">備考</div>
       <div class="remarks-body">
-        <div class="remarks-fixed">※消費税額は、各明細行ごとに算出し、端数は四捨五入しております。</div>
+        <div class="remarks-fixed">※消費税額は、税率ごとに区分した税抜金額の合計に対して算出し、端数は四捨五入しております。</div>
         <textarea class="remarks-free" rows="3" placeholder="（自由記入）"></textarea>
       </div>
     </div>
@@ -182,7 +182,8 @@
   let grid, sumApi;
   const num = v => Number(v) || 0;
   const amountOf = r => num(r[2]) * num(r[3]);                 // 数量×単価
-  const lineTaxOf = (r, rate) => Math.round(amountOf(r) * rate);   // 行ごとに四捨五入
+  // 消費税は行ごとに丸めない。税率ごとに税抜金額を集めて（of）、その合計に1回だけ端数処理する（after）。
+  // ＝そのまま請求書（適格請求書＝税率ごとに1回が要件）にした時に数字が食い違わない。→ examples/invoice.html
 
   function recompute() {
     const merges = grid.getMerges ? grid.getMerges() : [];
@@ -302,8 +303,8 @@
       format: yen,
       rows: [
         { label: '小計（税抜）',  of: r => amountOf(r) },
-        { label: '消費税（10%）', when: r => r[4] === '10%', of: r => lineTaxOf(r, 0.10) },
-        { label: '消費税（8%）',  when: r => r[4] === '8%',  of: r => lineTaxOf(r, 0.08) },
+        { label: '消費税（10%）', when: r => r[4] === '10%', of: r => amountOf(r), after: s => Math.round(s * 0.10) },
+        { label: '消費税（8%）',  when: r => r[4] === '8%',  of: r => amountOf(r), after: s => Math.round(s * 0.08) },
         { label: '合計（税込）',  total: v => v[0] + v[1] + v[2] },
       ],
       onCompute: v => { document.getElementById('grand').textContent = (yen(v[v.length - 1]) || '¥0') + 'ー'; },   // 金額末尾に「ー」（締め）

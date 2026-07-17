@@ -87,7 +87,7 @@
 <div class="wrap">
   <h1>請求書（インボイス対応・明細編集）</h1>
   <div class="note" style="margin-top:8px">
-    <b>金額＝数量×単価を自動計算</b>、<b>税率別（10%/8%/非課税）集計</b>、<b>消費税は明細行ごとに四捨五入</b>（適格請求書＝インボイス方式）。<br>
+    <b>金額＝数量×単価を自動計算</b>、<b>税率別（10%/8%/非課税）集計</b>、<b>消費税は税率ごとに1回だけ端数処理</b>（適格請求書＝インボイス方式の要件。明細行ごとに丸めて合計しない）＝ tss-sum の <code>of</code> で集めて <code>after</code> で1回丸める。<br>
     <b>分類で分ける</b>：見出しにしたい行で <b>No〜金額をドラッグ選択 → 右クリック → 「セルを結合（分類見出しに）」</b>→ 帯になったセルに「■経費」等を入力（見出し行は<b>採番・集計から自動除外</b>）。<br>
     <b>行のコピー/切り取り→挿入</b>：右クリック「行をコピー」or「行を切り取り（<b>画面から消える</b>）」→ 入れたい行で右クリック「ここに挿入」。<b>コピー＝任意位置に複製／切り取り＝移動</b>（切り取り直後の挿入はUndo一発で戻る）。<b>左のグレー行番号</b>はクリックで行選択・つまみで行移動。<br>
     見せ場：<b>IME</b>・<b>Undo</b>（Ctrl+Z・何行でも一発）・<b>フィル</b>・<b>Excel相互コピペ</b>・<b>¥書式</b>・<b>税区分ドロップダウン</b>・<b>ページマタギで列見出しを各ページ印刷</b>。列の追加/削除は請求書では不要なので無効化。<br>
@@ -130,7 +130,7 @@
     <div class="gridwrap"><div id="grid"></div></div>
 
     <div class="gridwrap sumwrap"><div id="sumgrid"></div></div>
-    <div class="fine">※消費税額は、各明細行ごとに算出し、端数は四捨五入しております。</div>
+    <div class="fine">※消費税額は、税率ごとに区分した税抜金額の合計に対して算出し、端数は四捨五入しております。</div>
     </div>
   </div>
 </div>
@@ -146,7 +146,8 @@
   let grid, sumApi;
   const num = v => Number(v) || 0;
   const amountOf = r => num(r[2]) * num(r[3]);                 // 数量×単価
-  const lineTaxOf = (r, rate) => Math.round(amountOf(r) * rate);   // 行ごとに四捨五入（インボイス）
+  // 消費税は行ごとに丸めない。税率ごとに税抜金額を集めて（of）、その合計に1回だけ端数処理する（after）。
+  // ＝ 適格請求書の要件（「一の適格請求書につき税率ごとに1回」）。下の tss-sum の rows 定義を参照。
 
   // 本体は「採番」と「金額列」だけ更新（合計は tss-sum が担当）
   function recompute() {
@@ -261,9 +262,11 @@
       format: yen,
       rows: [
         { label: '小計（税抜）',  of: r => amountOf(r) },                          // 全データ行を合計
-        { label: '消費税（10%）', when: r => r[4] === '10%', of: r => lineTaxOf(r, 0.10) },  // 税区分10%の行だけ
-        { label: '消費税（8%）',  when: r => r[4] === '8%',  of: r => lineTaxOf(r, 0.08) },
-        { label: '合計（税込）',  total: v => v[0] + v[1] + v[2] },                // 小計＋消費税
+        // 税区分ごとに税抜金額を集めて（of）、その合計に 1 回だけ端数処理（after）＝適格請求書の要件。
+        // of の中で丸めると「明細行ごとに端数処理」になり要件を満たさない（105円×2行@10% で 1 円ずれる）。
+        { label: '消費税（10%）', when: r => r[4] === '10%', of: r => amountOf(r), after: s => Math.round(s * 0.10) },
+        { label: '消費税（8%）',  when: r => r[4] === '8%',  of: r => amountOf(r), after: s => Math.round(s * 0.08) },
+        { label: '合計（税込）',  total: v => v[0] + v[1] + v[2] },                // 小計＋（丸め後の）消費税
       ],
       onCompute: v => { document.getElementById('grand').textContent = yen(v[v.length - 1]) || '¥0'; },  // 上部の総額
     });
