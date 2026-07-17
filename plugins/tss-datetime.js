@@ -3,6 +3,9 @@
  *  使い方（グリッド）: columns: [{ type:'text', editor: TssDatetime({ step:5 }), format: TssDatetime.format }]
  *  使い方（単体）   : TssDatetime({step:15}).openAt(anchorEl, 'YYYY-MM-DDTHH:MM', onPick)
  *  opts: holidays / weekend / weekLabels / min / max（日付） / step(分刻み,既定1) / hour12 / icon(既定 '📅') / openOnClick(既定true) / className
+ *  opts.inline: 既定 true＝本体の共有 input に乗る（日時をそのまま直打ちでき・1文字目も落ちない・IME直打ちも効く／
+ *    ピッカーはフォーカスを奪わずクリック補助に降りる）。inline:false で旧型（ピッカーにフォーカス）に戻せるが、
+ *    **セルにいきなり打ち始めて上書き** ができなくなる（クリック/F2 で開いてから打つ）。
  */
 (function (root) {
   'use strict';
@@ -36,6 +39,7 @@
     var yrHi = opts.yearMax || (maxD ? maxD.getFullYear() : ty + 12);
 
     var pop = null, view = null, selD = null, selH = null, selM = null, ref = null, done = false, outside = null;
+    var inline = opts.inline !== false;   // true=共有 input に乗る（直打ち可・矢印は本体に返す）／false=従来のフォーカス奪取型
 
     function dDisabled(d) { if (minD && d < minD) return true; if (maxD && d > maxD) return true; return false; }
 
@@ -152,6 +156,7 @@
       pop.addEventListener('keydown', onKey);
       render(); place(anchor);
       ref = { pick: onPick, cancel: onCancel };
+      if (inline) return;   // inline は外側クリック/フォーカスを本体が持つ＝共有 input から奪わない（打ち続けられる）
       outside = function (e) { if (pop && !pop.contains(e.target) && !(anchor && anchor.contains && anchor.contains(e.target))) commit(value()); };   // 外側クリックは確定（time と同方針）
       setTimeout(function () { document.addEventListener('mousedown', outside, true); }, 0);
       pop.focus();
@@ -165,6 +170,7 @@
       close: function () { teardown(); },
       icon: opts.icon != null ? opts.icon : '📅',
       openOnClick: opts.openOnClick !== false,
+      inline: inline,   // true=共有 input に乗る＝日時をそのまま直打ちできる（矢印/Enter/Esc は本体の既定）
       openAt: function (anchorEl, val, onPick) { show(anchorEl, val, function (v) { onPick(v); }, null); },
     };
   }

@@ -9,9 +9,10 @@
  *
  *  opts:
  *    source   : string[] か (query, ctx)=>string[]。必須。
- *    inline   : true=「セルに打ちながら絞る」型（既定 false）。本体の共有 input に乗る＝**打鍵の1文字目も IME 直打ちも
- *               素のテキスト列と同じに効く**（自前 input を作らず focus も奪わない）。false は従来どおり
- *               クリック/F2 でポップアップの自前 input を開く型（挙動不変）。
+ *    inline   : 「セルに打ちながら絞る」型（**既定 true**）。本体の共有 input に乗る＝**打鍵の1文字目も IME 直打ちも
+ *               素のテキスト列と同じに効く**（自前 input を作らず focus も奪わない）。
+ *               inline:false でポップアップの自前 input を開く旧型に戻せるが、**セルにいきなり打ち始めて上書き**が
+ *               できなくなる（＝クリック/F2 で開いてから打つ）。表計算で一番よく使う操作を捨てる選択なので非推奨。
  *    strict   : true=候補から選んだ値のみ許可（既定 false=自由入力可）。
  *    minChars : この文字数以上で候補を出す（既定 0＝開いた時点で全件）。
  *    max      : 候補表示の最大件数（既定 20）。
@@ -25,7 +26,7 @@
 
   function TssAutocomplete(opts) {
     opts = opts || {};
-    var inline = !!opts.inline;   // true=共有 input に乗る（打鍵/IME直打ちが効く）／false=従来の自前 input ポップアップ
+    var inline = opts.inline !== false;   // true=共有 input に乗る（打鍵/IME直打ちが効く）／false=従来の自前 input ポップアップ
     var getSource = typeof opts.source === 'function' ? opts.source : function () { return opts.source || []; };
     var strict = !!opts.strict;
     var minChars = opts.minChars || 0;

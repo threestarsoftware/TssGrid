@@ -2,6 +2,9 @@
  *  時/分プルダウン方式（業務の任意時刻入力向き）。保存値は常に 24h 'HH:MM'（type:'time' と互換）。
  *  使い方（グリッド）: columns: [{ type:'time', editor: TssTime({ step:15 }) }]
  *  opts: step(分刻み,既定1) / hour12(AM/PM表示,既定false) / icon(既定 '🕐') / openOnClick(既定true) / className
+ *  opts.inline: 既定 true＝本体の共有 input に乗る（時刻をそのまま直打ちでき・1文字目も落ちない・IME直打ちも効く／
+ *    ピッカーはフォーカスを奪わずクリック補助に降りる）。inline:false で旧型（ピッカーにフォーカス）に戻せるが、
+ *    **セルにいきなり打ち始めて上書き** ができなくなる（クリック/F2 で開いてから打つ）。
  */
 (function (root) {
   'use strict';
@@ -13,6 +16,7 @@
     var step = Math.max(1, opts.step || 1);
     var hour12 = !!opts.hour12;
     var pop = null, ref = null, done = false, outside = null;
+    var inline = opts.inline !== false;   // true=共有 input に乗る（直打ち可・矢印は本体に返す）／false=従来のフォーカス奪取型
 
     function opt(val, label, sel) { return '<option value="' + val + '"' + (sel ? ' selected' : '') + '>' + label + '</option>'; }
     function render(cur) {
@@ -70,6 +74,7 @@
       pop.addEventListener('keydown', onKey);
       render(parseHM(value)); place(anchor);
       ref = { pick: onPick, cancel: onCancel };
+      if (inline) return;   // inline は外側クリック/フォーカスを本体が持つ＝共有 input から奪わない（打ち続けられる）
       // 外側クリックは「確定」（時/分を選んで離す＝採用）。未変更なら同値 commit＝実質no-op。アンカーは除外（再クリックはグリッドがトグル）
       outside = function (e) { if (pop && !pop.contains(e.target) && !(anchor && anchor.contains && anchor.contains(e.target))) commit(readValue()); };
       setTimeout(function () { document.addEventListener('mousedown', outside, true); }, 0);
@@ -84,6 +89,7 @@
       close: function () { teardown(); },
       icon: opts.icon != null ? opts.icon : '🕐',
       openOnClick: opts.openOnClick !== false,
+      inline: inline,   // true=共有 input に乗る＝時刻をそのまま直打ちできる（矢印/Enter/Esc は本体の既定）
       openAt: function (anchorEl, value, onPick) { show(anchorEl, value, function (v) { onPick(v); }, null); },
     };
   }

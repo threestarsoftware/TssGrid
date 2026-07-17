@@ -2,6 +2,13 @@
  *  休日カレンダーを JSON で渡せる（勤怠・シフト等向け）。CSS は tss-calendar.css をクラス/変数で自由に。
  *  使い方（グリッド）: columns: [{ type:'date', editor: TssCalendar({ holidays }) }]
  *  使い方（単体）   : TssCalendar({holidays}).openAt(anchorEl, isoValue, onPick)
+ *
+ *  opts.inline: 「キー派は打つ／マウス派はクリック」の型（**既定 true**）。
+ *    本体の共有 input に乗るので **日付をそのまま直打ちでき（1文字目も落ちない）・IME 直打ちも効く**。
+ *    カレンダーはフォーカスを奪わず"確認＋クリック補助"に降り、**矢印キーは奪わない**（＝文字カーソル/セル移動のまま）。
+ *    打った内容に追従してカレンダーがその月/日へジャンプする。確定は Enter（打った値）or 日をクリック。
+ *    inline:false で旧型（ポップアップにフォーカスし ←→↑↓ で日移動・Enter で選択）に戻せる。
+ *    ただし **セルにいきなり打ち始めて上書き** ができなくなる（クリック/F2 で開いてから打つ）＝矢印で日を送りたい時だけ。
  */
 (function (root) {
   'use strict';
@@ -26,6 +33,7 @@
     var yrLo = opts.yearMin || (minD ? minD.getFullYear() : ty - 12);
     var yrHi = opts.yearMax || (maxD ? maxD.getFullYear() : ty + 12);
     var pop = null, view = null, sel = null, focus = null, ref = null, done = false, outside = null;
+    var inline = opts.inline !== false;   // true=共有 input に乗る（直打ち可・矢印は本体に返す）／false=従来のフォーカス奪取型
 
     function disabled(d) {
       if (minD && d < minD) return true;
@@ -110,6 +118,9 @@
       pop.addEventListener('keydown', onKey);
       render(); place(anchor);
       ref = { pick: onPick, cancel: onCancel };
+      // inline は「外側クリック/フォーカス」を本体（_commitActive / blur）が持つ＝二重に閉じない・共有 input から
+      // フォーカスを奪わない（＝打ち続けられる）。矢印/Enter/Esc も本体の既定に返す（onKey は pop 未フォーカスなので発火しない）。
+      if (inline) return;
       // 外側クリックで閉じる。ただしアンカー（開いた元セル）は除外＝再クリックはグリッド側でトグル処理させる
       outside = function (e) { if (pop && !pop.contains(e.target) && !(anchor && anchor.contains && anchor.contains(e.target))) cancel(); };
       setTimeout(function () { document.addEventListener('mousedown', outside, true); }, 0);
@@ -125,6 +136,19 @@
       close: function () { teardown(); },
       icon: opts.icon != null ? opts.icon : '📅',     // セル右端に表示する合図（opts.icon:'' で消せる）
       openOnClick: opts.openOnClick !== false,        // シングルクリックで開く（既定 ON）
+      inline: inline,                                 // true=共有 input に乗る（_usesTextEditor が見る）
+      // inline のみ: 打った内容にカレンダーが追従（列の parse があれば表示形→保存値に変換して解釈）。
+      // 矢印/Enter/Esc は本体に返す＝onKeyDown は持たない（キー派は打つ・マウス派はクリック）。
+      onInput: inline ? function (v, ctx) {
+        if (!pop) return;
+        var d = null;
+        try {
+          var p = ctx.grid.colCfg(ctx.c).parse;
+          d = parseISO(typeof p === 'function' ? p(v, { r: ctx.r, c: ctx.c }) : v);
+        } catch (e) { d = null; }
+        if (!d) return;                               // 打ちかけ/不正はカレンダーを動かさない
+        sel = d; focus = new Date(d); view = new Date(d.getFullYear(), d.getMonth(), 1); render();
+      } : undefined,
       // 単体ウィジェット: 任意要素にアンカーして開く
       openAt: function (anchorEl, value, onPick) { show(anchorEl, value, function (v) { onPick(v); }, null); },
     };
