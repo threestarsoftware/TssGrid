@@ -33,7 +33,7 @@ export interface Rejection { r: number; c: number; value: any; code?: string; le
 export interface ReadOnlyBlock { r: number; c: number; value: any; }
 
 /** 行/列の挿入・削除の情報（onStructureChange / onBeforeStructureChange）。 */
-export interface StructureInfo { type: 'insertRow' | 'deleteRows' | 'insertCol' | 'deleteCols'; undo?: boolean; [k: string]: any; }
+export interface StructureInfo { type: 'insertRow' | 'insertRows' | 'deleteRows' | 'insertCol' | 'deleteCols'; undo?: boolean; [k: string]: any; }
 
 /** validator の戻り値: true=OK / 文字列=エラー文 / オブジェクト=メッセージカタログ解決用。 */
 export type ValidatorResult = true | string | { code: string; params?: Record<string, any>; level?: string };
@@ -107,6 +107,8 @@ export interface TssGridOptions {
   /** エラーの共通メッセージカタログ。 */
   messages?: Record<string, any> | ((info: { code: string; params?: any; level?: string }) => string);
   pasteOverflow?: 'clip' | 'error';
+  /** 貼付元の行数がグリッド行数を超える時、不足分を insertRows で一括生成してから貼る（既定 false=従来のクランプ）。行生成＋値貼付は1回の undo で戻る。maxRows 上限内・超過分は pasteOverflow に従う。 */
+  pasteAutoGrow?: boolean;
   colWidths?: number[] | Record<string, number>;
   rowHeights?: number[] | Record<string, number>;
   defaultColWidth?: number;
@@ -191,6 +193,10 @@ export interface TssGridOptions {
   onAfterCopy?: (data: string[][], info: { range: SelectionRange; cut: boolean }) => void;
   onBeforeStructureChange?: (info: StructureInfo) => boolean | void;
   onStructureChange?: (info: StructureInfo) => void;
+  /** 遅延ロード(push): 描画窓が変わった時に呼ぶ (start,end)。未取得(PENDING)行を fillRows で埋めるトリガ。 */
+  onViewportChange?: (start: number, end: number) => void;
+  /** 遅延ロード(push): dataComplete=false で sort/filter 要求が来た時に呼ぶ。エンジンはローカル計算せず、これで通知＋パージ＝プラグインがサーバ側で並替/絞込して setRowCount+fillRows し直す。 */
+  onSortFilterChange?: (state: { type: 'sort' | 'filter'; sort?: any; filter?: any }) => void;
   onBeforeAutofill?: (src: SelectionRange, target: SelectionRange) => boolean | void;
   onAfterAutofill?: (src: SelectionRange, target: SelectionRange) => void;
   onBeforeKeyDown?: (e: KeyboardEvent) => boolean | void;
@@ -312,6 +318,26 @@ export declare class TssGrid {
   getValue(r: number, cOrKey: number | string): any;
   /** データを差し替え（履歴・フィルタ・整列状態はリセット）。 */
   setData(rows: any[][] | Record<string, any>[]): void;
+  /**
+   * 背景で"育てる"追記（progressive）。data 末尾へ rows を足し、可視窓＋スペーサだけ再描画する。
+   * buildTable 全再描画をせず、スクロール位置・アクティブセル・フォーカス・選択・編集中のエディタと値を保ち、履歴にも積まない。
+   * 「先頭ページを描く→残りを idle で appendRows」して first-paint を早める土台（既存の setData/insertRows 経路は不変）。
+   * rows は現在のデータと同形（オブジェクトモードはオブジェクト配列／配列モードは行配列）。
+   */
+  appendRows(rows: any[][] | Record<string, any>[], opts?: { keepScroll?: boolean; noHistory?: boolean }): void;
+  /**
+   * 遅延ロード(push・on-demand)。総行数を total に確保し、未取得ぶんを PENDING 行で埋める（virtual 前提）。
+   * dataComplete=false になり、この間 minSpareRows は自動無効。onViewportChange で「今要る範囲」を受け fillRows で埋める流れ。
+   * setData で解除。AG Grid の Infinite Row Model 相当を push プリミティブで。
+   */
+  setRowCount(total: number): void;
+  /**
+   * 遅延ロード(push): PENDING 行 [start, start+rows.length) を実データに差し替える（onViewportChange への応答）。
+   * 塗り替え範囲が可視窓に重なる時だけ窓を再描画＝スクロール/選択/アクティブは不変。全 PENDING が埋まると dataComplete=true。
+   */
+  fillRows(start: number, rows: any[][] | Record<string, any>[]): void;
+  /** 遅延ロード: 全行がロード済みなら true。setRowCount で false、全 fillRows 完了で true に戻る。 */
+  readonly dataComplete: boolean;
   /** 1セルに書き込み（履歴あり・検証/onBeforeChange 経由）。force=true で readOnly 貫通。 */
   setValue(r: number, cOrKey: number | string, val: any, force?: boolean): void;
   /** 履歴に積まず・検証も通さず直接書き込み（計算列など派生値用。readOnly 貫通）。 */
@@ -353,6 +379,8 @@ export declare class TssGrid {
 
   // ---- 行 / 列 構造 -------------------------------------------------------
   insertRow(ri: number, where?: 'above' | 'below'): void;
+  /** count 行を1回の再描画・1つの undo コマンドで挿入（大量挿入を O(N) に）。maxRows 上限でクランプ。既定 count=1 は insertRow と等価。 */
+  insertRows(ri: number, count?: number, where?: 'above' | 'below'): void;
   deleteRows(r0: number, r1?: number): void;
   insertCol(ci: number, where?: 'left' | 'right'): void;
   deleteCols(c0: number, c1?: number): void;
@@ -406,6 +434,9 @@ export declare class TssGrid {
   buildTable(): void;
   /** セルの DOM 要素を返す（低レベル・内部DOM構造に依存）。結合セルはアンカーに解決。 */
   cellEl(r: number, c: number): HTMLTableCellElement | null;
+
+  /** 遅延ロード: 未取得行を表す sentinel。setRowCount が未取得ぶんを data[r] に入れ、fillRows で実データへ差し替える。 */
+  static readonly PENDING: unique symbol;
 
   [k: string]: any;
 }

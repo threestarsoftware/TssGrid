@@ -127,6 +127,8 @@
       this.allowDeleteCols = opts.allowDeleteCols !== false;
       this.onStructureChange = opts.onStructureChange || null; // (info) 行/列の挿入・削除後
       this.onFilter = opts.onFilter || null;                 // ({count,total,cleared?}) 非破壊フィルタ適用/解除後
+      this.onViewportChange = opts.onViewportChange || null; // (start,end) 遅延ロード: 描画窓が変わった＝「今この範囲が要る」通知（fillRows で応答）
+      this.onSortFilterChange = opts.onSortFilterChange || null; // (state) 遅延ロード: sort/filter はローカル計算せずサーバへ委譲＝この通知で再フェッチさせる
       this.onBeforeStructureChange = opts.onBeforeStructureChange || null; // (info)=>false で挿入/削除を中止
       this.onAfterPaste = opts.onAfterPaste || null;     // (data, {range}) 貼り付け確定後
       this.onBeforeCopy = opts.onBeforeCopy || null;     // (data, {range})=>false 取消 / 配列で差替え
@@ -145,6 +147,9 @@
       // 貼り付けがグリッド範囲を超えた時: 'clip'(既定, はみ出し分を切り捨て) | 'error'(貼り付け中止)
       this.pasteOverflow = opts.pasteOverflow || 'clip';
       this.onPasteOverflow = opts.onPasteOverflow || null; // (info) => void。error 時に呼ぶ
+      // 貼り付け元の行数がグリッド行数を超える時、先に不足分を insertRows で一括生成してから貼る（既定 false=従来のクランプ）。
+      // 行生成＋値貼付を1つの history にまとめる（1回の undo で両方戻る）。maxRows 上限内・超過分は pasteOverflow に従う。
+      this.pasteAutoGrow = !!opts.pasteAutoGrow;
 
       this.active = { r: 0, c: 0 }; this.extent = { r: 0, c: 0 };
       this.mode = 'nav'; this.dragging = false; this.filling = null;
@@ -235,6 +240,9 @@
       this.virtual = !!opts.virtual;
       this._vBuf = (opts.virtual && typeof opts.virtual === 'object' && opts.virtual.buffer) || 6;  // 窓の上下バッファ行数
       this._vStart = 0; this._vEnd = 0; this._vRAF = 0; this._vRendered = false;
+      this._vpStart = -1; this._vpEnd = -1;   // onViewportChange の最後に通知した範囲（同一範囲の再発火を抑止）
+      this.dataComplete = true;   // 遅延ロード(push): false のとき data に PENDING 行が混じる（setRowCount）。sort/filter/spare の判定に使う
+      this._pendingCount = 0;     // PENDING 行数（fillRows で減らし 0 で dataComplete=true へ）
       if (this.virtual && (this.frozenRows || this.frozenCols || this.wordWrap)) {
         try { console.warn('[TssGrid] virtual:true は固定行列/折り返し非対応のため、それらを無効化しました'); } catch (_) {}
         this.frozenRows = 0; this.frozenCols = 0; this.wordWrap = false;
@@ -316,25 +324,106 @@
     }
 
     // ---- 取得用 API ----
-    getData() { return this.data.map(row => row.slice()); }   // 常に 2次元配列（後方互換）
-    // オブジェクト配列で取り出す。_src（元の非表示フィールド）にキー列の現在値を上書きして返す。
+    // 常に 2次元配列（後方互換）。遅延ロード中は「ロード済みのみ」返す（未取得 PENDING 行は除外＝AG Grid の as-rendered ポリシー。
+    // 全件が要る export はプラグインが全件 fillRows してから呼ぶ＝dataComplete で通常経路）。
+    getData() { if (this.dataComplete) return this.data.map(row => row.slice()); const P = TssGrid.PENDING; return this.data.filter(row => row !== P).map(row => row.slice()); }
+    // オブジェクト配列で取り出す。_src（元の非表示フィールド）にキー列の現在値を上書きして返す。遅延ロード中はロード済みのみ。
     getRows() {
-      return this.data.map((row, r) => {
+      const P = TssGrid.PENDING, out = [];
+      for (let r = 0; r < this.ROWS; r++) {
+        const row = this.data[r]; if (row === P) continue;   // 未取得行は除外
         const o = this._src ? Object.assign({}, this._src[r]) : {};
         for (let c = 0; c < this.COLS; c++) { const k = this._key(c); if (k != null) this._setPathCOW(o, k, row[c]); }
-        return o;
-      });
+        out.push(o);
+      }
+      return out;
     }
     getRow(r) { return this.getRows()[r]; }
     // getRow の対（行→列）。1列分の値を全行ぶん配列で。列は index か data キー。
-    getColumn(c) { const ci = this._resolveCol(c); return ci < 0 ? undefined : this.data.map(row => row[ci]); }
-    // 全列を「列ごとの値配列」で。見出しキーは data キー > headers。getRows の列方向版。
+    getColumn(c) { const ci = this._resolveCol(c); if (ci < 0) return undefined; const rows = this.dataComplete ? this.data : this.data.filter(row => row !== TssGrid.PENDING); return rows.map(row => row[ci]); }
+    // 全列を「列ごとの値配列」で。見出しキーは data キー > headers。getRows の列方向版。遅延ロード中はロード済みのみ。
     getColumns() {
-      const out = {};
-      for (let c = 0; c < this.COLS; c++) { const k = this._key(c); out[k != null ? k : this.headers[c]] = this.data.map(row => row[c]); }
+      const out = {}, rows = this.dataComplete ? this.data : this.data.filter(row => row !== TssGrid.PENDING);
+      for (let c = 0; c < this.COLS; c++) { const k = this._key(c); out[k != null ? k : this.headers[c]] = rows.map(row => row[c]); }
       return out;
     }
-    setData(rows) { this._align.clear(); this._cellRO.clear(); this._unsortedData = null; this._allRows = this._allSrc = this._meta = this._filterFn = null; if (this.history) this.history.clear(); this._ingest(rows); this._padToMin(); this.buildTable(); const ic = this._resolveInitialCell(); this.setActive(ic[0], ic[1]); this._ensureSpare(); }
+    setData(rows) { this._align.clear(); this._cellRO.clear(); this._unsortedData = null; this._allRows = this._allSrc = this._meta = this._filterFn = null; this.dataComplete = true; this._pendingCount = 0; if (this.history) this.history.clear(); this._ingest(rows); this._padToMin(); this.buildTable(); const ic = this._resolveInitialCell(); this.setActive(ic[0], ic[1]); this._ensureSpare(); }
+    // 背景で"育てる"追記（progressive）: data 末尾へ rows を足し ROWS を更新、可視窓＋上下スペーサだけ再描画する。
+    // buildTable 全再描画をしない＝スクロール位置・アクティブセル・フォーカス・選択範囲・編集中のエディタと値を保つ。
+    // history には積まない（背景成長は undo 対象外）。既存の setData/insertRows 経路は不変＝完全 opt-in。
+    // 用途: プラグインが「先頭ページを描く→残りを idle で appendRows」して first-paint を早める土台。
+    // rows は現在のデータと同形（オブジェクトモードならオブジェクト配列／配列モードなら行配列）。opts は将来用（keepScroll/noHistory は
+    // 実装が tbody 差し替えのみ＝スクロール保持・履歴不変を常に満たすため現状は指定不要）。
+    // 注意: フィルタ中(_allRows)はマスタにも積んで desync を防ぐ（部分ロード中のフィルタは想定外だが壊さない）。
+    //       非virtual＋minSpareRows では追記行が末尾スペア行の後ろに入る（育成は主に virtual 用途）。
+    appendRows(rows, opts = {}) {
+      if (!Array.isArray(rows) || !rows.length) return;
+      const n0 = this.ROWS;
+      for (const src of rows) {
+        const srcIsObj = src && !Array.isArray(src) && typeof src === 'object';
+        const srcObj = srcIsObj ? Object.assign({}, src) : {};
+        let rowArr;
+        if (srcIsObj) rowArr = this._objToRow(src);                                  // オブジェクト→キー列で行配列化
+        else { rowArr = Array.isArray(src) ? src.slice(0, this.COLS) : []; while (rowArr.length < this.COLS) rowArr.push(''); }  // 配列は COLS 長に整える
+        this.data.push(rowArr);
+        this.rowH.push(undefined);
+        if (this._src) this._src.push(srcObj);
+        if (this._meta) this._meta.set(rowArr, { a: new Map(), ro: new Set(), h: undefined });   // フィルタが張った per-row メタも用意
+        if (this._allRows) { this._allRows.push(rowArr); if (this._allSrc) this._allSrc.push(srcObj); }   // フィルタ中はマスタも同期
+      }
+      this.ROWS = this.data.length;
+      if (!this.table) return;   // 未マウントなら次の buildTable が拾う
+      if (this.virtual) {
+        // 窓＋上下スペーサを作り直す（force）。下スペーサ高が ROWS で再計算され新行までスクロール可能に。
+        // 窓が末尾に無い（新行が可視外）時も安全＝可視 ~33 行の innerHTML 差し替えのみ・scrollTop 不変・
+        // エディタは tbody 外のオーバーレイなので値も維持。
+        this._renderWindow(this._vWindow(), true);
+      } else {
+        const tbody = this.table.querySelector('tbody');
+        if (tbody) { let html = ''; for (let r = n0; r < this.ROWS; r++) html += this._rowHTML(r); tbody.insertAdjacentHTML('beforeend', html); }
+      }
+    }
+    // 遅延ロード(push・Phase B): 総行数を total に確保する。現行の行はそのまま・不足分を PENDING 行で埋め、超過は切る。
+    // dataComplete=false になり、この間 minSpareRows は自動無効（末尾スペアと PENDING tail は両立不可）。
+    // virtual 前提（PENDING 領域はスペーサに畳まれ描画されない＝軽い）。プラグインは onViewportChange→fillRows で実データを流し込む。
+    // setData で解除（実データに差し替わり dataComplete=true）。
+    setRowCount(total) {
+      total = Math.max(0, total | 0);
+      const cur = this.ROWS;
+      if (total > cur) { for (let r = cur; r < total; r++) { this.data.push(TssGrid.PENDING); this.rowH.push(undefined); } }
+      else if (total < cur) { this.data.length = total; this.rowH.length = total; }
+      this.ROWS = total;
+      let pend = 0; for (let r = 0; r < this.ROWS; r++) if (this.data[r] === TssGrid.PENDING) pend++;   // 確保時の一度きり O(N)。以降 fillRows が差分で維持
+      this._pendingCount = pend; this.dataComplete = pend === 0;
+      if (this.active.r >= this.ROWS) this.active = { r: Math.max(0, this.ROWS - 1), c: this.active.c };   // アクティブが範囲外なら詰める
+      if (this.table) { if (this.virtual) this._renderWindow(this._vWindow(), true); else this.buildTable(); }
+    }
+    // 遅延ロード(push・Phase B): PENDING 行 [start, start+rows.length) を実データに差し替える（onViewportChange への応答）。
+    // 塗り替え範囲が可視窓に重なる時だけ窓を再描画（buildTable しない）＝スクロール/選択/アクティブは不変。窓外は data 差し替えのみ。
+    // rows は現在のデータと同形（オブジェクトモードはオブジェクト配列／配列モードは行配列）。範囲外(>=ROWS)は無視。
+    fillRows(start, rows) {
+      if (!Array.isArray(rows) || !rows.length) return;
+      start = Math.max(0, start | 0);
+      for (let i = 0; i < rows.length; i++) {
+        const r = start + i; if (r >= this.ROWS) break;
+        const src = rows[i];
+        const srcIsObj = src && !Array.isArray(src) && typeof src === 'object';
+        const srcObj = srcIsObj ? Object.assign({}, src) : {};
+        let rowArr;
+        if (srcIsObj) rowArr = this._objToRow(src);
+        else { rowArr = Array.isArray(src) ? src.slice(0, this.COLS) : []; while (rowArr.length < this.COLS) rowArr.push(''); }
+        if (this.data[r] === TssGrid.PENDING) this._pendingCount--;   // PENDING→実データ（既に実データの再fill は count 不変）
+        this.data[r] = rowArr;
+        if (this._src) this._src[r] = srcObj;
+        if (this._meta) this._meta.set(rowArr, { a: new Map(), ro: new Set(), h: undefined });
+      }
+      if (this._pendingCount < 0) this._pendingCount = 0;
+      this.dataComplete = this._pendingCount === 0;
+      if (!this.table) return;
+      if (this.virtual) {
+        if (start < this._vEnd && start + rows.length > this._vStart) this._renderWindow(this._vWindow(), true);   // 可視窓に重なる時だけ再描画
+      } else this.buildTable();
+    }
     // 初期カーソル位置を [r,c] に解決（c は index か data キー）。範囲内へクランプ。
     _resolveInitialCell() {
       const ic = this.initialCell; if (!ic) return [0, 0];
@@ -371,6 +460,7 @@
       const lines = [];
       if (o.headers && this.headers) lines.push(this.headers.slice(0, this.COLS).map(esc).join(','));
       for (let r = 0; r < this.ROWS; r++) {
+        if (this.data[r] === TssGrid.PENDING) continue;   // 遅延ロード: 未取得行は出さない（loaded-only）
         if (o.skipEmpty && this._rowEmpty(r)) continue;
         const cells = [];
         for (let c = 0; c < this.COLS; c++) cells.push(esc(o.formatted ? this._displayValue(r, c) : this.data[r][c]));
@@ -434,8 +524,27 @@
       const na = TssGrid.toNum(va), nb = TssGrid.toNum(vb);
       return (na !== null && nb !== null) ? na - nb : String(va).localeCompare(String(vb));
     }
+    // 遅延ロード(push): sort/filter は「グリッドが計算しない・サーバ再フェッチ」(AG Grid ポリシー)。
+    // 状態を onSortFilterChange で通知し、ロード済みを PENDING へ戻す(パージ)＝プラグインが新順で取り直す。
+    // 通知先が未設定なら破壊せず no-op（パージで画面を空にしない安全側）。呼び側は !dataComplete で本メソッドを使う。
+    _lazySortFilter(state) {
+      if (this.onSortFilterChange) {
+        try { this.onSortFilterChange(state); } catch (_) {}
+        this._purgeToPending();   // 窓再描画で onViewportChange も発火＝プラグインが可視域を新順で取り直す
+      } else {
+        try { console.warn('[TssGrid] 遅延ロード中の sort/filter はサーバ側で解決してください（onSortFilterChange 未設定のため no-op）'); } catch (_) {}
+      }
+    }
+    // ロード済み行を全て PENDING に戻す（sort/filter 変更でブロックが陳腐化＝AG Grid の cache purge 相当）。
+    _purgeToPending() {
+      for (let r = 0; r < this.ROWS; r++) { this.data[r] = TssGrid.PENDING; if (this._src) this._src[r] = {}; }
+      this._pendingCount = this.ROWS; this.dataComplete = false;
+      this._vpStart = -1; this._vpEnd = -1;   // 次の窓通知を必ず出す（新順の取り直しを促す）
+      if (this.table) { if (this.virtual) this._renderWindow(this._vWindow(), true); else this.buildTable(); }
+    }
     // 列 c（index か data キー）で並べ替え。dir='asc'(既定)|'desc'。数値っぽければ数値比較、でなければ文字列比較。
     sortBy(c, dir) {
+      if (!this.dataComplete) return this._lazySortFilter({ type: 'sort', sort: [{ col: c, dir: dir || 'asc' }] });   // 遅延ロード中はサーバ委譲
       if (this._sortLocked()) return;   // 結合中はソート禁止（値による組み替えで結合帯が散らばる）
       const ci = this._resolveCol(c); if (ci < 0) return;
       const sgn = dir === 'desc' ? -1 : 1;
@@ -447,6 +556,7 @@
     // 多段（複数列）ソート。specs=[{col, dir}] を優先順（先頭=第1キー）に。col=index か data キー、dir='asc'(既定)|'desc'。
     // 各段は sortBy と同じセル比較。前段が同値のときだけ次段で決める（安定ソート＝残った同値は現在の並びを保つ）。空行は最下部固定。
     sortByCols(specs) {
+      if (!this.dataComplete) return this._lazySortFilter({ type: 'sort', sort: specs });   // 遅延ロード中はサーバ委譲
       if (this._sortLocked()) return;   // 結合中はソート禁止
       const keys = (specs || [])
         .map(s => ({ ci: this._resolveCol(s && s.col), sgn: (s && s.dir === 'desc') ? -1 : 1 }))
@@ -462,6 +572,7 @@
     }
     // 任意比較で並べ替え。cmp(rowA, rowB) は行（配列 or オブジェクト）を受ける。空行は最下部固定。
     sortRows(cmp) {
+      if (!this.dataComplete) return this._lazySortFilter({ type: 'sort', sort: 'custom' });   // 遅延ロード中はサーバ委譲（JS比較子はサーバへ渡せない＝custom 通知のみ）
       if (this._sortLocked()) return;   // 結合中はソート禁止
       this._rememberOrder();
       const rows = this._src ? this.getRows() : this.data;
@@ -519,6 +630,7 @@
     }
     // 絞り込み。pred=(row, masterIndex, src)=>bool / {col:value|fn} / falsy=解除。非破壊（編集は参照でマスタへ反映）。
     filter(pred) {
+      if (!this.dataComplete) { this._lazySortFilter({ type: 'filter', filter: pred }); return false; }   // 遅延ロード中はサーバ委譲（JS述語はサーバへ渡せない＝通知のみ）
       if (this._merges && this._merges.length) return false;   // v1: 結合中は不可
       const fn = this._normFilter(pred);
       if (!fn) return this.clearFilter();
@@ -665,13 +777,14 @@
     activeTd() { return this.cellEl(this.active.r, this.active.c); }
     clampR(r) { return Math.max(0, Math.min(this.ROWS - 1, r)); }
     clampC(c) { return Math.max(0, Math.min(this.COLS - 1, c)); }
-    renderDump() { if (this.dumpEl) this.dumpEl.textContent = JSON.stringify(this.data); if (this.onChange) this.onChange(this); }
+    renderDump() { if (this._renderPaused) { this._renderDirty = true; return; } if (this.dumpEl) this.dumpEl.textContent = JSON.stringify(this.data); if (this.onChange) this.onChange(this); }
 
     // ---- 列定義（セルタイプ / バリデータ） ----
     colCfg(c) { return this.columns[c] || {}; }
     colType(c) { return this.colCfg(c).type || 'text'; }
     // 読み取り専用判定（グリッド全体 / 列 readOnly: bool/関数 / セル単位 setCellReadOnly）。
     _isReadOnly(r, c) {
+      if (this.data[r] === TssGrid.PENDING) return true;   // 遅延ロード: 未取得セルは「読込中」＝編集不可（fillRows で実データが来たら普通に編集可）
       if (this.readOnly) return true;
       if (this._merges && this._isCovered(r, c)) return true;   // 結合の従属セルは編集不可（貼付/フィルは既存の readOnly 経路で巻戻し）
       if (this._cellRO.has(r + ',' + c)) return true;   // セル単位の実行時トグル
@@ -734,6 +847,7 @@
     _structRemapFn(info) {
       switch (info.type) {
         case 'insertRow': { const at = info.at; return (r, c) => [r >= at ? r + 1 : r, c]; }
+        case 'insertRows': { const { at, count } = info; return (r, c) => [r >= at ? r + count : r, c]; }
         case 'deleteRows': { const { r0, r1 } = info, n = r1 - r0 + 1; return (r, c) => (r >= r0 && r <= r1) ? null : [r > r1 ? r - n : r, c]; }
         case 'insertCol': { const at = info.at; return (r, c) => [r, c >= at ? c + 1 : c]; }
         case 'deleteCols': { const { c0, c1 } = info, m = c1 - c0 + 1; return (r, c) => (c >= c0 && c <= c1) ? null : [r, c > c1 ? c - m : c]; }
@@ -749,6 +863,7 @@
       for (const m of this._merges) {
         let { r, c, colspan } = m, rowspan = m.rowspan || 1;
         if (info.type === 'insertRow') { const at = info.at; if (at <= r) r++; else if (at < r + rowspan) rowspan++; }
+        else if (info.type === 'insertRows') { const { at, count } = info; if (at <= r) r += count; else if (at < r + rowspan) rowspan += count; }
         else if (info.type === 'deleteRows') {
           const { r0, r1 } = info, n = r1 - r0 + 1, top = r, bot = r + rowspan - 1;
           if (r0 <= top && r1 >= bot) continue;                          // 縦方向すべて消える
@@ -1025,6 +1140,7 @@
       if (keys.length) td.dataset.cstyle = keys.join(' '); else delete td.dataset.cstyle;
     }
     _renderCell(r, c) {
+      if (this._renderPaused) { this._renderDirty = true; return; }   // バッチ描画中は最後の buildTable が全セルを一括で描く
       if (this._merges && this._isCovered(r, c)) return;   // 従属セルは描画対象なし（cellEl はアンカーへ解決＝誤って上書きしない）
       const td = this.cellEl(r, c); if (!td) return;
       const ph = (this.data[r][c] === '' && this.colType(c) !== 'checkbox') ? this._placeholder(c) : null;
@@ -1177,7 +1293,15 @@
       });
     }
     // 1行ぶんの <tr>…</tr> を生成（buildTable の本体ループと、仮想スクロールの窓再描画 _renderWindow で共用）。
+    // 遅延ロード: 未取得(PENDING)行は data[r][c] を一切読まず「読込中」プレースホルダ行を描く。
+    _pendingRowHTML(r) {
+      const rh = this.rowHeaders;
+      const head = rh ? '<th class="rowhead" data-r="' + r + '">' + this._rowHeadLabel(r) + '</th>' : '';
+      const cell = '<td class="tg-pending-cell" colspan="' + this.COLS + '" data-r="' + r + '" data-c="0"><span class="tg-pending-dots"></span></td>';
+      return '<tr data-r="' + r + '" class="tg-row tg-pending-row" style="height:' + this._rowHeight(r) + 'px">' + head + cell + '</tr>';
+    }
     _rowHTML(r) {
+      if (this.data[r] === TssGrid.PENDING) return this._pendingRowHTML(r);   // 未取得行＝読込中プレースホルダ（値は読まない）
       const rh = this.rowHeaders;
       const rgrip = (rh && this.resizeRows) ? '<div class="tg-rowgrip"></div>' : '';
       const canMove = rh && this.rowReorder && !this._hasVMerge();
@@ -1251,7 +1375,14 @@
       this._vStart = win.start; this._vEnd = win.end; this._vRendered = true;
       this._syncHeaderCheckboxes();
       this.updateSelectionUI();   // セルが作り直されたので窓内の選択シェード/オーバーレイを再適用
+      this._fireViewport(win.start, win.end);   // 遅延ロード: 窓が変わったらプラグインへ通知（PENDING を fillRows で埋めさせる）
       return true;
+    }
+    // 遅延ロード: 描画窓が変わった時だけ onViewportChange(start,end) を発火（同一範囲は抑止＝fillRows→再描画の再帰も止まる）。
+    _fireViewport(start, end) {
+      if (!this.onViewportChange || (start === this._vpStart && end === this._vpEnd)) return;
+      this._vpStart = start; this._vpEnd = end;
+      try { this.onViewportChange(start, end); } catch (_) {}
     }
     // 仮想スクロール: スクロールで窓がずれたら再描画（rAF スロットル）。
     _vSync() {
@@ -1275,6 +1406,7 @@
       this._renderWindow(this._vWindow(), false);   // 窓を即同期（place 前に DOM を確定）
     }
     buildTable() {
+      if (this._renderPaused) { this._renderDirty = true; return; }   // バッチ描画中は最後にまとめて1回（_withBatchedRender）
       if (this._customEditor && this._customCancel) this._customCancel();   // 開いているカスタムエディタを閉じる（body直下ポップアップの取り残し防止・_commitActive と同じ扱い）
       this._selhdrFg = null;   // 選択ヘッダ文字色キャッシュ破棄（テーマ変更に追従）
       const rh = this.rowHeaders;
@@ -1331,6 +1463,7 @@
       this._syncHeaderCheckboxes();
       this._buildGeomCache();   // 実測幾何キャッシュ（全 _apply 後＝幅高が確定してから）
       this.renderDump();
+      if (this.virtual) this._fireViewport(this._vStart, this._vEnd);   // 遅延ロード: 初期/再構築後の窓もプラグインへ通知（table 確定後に発火）
     }
     // 各リーフ列ヘッダth（data-c 付き）を生成後に onHeaderRender へ渡す。ソートアイコン等の差し込み用。
     _applyHeaderRender() {
@@ -1519,13 +1652,17 @@
       // 選択範囲が及ぶ行/列ヘッダをハイライト（Excel 風のアフォーダンス）。仮想時は行ヘッダを窓内にクランプ（大量行で querySelector を無駄打ちしない）。
       const hlo = this.virtual ? Math.max(r0, this._vStart) : r0;
       const hhi = this.virtual ? Math.min(r1, this._vEnd - 1) : r1;
+      // 巨大選択（大量貼付/全選択など）は per-cell の背景シェードと行ヘッダ塗りを省き、selrange アウトライン（O(1)・
+      // スクロール追従）に任せる＝O(行×列) の DOM 変異を回避（1000行貼付で updateSelectionUI ~175ms→~1ms）。
+      // 画面に収まる通常選択（~2000セル未満）は従来どおり全セルをシェード＝見た目不変。
+      const rows = hhi - hlo + 1, bigSel = rows > 300 || rows * (c1 - c0 + 1) > 2000;
       for (let c = c0; c <= c1; c++) { const th = this.table.querySelector('thead th[data-c="' + c + '"]'); if (th) th.classList.add('selhdr'); }
-      for (let r = hlo; r <= hhi; r++) { const th = this.table.querySelector('th.rowhead[data-r="' + r + '"]'); if (th) th.classList.add('selhdr'); }
+      if (!bigSel) for (let r = hlo; r <= hhi; r++) { const th = this.table.querySelector('th.rowhead[data-r="' + r + '"]'); if (th) th.classList.add('selhdr'); }
       this.wrap.style.setProperty('--tg-selhdr-fg', this._selhdrTextColor());   // 選択ヘッダ文字色を背景輝度から自動（暗背景→白）
       if (r0 === r1 && c0 === c1) return;
       const clampMerge = this._headerSel && this._merges;   // 列/行選択では「範囲に収まらない結合」は塗らない（帯を塗り広げない）
       // 仮想スクロール: 窓内の行だけシェード（範囲枠 selrange は placeRect がモデル幾何で全域を描く）。
-      for (let r = hlo; r <= hhi; r++) for (let c = c0; c <= c1; c++) {
+      if (!bigSel) for (let r = hlo; r <= hhi; r++) for (let c = c0; c <= c1; c++) {
         if (clampMerge) {
           const a = this._anchorOf(r, c), mc1 = a.c + this._colspanAt(a.r, a.c) - 1, mr1 = a.r + this._rowspanAt(a.r, a.c) - 1;
           if (a.r < r0 || mr1 > r1 || a.c < c0 || mc1 > c1) continue;   // 結合が選択範囲に収まらない＝塗らない
@@ -1561,6 +1698,7 @@
       return (this._selhdrFg = L < 0.55 ? '#fff' : '#1a3a6b');
     }
     updateSelectionUI() {
+      if (this._renderPaused) return;   // バッチ描画中は選択枠の位置決めを保留（resume 後に1回）
       if (!this.cursor) {   // 表示専用: 選択枠・範囲・フィルハンドルを出さない（選択自体は内部に保持）
         this.selbox.style.display = 'none'; this.selrange.style.display = 'none'; this.fillhandle.style.display = 'none';
         return;
@@ -1730,6 +1868,7 @@
     }
     focusAndSelect(sel) {
       this.active = { ...sel.active }; this.extent = { ...sel.extent };
+      if (this._renderPaused) { this._pendingSel = sel; return; }   // バッチ描画中は選択を記録だけ→resume で1回反映
       if (this.virtual) this._vEnsureVisible(this.active.r);
       this._syncEditorNav(); this.editor.focus(); this.updateSelectionUI();
       if (!this.virtual) this.activeTd().scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -2057,7 +2196,8 @@
     }
     // 末尾に常に minSpareRows 行の空行を確保（足りなければ追加。履歴には積まない）。
     _ensureSpare() {
-      if (!this.minSpareRows || this._allRows) return;   // フィルタ中は末尾の自動空行を足さない（マスタ desync 回避）
+      if (this._renderPaused) { this._renderDirty = true; return; }   // バッチ描画中は保留→resume でまとめて確保
+      if (!this.minSpareRows || this._allRows || !this.dataComplete) return;   // フィルタ中/遅延ロード中(PENDING tail)は末尾の自動空行を足さない
       let empties = 0;
       for (let r = this.ROWS - 1; r >= 0; r--) { if (this._rowEmpty(r)) empties++; else break; }
       let added = 0;
@@ -2089,26 +2229,40 @@
       if (at - 1 >= 0) { const i = this._allRows.indexOf(this.data[at - 1]); if (i >= 0) return i + 1; }
       return this._allRows.length;
     }
-    insertRow(ri, where = 'above') {
+    insertRow(ri, where = 'above') { this.insertRows(ri, 1, where); }
+    // 一括挿入プリミティブ: count 行を1回の buildTable・1つの history コマンドで挿入（Undo/Redo が1手で count 行まとめて戻る）。
+    // 大量貼付など「まとめて足す」を O(N²)（1行ずつ insertRow）から O(N) に。既定 count=1 は insertRow と挙動等価。
+    insertRows(ri, count = 1, where = 'above') {
       if (!this.allowInsertRows) return;
-      if (this.maxRows && this.ROWS >= this.maxRows) return;   // 上限
+      count = Math.max(0, count | 0);
+      if (this.maxRows) count = Math.min(count, this.maxRows - this.ROWS);   // 上限までにクランプ（超過分は足さない）
+      if (count <= 0) return;
       if (this.mode === 'edit') this._commitActive();
       this._normalizeArrays();
       const at = Math.max(0, Math.min(this.ROWS, where === 'below' ? ri + 1 : ri));
       const before = this.snapSel(), grid = this, c = this.active.c, frozenBump = at < this.frozenRows;
-      let ref;   // 挿入した行参照（フィルタ中の _allRows 追従・undo 用に保持）
+      let refs;   // 挿入した行参照の配列（フィルタ中の _allRows 追従・undo 用に保持）
       const doIt = () => {
-        ref = new Array(grid.COLS).fill('');
-        grid.data.splice(at, 0, ref); grid.rowH.splice(at, 0, undefined); if (grid._src) grid._src.splice(at, 0, {}); grid.ROWS++;
-        if (grid._allRows) { const mi = grid._masterInsertIndex(at); grid._allRows.splice(mi, 0, ref); if (grid._allSrc) grid._allSrc.splice(mi, 0, {}); }   // マスタにも挿入
-        if (frozenBump) grid.frozenRows++;
+        refs = []; const hs = [], srcs = grid._src ? [] : null;
+        for (let k = 0; k < count; k++) { refs.push(new Array(grid.COLS).fill('')); hs.push(undefined); if (srcs) srcs.push({}); }
+        // マスタ挿入位置は data を splice する前の位置関係から決める（_masterInsertIndex と同じ規則をバッチ用に）
+        let mi = -1;
+        if (grid._allRows) {
+          mi = grid._allRows.length;
+          if (at < grid.data.length) { const i = grid._allRows.indexOf(grid.data[at]); if (i >= 0) mi = i; }
+          else if (at - 1 >= 0) { const i = grid._allRows.indexOf(grid.data[at - 1]); if (i >= 0) mi = i + 1; }
+        }
+        grid.data.splice(at, 0, ...refs); grid.rowH.splice(at, 0, ...hs); if (grid._src) grid._src.splice(at, 0, ...srcs); grid.ROWS += count;
+        if (grid._allRows) { grid._allRows.splice(mi, 0, ...refs); if (grid._allSrc) grid._allSrc.splice(mi, 0, ...refs.map(() => ({}))); }   // マスタにも一括挿入
+        if (frozenBump) grid.frozenRows += count;
       };
       const undoIt = () => {
-        grid.data.splice(at, 1); grid.rowH.splice(at, 1); if (grid._src) grid._src.splice(at, 1); grid.ROWS--;
-        if (grid._allRows && ref) { const i = grid._allRows.indexOf(ref); if (i >= 0) { grid._allRows.splice(i, 1); if (grid._allSrc) grid._allSrc.splice(i, 1); } }
-        if (frozenBump) grid.frozenRows--;
+        grid.data.splice(at, count); grid.rowH.splice(at, count); if (grid._src) grid._src.splice(at, count); grid.ROWS -= count;
+        if (grid._allRows && refs) { for (const ref of refs) { const i = grid._allRows.indexOf(ref); if (i >= 0) { grid._allRows.splice(i, 1); if (grid._allSrc) grid._allSrc.splice(i, 1); } } }
+        if (frozenBump) grid.frozenRows -= count;
       };
-      this._structCmd(doIt, undoIt, () => ({ active: { r: at, c }, extent: { r: at, c } }), before, { type: 'insertRow', at });
+      const type = count === 1 ? 'insertRow' : 'insertRows';   // 単行は従来どおり type:'insertRow'（後方互換）／複数は 'insertRows'
+      this._structCmd(doIt, undoIt, () => ({ active: { r: at, c }, extent: { r: at + count - 1, c } }), before, { type, at, count });
     }
     deleteRows(r0, r1) {
       if (!this.allowDeleteRows) return;
@@ -2206,6 +2360,26 @@
         apply() { for (const c of batch) c.apply(); },
         revert() { for (let i = batch.length - 1; i >= 0; i--) batch[i].revert(); },
       });
+    }
+    // 大量セル更新を「最後に1回 buildTable」へ畳む。中の buildTable/_renderCell/renderDump/選択UI は保留され、
+    // resume 時に buildTable 1回＋選択反映＋renderDump 1回だけ走る（1行ずつ描く N 回の DOM 変異を消す）。
+    // 例: 1000×5 の貼付が per-cell 描画 ~500ms → 一括 ~80ms。入れ子は外側が最後にまとめて描く。
+    _withBatchedRender(fn) {
+      if (this._renderPaused) return fn();   // 入れ子: 外側の resume に任せる
+      this._renderPaused = true; this._renderDirty = false; this._pendingSel = null;
+      let ret;
+      try { ret = fn(); }
+      finally {
+        this._renderPaused = false;
+        if (this._renderDirty) {
+          this.buildTable();                                   // 全セルを1回のHTML生成で描く（末尾で renderDump＝dumpEl/onChange も1回発火）
+          this._ensureSpare();                                 // 保留していた末尾スペア行の確保
+          const s = this._pendingSel; this._pendingSel = null;
+          if (s) this.focusAndSelect(s);                       // 選択枠・スクロールを1回だけ
+        }
+        this._renderDirty = false;
+      }
+      return ret;
     }
 
     // ---- 右クリックメニュー ----
@@ -2466,6 +2640,21 @@
         if (Array.isArray(ret)) g = ret;
         if (!g || !g.length) return;
       }
+      // pasteAutoGrow=true では「行の一括生成」と「値の貼付」を1つの history にまとめる（1回の undo で両方戻る）。
+      // 非オートグロー時は history.push が1回だけ＝_batchHistory は素通し（従来とバイト等価）。
+      let after;
+      const body = () => { this._batchHistory(() => { after = this._pasteGridBody(g); }); };
+      // 大量貼付だけ _withBatchedRender で「最後に buildTable 1回」へ畳む（per-cell 描画 N 回を消す＝1000行 ~500ms→~80ms）。
+      // 小さな貼付を大きなグリッドに落とす時は従来どおり per-cell（全再描画の方が高くつくため回避）。
+      const willGrow = this.pasteAutoGrow && (this.active.r + g.length > this.ROWS);
+      const heavy = willGrow || (g.length >= 8 && g.length * 5 >= this.ROWS);   // 貼付が表の ~20% 以上を占める or 行が増える時だけ畳む
+      if (heavy) this._withBatchedRender(body); else body();
+      if (after && this.onAfterPaste) {   // onAfterPaste は batch の外で呼ぶ（コールバック内の履歴操作を貼付コマンドに混ぜない）
+        const range = { r0: after.active.r, c0: after.active.c, r1: after.extent.r, c1: after.extent.c };
+        try { this.onAfterPaste(g, { range }); } catch (_) {}
+      }
+    }
+    _pasteGridBody(g) {
       const before = this.snapSel(), changes = [], sel = this.rectRange();
       const visAll = this._visCols();
       let after;
@@ -2477,17 +2666,25 @@
         const r0 = this.active.r, c0 = this.active.c;
         let maxw = 0; for (let i = 0; i < g.length; i++) maxw = Math.max(maxw, g[i].length);
         const p0 = visAll.indexOf(c0), availCols = visAll.length - p0;   // 貼り付けは可視列へ（隠し列をスキップ）
-        // 範囲超過チェック（オプトイン）: はみ出すなら貼り付けを中止してエラー通知
-        if (this.pasteOverflow === 'error' && (r0 + g.length > this.ROWS || maxw > availCols)) {
+        // オートグロー時に伸ばせる上限行数（maxRows があればそこまで／無ければ無制限）。非オートグローは現状の ROWS。
+        const capRows = this.pasteAutoGrow ? (this.maxRows || Infinity) : this.ROWS;
+        // 範囲超過チェック（オプトイン）: 伸ばしても収まらない or 列がはみ出すなら貼り付けを中止してエラー通知（行生成の前に判定＝原子性）
+        if (this.pasteOverflow === 'error' && (r0 + g.length > capRows || maxw > availCols)) {
           if (this.onPasteOverflow) {
             try {
               this.onPasteOverflow({
                 anchor: { r: r0, c: c0 }, height: g.length, width: maxw, rows: this.ROWS, cols: this.COLS,
-                overRows: Math.max(0, r0 + g.length - this.ROWS), overCols: Math.max(0, maxw - availCols),
+                overRows: Math.max(0, r0 + g.length - capRows), overCols: Math.max(0, maxw - availCols),
               });
             } catch (_) {}
           }
           return;  // 何も変更しない
+        }
+        // オートグロー: 不足分を先に一括生成（buildTable 1回・history 1コマンド）。超過は maxRows でクランプ、残りは pasteOverflow に従う。
+        if (this.pasteAutoGrow && r0 + g.length > this.ROWS) {
+          const target = this.maxRows ? Math.min(this.maxRows, r0 + g.length) : r0 + g.length;
+          const grow = target - this.ROWS;
+          if (grow > 0) this.insertRows(this.ROWS - 1, grow, 'below');
         }
         let lastC = c0;
         for (let i = 0; i < g.length; i++) for (let j = 0; j < g[i].length; j++) {
@@ -2502,10 +2699,7 @@
         this.pendingCut = null; this.copybox.style.display = 'none'; }
       this.pushCmd(changes, before, after, 'paste');
       this.focusAndSelect(after);
-      if (this.onAfterPaste) {
-        const range = { r0: after.active.r, c0: after.active.c, r1: after.extent.r, c1: after.extent.c };
-        try { this.onAfterPaste(g, { range }); } catch (_) {}
-      }
+      return after;
     }
     clearCopyMarquee() { this.copybox.style.display = 'none'; this.pendingCut = null; }
 
@@ -2587,6 +2781,20 @@
       // input と textarea(multiline) の両方に同じ編集入口リスナを張る（this.editor はアクティブ列で張り替わる）。
       [this._edInput, this._edMulti].forEach((ed) => {
         ed.addEventListener('keydown', (e) => this._onKey(e));
+        // 貼り付けの主経路＝ネイティブ paste イベント（clipboardData.getData）。Ctrl+V のジェスチャー内で
+        // 同期に読める＝許可プロンプト不要＋堅牢（readText の権限/非セキュア/非フォーカスで落ちる問題を回避）。
+        // nav 中の editor は focus 代理なので native 挿入は常に止める（copyPaste=false でも挿入させない）。
+        // 編集中は横取りせず native 貼付（1セルへの通常ペースト）に任せる。paste は beforeinput より先に来るため、
+        // ここで preventDefault すれば beforeinput(insertFromPaste) の誤発火＝エディタ誤オープンも起きない。
+        // 右クリックメニューの「貼り付け」/プログラム呼び出しは paste イベントを伴わないので paste()＝readText 経路を温存。
+        ed.addEventListener('paste', (e) => {
+          if (this.mode !== 'nav') return;
+          e.preventDefault();
+          if (!this.copyPaste) return;
+          const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
+          const g = (text && text.length) ? TssGrid.parseTSV(text) : sharedClip;   // clipboard 空/非テキストは内部コピー buffer へフォールバック
+          if (g && g.length) this.pasteGrid(g);
+        });
         // inline エディタへ入力を通知（打った/変換確定した内容で候補を絞る用）
         ed.addEventListener('input', () => {
           if (this._inlineEd && this._inlineEd.onInput) { try { this._inlineEd.onInput(this.editor.value, this._inlineCtx); } catch (_) {} }
@@ -2931,7 +3139,8 @@
       if (ctrl && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); this.history.redo(); return; }
       if (ctrl && e.key.toLowerCase() === 'c') { e.preventDefault(); this.copy(false); return; }
       if (ctrl && e.key.toLowerCase() === 'x') { e.preventDefault(); this.copy(true); return; }
-      if (ctrl && e.key.toLowerCase() === 'v') { e.preventDefault(); this.paste(); return; }
+      // Ctrl+V は keydown で拾わず native paste イベントへ委譲（editor の paste リスナが処理）。
+      // ここで preventDefault すると paste イベント自体を止めかねないため分岐を置かない。
       if (e.shiftKey && e.key.startsWith('Arrow')) {
         e.preventDefault();
         let { r, c } = this.extent;
@@ -2957,6 +3166,8 @@
       }
     }
   }
+
+  TssGrid.PENDING = Symbol('tg-pending');   // 遅延ロード(push): 未取得行を表す sentinel。data[r] に入れると _rowHTML が「読込中」行を描く
 
   // ---- UMD export ----
   const api = { TssGrid, HistoryManager };

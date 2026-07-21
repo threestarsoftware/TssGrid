@@ -784,6 +784,7 @@ new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
 | `invalidTitle` | `boolean` | `true` | `keep` 時、赤セルに validator メッセージを `title=`（ホバーで理由）。`false` でOFF。全件は `getInvalidCells()` |
 | `messages` | `{code:…}\|fn` | — | エラーの**共通メッセージカタログ**。`validator` が `{code,params,level}` を返すと本文を解決（`{label}`/`{value}`/params 差込）。本文を外部JSON/CSV/XMLで一元管理 |
 | `pasteOverflow` | `'clip'\|'error'` | `'clip'` | 貼り付けがグリッド外に超過した時。`clip`=はみ出し分を切り捨て / `error`=貼り付け中止 |
+| `pasteAutoGrow` | `boolean` | `false` | 貼付元の行数がグリッド行数を超える時、不足分を **`insertRows` で先に一括生成**してから貼る（Excel から貼れば貼った行数だけ行が増える）。**行生成＋値貼付は1回の undo で両方戻る**。`maxRows` 上限内・超過分は `pasteOverflow` に従う。既定 `false`＝従来どおりはみ出しは切り捨て |
 | `colWidths` / `rowHeights` | `number[]` \| `{[key]:number}` | `[]` | 列幅 / 行高の初期値(px)。未指定の要素は既定値。`colWidths` は**配列（位置指定）でも、`{ dataキー: px }` のオブジェクト（列ID指定）でも可**＝後者は列を入れ替えても幅が追従する。列定義側に `columns[c].width` で同居指定も可（並べ替え・コピペで幅が一緒に動く＝最も壊れにくい）。優先度: 実行時リサイズ/明示 `colWidths` > `columns[c].width` > 既定 |
 | `defaultColWidth` / `defaultRowHeight` | `number` | `120` / `28` | 既定の列幅 / 行高(px) |
 | `minColWidth` / `minRowHeight` | `number` | `30` / `18` | リサイズの下限(px) |
@@ -850,7 +851,7 @@ new TssGrid(el, {
 });
 ```
 
-メソッド: `getData()` / `getRows()` / `getRow(r)` / `getColumn(cOrKey)` / `getColumns()` / `setData(rows)` / `getValue(r,cOrKey)` / `setValue(r,cOrKey,val,force?)` / `setValueRaw(r,cOrKey,val)`（履歴に積まない派生値書き込み・計算列用） / `hideColumn(c)` / `showColumn(c)` / `toggleColumn(c)` / `isColumnHidden(c)` / `getHiddenColumns()` / `setAlignment(align,range?)` / `getAlignment(r,c)` / `setCellReadOnly(flag,range?)` / `autoSizeColumn(c)` / `autoSizeAllColumns()` / `sortBy(cOrKey, dir)` / `sortRows(cmp)` / `addShortcut(s)` / `removeShortcut(name)` / `usePlugin(fn)` / `getPlugin(name)` / `destroy()` / `setActive(r,c)` / `selectRow(r)` / `selectCol(c)` / `selectAll()` / `setColWidth(c,px)` / `setRowHeight(r,px)` / `freezeCols(n)` / `freezeRows(n)` / `moveRow(from,to)` / `moveRows(r0,r1,to)` / `clearSort()` / `toCSV(opts)` / `downloadCSV(name,opts)` / `insertRow(ri,'above'|'below')` / `deleteRows(r0,r1?)` / `insertCol(ci,'left'|'right')` / `deleteCols(c0,c1?)` / `redraw()`（列定義変更後の再描画, データ・選択は保持）ほか。
+メソッド: `getData()` / `getRows()` / `getRow(r)` / `getColumn(cOrKey)` / `getColumns()` / `setData(rows)` / `appendRows(rows,opts?)`（**背景で"育てる"追記**＝data末尾に足し可視窓だけ再描画。buildTable全再描画せずスクロール位置・選択・編集中エディタを保ち履歴にも積まない。「先頭ページを描く→残りをidleでappendRows」でfirst-paintを早める土台。既存経路は不変のopt-in） / `setRowCount(total)` ＋ `fillRows(start,rows)`（**遅延ロード=on-demand**＝virtual前提。総件数を確保し未取得ぶんは「読込中」行、`onViewportChange(start,end)` で要る範囲を受け `fillRows` で実データを流し込む。sort/filterは遅延中ローカル計算せず `onSortFilterChange` でサーバ委譲、未取得セルは編集不可、export（getData/toCSV）はロード済みのみ＝AG Grid の Infinite Row Model 相当を push で） / `getValue(r,cOrKey)` / `setValue(r,cOrKey,val,force?)` / `setValueRaw(r,cOrKey,val)`（履歴に積まない派生値書き込み・計算列用） / `hideColumn(c)` / `showColumn(c)` / `toggleColumn(c)` / `isColumnHidden(c)` / `getHiddenColumns()` / `setAlignment(align,range?)` / `getAlignment(r,c)` / `setCellReadOnly(flag,range?)` / `autoSizeColumn(c)` / `autoSizeAllColumns()` / `sortBy(cOrKey, dir)` / `sortRows(cmp)` / `addShortcut(s)` / `removeShortcut(name)` / `usePlugin(fn)` / `getPlugin(name)` / `destroy()` / `setActive(r,c)` / `selectRow(r)` / `selectCol(c)` / `selectAll()` / `setColWidth(c,px)` / `setRowHeight(r,px)` / `freezeCols(n)` / `freezeRows(n)` / `moveRow(from,to)` / `moveRows(r0,r1,to)` / `clearSort()` / `toCSV(opts)` / `downloadCSV(name,opts)` / `insertRow(ri,'above'|'below')` / `insertRows(ri,count?,'above'|'below')`（count 行を1回の再描画・1 undo で一括挿入＝大量挿入が O(N)） / `deleteRows(r0,r1?)` / `insertCol(ci,'left'|'right')` / `deleteCols(c0,c1?)` / `redraw()`（列定義変更後の再描画, データ・選択は保持）ほか。
 
 ## イベント
 
@@ -890,8 +891,12 @@ new TssGrid(el, {
   onAfterCopy(data, { range, cut }) {},
 
   // 行/列の挿入・削除の前後。before は false で中止できる
-  onBeforeStructureChange(info) { /* info.type = 'insertRow'|'deleteRows'|'insertCol'|'deleteCols'。return false で中止 */ },
+  onBeforeStructureChange(info) { /* info.type = 'insertRow'|'insertRows'|'deleteRows'|'insertCol'|'deleteCols'。return false で中止 */ },
   onStructureChange(info) {},   // 後。undo 時は info.undo = true
+
+  // 遅延ロード(push・on-demand)。setRowCount/fillRows と組で使う
+  onViewportChange(start, end) {},   // 描画窓が変わった＝「今この範囲が要る」。ここで fillRows(start, 取得した行) する
+  onSortFilterChange(state) {},      // 遅延中の sort/filter 要求。ローカル計算せずサーバで並替/絞込→setRowCount+fillRows し直す（state.type='sort'|'filter'）
 });
 ```
 
@@ -1109,11 +1114,11 @@ new TssGrid(el, {
   allowDeleteRows: true,
   allowInsertCols: true,
   allowDeleteCols: true,
-  onStructureChange: (info) => console.log(info.type),  // 'insertRow' | 'deleteRows' | 'insertCol' | 'deleteCols'
+  onStructureChange: (info) => console.log(info.type),  // 'insertRow' | 'insertRows' | 'deleteRows' | 'insertCol' | 'deleteCols'
 });
 ```
 
-プログラムからも操作できます: **`insertRow(ri, 'above'|'below')`** / **`deleteRows(r0, r1?)`** / **`insertCol(ci, 'left'|'right')`** / **`deleteCols(c0, c1?)`**。最低1行・1列は残します。
+プログラムからも操作できます: **`insertRow(ri, 'above'|'below')`** / **`insertRows(ri, count?, 'above'|'below')`**（`count` 行を **1回の再描画・1つの undo** で一括挿入＝大量行の追加が O(N²)→O(N)。CSV取込・テンプレ行のまとめ足しに） / **`deleteRows(r0, r1?)`** / **`insertCol(ci, 'left'|'right')`** / **`deleteCols(c0, c1?)`**。最低1行・1列は残します。大量貼付で行を増やしたい場合は `pasteAutoGrow: true` も参照。
 
 既定メニューには行/列の挿入・削除に加え **コピー / 切り取り / 貼り付け / 内容をクリア** も入ります（クリップボードは `copyPaste:false` で消えます）。
 

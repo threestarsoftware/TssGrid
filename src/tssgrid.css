@@ -230,3 +230,9 @@
 .tssgrid .tg-menu .tg-mi.tg-has-sub::after { content: '▶'; position: absolute; right: 10px; top: 0; bottom: 0; display: flex; align-items: center; font-size: 9px; color: #7d8a99; }
 .tssgrid .tg-menu .tg-submenu { display: none; position: absolute; left: 100%; top: -5px; background: #fff; border: 1px solid var(--tg-wrap-border); border-radius: var(--tg-radius); box-shadow: 0 4px 16px rgba(0,0,0,.18); padding: 4px 0; min-width: 150px; }
 .tssgrid .tg-menu .tg-mi.tg-has-sub:hover > .tg-submenu { display: block; }
+
+/* 遅延ロード(push): 未取得(PENDING)行の「読込中」プレースホルダ。値は描かず淡いシマーの点線を出す */
+.tssgrid .tg-table tr.tg-pending-row td.tg-pending-cell { color: var(--tg-muted); text-align: center; cursor: default; }
+.tssgrid .tg-table tr.tg-pending-row .tg-pending-dots { display: inline-block; width: 40%; max-width: 220px; height: 8px; border-radius: 4px;
+  background: linear-gradient(90deg, #eef2f6 25%, #e2e8f0 37%, #eef2f6 63%); background-size: 400% 100%; animation: tg-pending-shimmer 1.2s ease-in-out infinite; }
+@keyframes tg-pending-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }

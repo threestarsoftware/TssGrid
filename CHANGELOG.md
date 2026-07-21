@@ -3,6 +3,20 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.4] - 2026-07-21
+
+### 追加
+- **`appendRows(rows, opts?)`＝背景で"育てる"progressive 追記**（コア）— `data` 末尾へ足し、可視窓＋スペーサだけ再描画する。`buildTable` 全再描画をせず、**スクロール位置・アクティブセル・選択・編集中エディタと値を保ち、履歴にも積まない**。「先頭ページを描く→残りを idle で `appendRows`」で first-paint を早める土台。既存の `setData`/`insertRows` 経路は不変＝opt-in。
+- **遅延ロード（on-demand）＝`setRowCount(total)` / `fillRows(start, rows)` / `onViewportChange(start, end)` / `onSortFilterChange(state)` / `TssGrid.PENDING`**（コア・`virtual:true` 前提）— 総件数を確保して未取得ぶんは「読込中」行で持ち、スクロールで `onViewportChange` が必要な範囲を通知→アプリが取得→`fillRows` で流し込む。**sort/filter は遅延中ローカル計算せず `onSortFilterChange` でサーバへ委譲**、**未取得セルは編集不可**（カーソルは乗れる）、**export（`getData`/`getRows`/`toCSV`）はロード済みのみ**返す。＝AG Grid の Infinite Row Model 相当を、最小コアの push プリミティブで実装（datasource/ブロックキャッシュはコアに持たない＝将来アドオンに委ねる）。大量一覧の first-paint を大きく縮められる。
+- **`insertRows(ri, count?, where?)`＝一括行挿入プリミティブ**（コア）— `count` 行を1回の再描画・1 undo で挿入。1行ずつの `insertRow` を繰り返す O(N²) を O(N) に。`insertRow` は `insertRows(…, 1, …)` へ委譲＝後方互換。
+- **`pasteAutoGrow`（オプション・既定 `false`）**（コア）— 貼付元の行数がグリッド行数を超える時、不足分を先に `insertRows` で一括生成してから貼る（Excel から貼れば貼った行数だけ行が増える）。行生成＋値貼付は1回の undo で戻る。`maxRows` 上限内・超過は `pasteOverflow` に従う。
+
+### 変更
+- **貼り付けを paste イベント主経路化**（コア）— Ctrl+V を `navigator.clipboard.readText()`（初回に**許可プロンプト**が出る・Chrome 仕様）から、ネイティブ paste イベント（`clipboardData.getData`）へ移した。ジェスチャー内で同期に読める＝**許可プロンプト不要・より堅牢**（権限／非セキュアコンテキスト／非フォーカスで落ちない）。右クリックメニューの「貼り付け」とプログラム呼び出しは従来どおり `readText`。セル編集中の1セル貼付は native 挙動に委ねる（回帰なし）。
+
+### 改善（性能）
+- **大量貼付を O(N) 化**（コア）— 1000行規模の貼付で per-cell 描画 N 回を「最後に `buildTable` 1回」へ畳み、巨大選択の選択塗り（従来 O(行×列)）をアウトライン矩形へ委譲。`insertRows`/`pasteAutoGrow` と併せ、大量貼付が O(N²)→O(N)（自社調べ・実機で大幅短縮）。
+
 ## [0.1.3] - 2026-07-17
 
 ### 追加
