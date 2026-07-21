@@ -87,7 +87,7 @@
 <h1>API リファレンス</h1>
 <p class="lead">公開API（オプション・イベント・メソッド）の一覧。<b><code>src/tssgrid.d.ts</code> を正本に自動生成</b>しています。使い方・サンプルは <a href="docs.html">ドキュメント（ガイド）</a> をどうぞ。</p>
 <h2 id="options">グリッド オプション</h2>
-<p>63 項目（<code>new TssGrid(el, options)</code>）。</p>
+<p>64 項目（<code>new TssGrid(el, options)</code>）。</p>
 <table>
 <thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
 <tbody>
@@ -105,6 +105,7 @@
 <tr><td><code>invalidTitle</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>messages</code></td><td><code class="ty">Record&lt;string, any&gt; | ((info: { code: string; params?: any; level?: string }) =&gt; string)</code></td><td>エラーの共通メッセージカタログ。</td></tr>
 <tr><td><code>pasteOverflow</code></td><td><code class="ty">'clip' | 'error'</code></td><td></td></tr>
+<tr><td><code>pasteAutoGrow</code></td><td><code class="ty">boolean</code></td><td>貼付元の行数がグリッド行数を超える時、不足分を insertRows で一括生成してから貼る（既定 false=従来のクランプ）。行生成＋値貼付は1回の undo で戻る。maxRows 上限内・超過分は pasteOverflow に従う。</td></tr>
 <tr><td><code>colWidths</code></td><td><code class="ty">number[] | Record&lt;string, number&gt;</code></td><td></td></tr>
 <tr><td><code>rowHeights</code></td><td><code class="ty">number[] | Record&lt;string, number&gt;</code></td><td></td></tr>
 <tr><td><code>defaultColWidth</code></td><td><code class="ty">number</code></td><td></td></tr>
@@ -158,7 +159,7 @@
 </tbody>
 </table>
 <h2 id="events">イベント / コールバック</h2>
-<p>22 個。値変更系（onBeforeChange/onAfterChange）は編集・貼付・フィル・Delete の全経路を通ります。</p>
+<p>24 個。値変更系（onBeforeChange/onAfterChange）は編集・貼付・フィル・Delete の全経路を通ります。</p>
 <table>
 <thead><tr><th>イベント</th><th>シグネチャ</th><th>説明</th></tr></thead>
 <tbody>
@@ -175,6 +176,8 @@
 <tr><td><code>onAfterCopy</code></td><td><code class="ty">(data: string[][], info: { range: SelectionRange; cut: boolean }) =&gt; void</code></td><td></td></tr>
 <tr><td><code>onBeforeStructureChange</code></td><td><code class="ty">(info: StructureInfo) =&gt; boolean | void</code></td><td></td></tr>
 <tr><td><code>onStructureChange</code></td><td><code class="ty">(info: StructureInfo) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onViewportChange</code></td><td><code class="ty">(start: number, end: number) =&gt; void</code></td><td>遅延ロード(push): 描画窓が変わった時に呼ぶ (start,end)。未取得(PENDING)行を fillRows で埋めるトリガ。</td></tr>
+<tr><td><code>onSortFilterChange</code></td><td><code class="ty">(state: { type: 'sort' | 'filter'; sort?: any; filter?: any }) =&gt; void</code></td><td>遅延ロード(push): dataComplete=false で sort/filter 要求が来た時に呼ぶ。エンジンはローカル計算せず、これで通知＋パージ＝プラグインがサーバ側で並替/絞込して setRowCount+fillRows し直す。</td></tr>
 <tr><td><code>onBeforeAutofill</code></td><td><code class="ty">(src: SelectionRange, target: SelectionRange) =&gt; boolean | void</code></td><td></td></tr>
 <tr><td><code>onAfterAutofill</code></td><td><code class="ty">(src: SelectionRange, target: SelectionRange) =&gt; void</code></td><td></td></tr>
 <tr><td><code>onBeforeKeyDown</code></td><td><code class="ty">(e: KeyboardEvent) =&gt; boolean | void</code></td><td></td></tr>
@@ -215,7 +218,7 @@
 </tbody>
 </table>
 <h2 id="methods">メソッド</h2>
-<p>公開メソッド 62 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
+<p>公開メソッド 66 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
 <h3 id="m-0">データ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
@@ -225,6 +228,15 @@
 <div class="api-m"><code class="sig">getColumns(): any[][]</code><p>全列を配列の配列で取得。</p></div>
 <div class="api-m"><code class="sig">getValue(r: number, cOrKey: number | string): any</code><p>1セルの値を取得（c は index か data キー）。</p></div>
 <div class="api-m"><code class="sig">setData(rows: any[][] | Record&lt;string, any&gt;[]): void</code><p>データを差し替え（履歴・フィルタ・整列状態はリセット）。</p></div>
+<div class="api-m"><code class="sig">appendRows(rows: any[][] | Record&lt;string, any&gt;[], opts?: { keepScroll?: boolean; noHistory?: boolean }): void</code><p>背景で"育てる"追記（progressive）。data 末尾へ rows を足し、可視窓＋スペーサだけ再描画する。
+buildTable 全再描画をせず、スクロール位置・アクティブセル・フォーカス・選択・編集中のエディタと値を保ち、履歴にも積まない。
+「先頭ページを描く→残りを idle で appendRows」して first-paint を早める土台（既存の setData/insertRows 経路は不変）。
+rows は現在のデータと同形（オブジェクトモードはオブジェクト配列／配列モードは行配列）。</p></div>
+<div class="api-m"><code class="sig">setRowCount(total: number): void</code><p>遅延ロード(push・on-demand)。総行数を total に確保し、未取得ぶんを PENDING 行で埋める（virtual 前提）。
+dataComplete=false になり、この間 minSpareRows は自動無効。onViewportChange で「今要る範囲」を受け fillRows で埋める流れ。
+setData で解除。AG Grid の Infinite Row Model 相当を push プリミティブで。</p></div>
+<div class="api-m"><code class="sig">fillRows(start: number, rows: any[][] | Record&lt;string, any&gt;[]): void</code><p>遅延ロード(push): PENDING 行 [start, start+rows.length) を実データに差し替える（onViewportChange への応答）。
+塗り替え範囲が可視窓に重なる時だけ窓を再描画＝スクロール/選択/アクティブは不変。全 PENDING が埋まると dataComplete=true。</p></div>
 <div class="api-m"><code class="sig">setValue(r: number, cOrKey: number | string, val: any, force?: boolean): void</code><p>1セルに書き込み（履歴あり・検証/onBeforeChange 経由）。force=true で readOnly 貫通。</p></div>
 <div class="api-m"><code class="sig">setValueRaw(r: number, cOrKey: number | string, val: any): void</code><p>履歴に積まず・検証も通さず直接書き込み（計算列など派生値用。readOnly 貫通）。</p></div>
 </div>
@@ -256,6 +268,7 @@
 <h3 id="m-3">行 / 列 構造</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">insertRow(ri: number, where?: 'above' | 'below'): void</code></div>
+<div class="api-m"><code class="sig">insertRows(ri: number, count?: number, where?: 'above' | 'below'): void</code><p>count 行を1回の再描画・1つの undo コマンドで挿入（大量挿入を O(N) に）。maxRows 上限でクランプ。既定 count=1 は insertRow と等価。</p></div>
 <div class="api-m"><code class="sig">deleteRows(r0: number, r1?: number): void</code></div>
 <div class="api-m"><code class="sig">insertCol(ci: number, where?: 'left' | 'right'): void</code></div>
 <div class="api-m"><code class="sig">deleteCols(c0: number, c1?: number): void</code></div>
