@@ -138,6 +138,13 @@ export interface TssGridOptions {
   rowReorder?: boolean | 'header';
   /** 行ヘッダーの ⠿ マークの位置。'before'=番号の前（既定）/ 'after'=番号の後 / false=マークを出さない。 */
   rowReorderMark?: 'before' | 'after' | false;
+  /** 右端に非データの「削除列」（🗑）を1列出す。既定 false。クリックで deleteRows（右クリック→行を削除と同一経路・1 undo で復活）。
+   *  最後の1行（0行にはできない）は削除でなく「中身クリア（行は残す）」＝🗑 は無効にならず内容だけ空に（readOnly はスキップ・1 undo で復活）。
+   *  minRows>1 のロック時は下限で🗑 を無効表示（削除もクリアもしない）。allowDeleteRows:false なら列ごと出さない。
+   *  getRows/getData/toCSV・列インデックス・列選択/リサイズ/reorder の対象外。 */
+  rowDelete?: boolean;
+  /** 削除列の幅(px)。既定 36。 */
+  rowDeleteWidth?: number;
   /** 仮想スクロール（固定行高ウィンドウイング）。大量行を可視窓だけ描画。true か { buffer:窓上下バッファ行数(既定6) }。
    *  制約(v1): 行高一定／固定行列・折り返し・セル結合は非対応（指定時は自動無効化）。 */
   virtual?: boolean | { buffer?: number };
@@ -156,6 +163,11 @@ export interface TssGridOptions {
   fillHandle?: boolean | { direction?: 'vertical' | 'horizontal' | 'both'; autoInsertRow?: boolean };
   autoColumnSize?: boolean | number;
   copyPaste?: boolean;
+  /** 共有エディタへのブラウザ自動入力（Chrome の「ポイントカード/住所/支払い」等）を強めに抑止する。既定 false。
+   *  通常は name + autocomplete='off' で抑止するが、Chrome は loyalty/payment 系で 'off' を無視することがある。
+   *  true にすると autocomplete='new-password' に切り替えて確実に止める（副作用として環境により鍵アイコンや生成PW提案が出る場合あり＝opt-in）。
+   *  周囲に自前のラベル付き `<input>`（フォーム塊）を並べる埋め込み画面で有効。 */
+  suppressAutofill?: boolean;
   minSpareRows?: number;
   autoWrapRow?: boolean;
   autoWrapCol?: boolean;
@@ -382,6 +394,8 @@ export declare class TssGrid {
   /** count 行を1回の再描画・1つの undo コマンドで挿入（大量挿入を O(N) に）。maxRows 上限でクランプ。既定 count=1 は insertRow と等価。 */
   insertRows(ri: number, count?: number, where?: 'above' | 'below'): void;
   deleteRows(r0: number, r1?: number): void;
+  /** 行 r の中身を空にする（行自体は残す・readOnly はスキップ・1 undo）。rowDelete の🗑を最後の1行で押した時の実体。 */
+  clearRow(r: number): void;
   insertCol(ci: number, where?: 'left' | 'right'): void;
   deleteCols(c0: number, c1?: number): void;
   /** 1行を移動（Undo 対応）。 */

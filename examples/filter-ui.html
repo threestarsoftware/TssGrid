@@ -25,7 +25,7 @@
 <div class="wrap">
   <h1>ヘッダのオートフィルタ <span class="pill">tss-filter プラグイン</span></h1>
   <div class="note" style="margin-top:8px">
-  各見出しの<b>ロート（漏斗）アイコン</b>をクリック → <b>値チェックリスト＋検索</b>で絞り込み（Excel風・<code>plugins/tss-filter.js</code>＋<code>.css</code>）。複数列の条件は <b>AND</b>。中身は<b>コアの非破壊 <code>filter()</code> を呼ぶだけ</b>＝フィルタ中の編集も消えません。値候補は<b>マスタ全行から集計</b>（絞り込み中でも全値が出る）。
+  各見出しの<b>ロート（漏斗）アイコン</b>をクリック → ポップアップ上部の<b>モード切替</b>で <b>「値を選択」（Excel風チェックリスト）／「部分一致」／「前方一致」</b>を選べます（列ごと独立・<code>plugins/tss-filter.js</code>＋<code>.css</code>）。複数列の条件は <b>AND</b>。中身は<b>コアの非破壊 <code>filter()</code> を呼ぶだけ</b>＝フィルタ中の編集も消えません。値候補は<b>マスタ全行から集計</b>（絞り込み中でも全値が出る）。部分/前方一致は既定で大小無視（<code>caseSensitive</code> で切替）。
   </div>
 
   <div class="bar">

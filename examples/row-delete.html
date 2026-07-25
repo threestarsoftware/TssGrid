@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 行削除アイコン（rowDelete）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 660px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12.5px; margin: 14px 0; }
+  .bar .grp { display: flex; gap: 4px; align-items: center; background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:4px 8px; }
+  .bar b { color: #1573c0; }
+  .bar button { font: inherit; font-size: 12px; padding: 4px 10px; border: 1px solid #cbd2dc; background: #fff; border-radius: 6px; cursor: pointer; }
+  .bar button.on { background: #1573c0; color: #fff; border-color: #1573c0; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 660px; }
+  #log { font-size: 13px; color: #1a3a6b; min-height: 20px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 行削除アイコン <span class="pill">rowDelete</span></h1>
+
+<div class="note">
+<code>rowDelete: true</code> で<b>右端に専用の削除列</b>が出て、各行の <b>🗑 を1クリックで当該行を削除</b>できます（右クリック→「行を削除」と同一経路）。
+<br>削除は<b>Undo/Redo 対応</b>（<code>Ctrl+Z</code> で復活）なので確認ダイアログは出しません。行にマウスを乗せると🗑がはっきり見えます。
+<br>削除列は<b>非データのシステム列</b>で、<code>getData</code>/<code>toCSV</code>・列選択・並べ替えの対象外＝データ列とは混ざりません。
+<br><b>最後の1行</b>（0行にはできない）で🗑を押すと<b>削除ではなく「中身クリア（行は残す）」</b>になります（🗑は無効にならず、内容だけ空に・1 undo で復活）。全部消していくと最後に体験できます。
+<br><code>rowReorder: 'header'</code> と併用すると<b>左＝⠿で移動 / 右＝🗑で削除</b>と役割が左右に分かれます。
+</div>
+
+<div class="bar">
+  <div class="grp"><b>行移動 ⠿</b>
+    <button data-reorder="1">併用する</button>
+    <button data-reorder="0">なし</button>
+  </div>
+  <div class="grp"><b>下限 minRows</b>
+    <button data-min="0">なし</button>
+    <button data-min="3">3行（下回れない）</button>
+  </div>
+  <button id="undo">↶ 元に戻す（Ctrl+Z）</button>
+</div>
+
+<div class="tssgrid-host"><div id="grid"></div></div>
+<div id="log">&nbsp;</div>
+
+<h2>差し込み（現在の設定）</h2>
+<pre id="code"></pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  let reorder = true, min = 0, grid = null;
+  const baseData = () => [
+    ['佐藤 一郎', '営業', '2026-08-13'], ['鈴木 花子', '開発', '2026-08-14'], ['高橋 次郎', '総務', '2026-08-15'],
+    ['田中 三郎', '開発', '2026-12-30'], ['渡辺 桜', '営業', '2026-12-31'], ['伊藤 大輔', '人事', '2027-01-02'],
+  ];
+  function build() {
+    if (grid) grid.destroy();
+    const opt = {
+      name: 'rowdel', width: 480, headers: ['名前', '部署', '休む日'],
+      rowDelete: true,
+      minRows: min,
+      onStructureChange: (info) => {
+        if (info.type === 'deleteRows') document.getElementById('log').textContent =
+          (info.undo ? '元に戻しました（削除を取り消し）' : (info.r0 + 1) + ' 行目を削除しました（Ctrl+Z で復活）');
+      },
+      onAfterChange: (chs, source) => {
+        if (source === 'delete' && grid.ROWS === 1) document.getElementById('log').textContent =
+          '最後の1行なので削除せず「中身クリア」しました（行は残る・Ctrl+Z で復活）';
+      },
+      data: baseData(),
+    };
+    if (reorder) opt.rowReorder = 'header';
+    grid = new TssGrid(document.getElementById('grid'), opt);
+
+    const L = ['new TssGrid(host, {'];
+    L.push('  rowDelete: true,           // 右端に🗑削除列');
+    if (reorder) L.push("  rowReorder: 'header',      // 併用: 左=⠿移動 / 右=🗑削除");
+    if (min) L.push('  minRows: ' + min + ',              // これ未満には削除できない（🗑無効）');
+    L.push('  data: rows,');
+    L.push('});');
+    document.getElementById('code').textContent = L.join('\n');
+
+    [...document.querySelectorAll('button[data-reorder]')].forEach(b => b.classList.toggle('on', (b.dataset.reorder === '1') === reorder));
+    [...document.querySelectorAll('button[data-min]')].forEach(b => b.classList.toggle('on', +b.dataset.min === min));
+  }
+  document.querySelectorAll('button[data-reorder]').forEach(b => b.onclick = () => { reorder = b.dataset.reorder === '1'; build(); });
+  document.querySelectorAll('button[data-min]').forEach(b => b.onclick = () => { min = +b.dataset.min; build(); });
+  document.getElementById('undo').onclick = () => { grid.history.undo(); };
+  build();
+</script>
+</body>
+</html>

@@ -1,7 +1,9 @@
 /*! TssFilter — ヘッダのオートフィルタUI（Excel風）。コアの非破壊 filter() を呼ぶだけ。
  *
- *  各リーフ見出しにロート(漏斗)アイコンを出し（ソートの▲▼と区別）、クリックで「値チェックリスト＋絞り込み検索」ポップアップ。
+ *  各リーフ見出しにロート(漏斗)アイコンを出し（ソートの▲▼と区別）、クリックでポップアップ。
+ *  モード切替で「値を選択（Excel風チェックリスト・完全一致）／部分一致／前方一致」を選べる（列ごと独立）。
  *  複数列の条件は AND。適用は grid.filter(pred)／全解除で grid.clearFilter()。フィルタ済み列は印が付く。
+ *  ※部分/前方一致は caseSensitive:false（既定）で大小無視。「値を選択」は文字列の完全一致（大小区別）。
  *
  *  使い方:
  *    const grid = new TssGrid(el, { plugins: [ TssFilter.plugin() ] });   // 全列にフィルタUI
@@ -39,10 +41,18 @@
         return out;
       }
 
+      // active[c] は「Set（値を選択＝完全一致メンバーシップ）」か「{mode:'contains'|'prefix', q}（テキスト一致）」のどちらか。
       function buildPredicate() {
         const cols = Object.keys(active).map(Number).filter(c => active[c]);
         if (!cols.length) return null;
-        return row => cols.every(c => active[c].has(String(row[c])));
+        const cs = !!opts.caseSensitive;
+        const norm = s => cs ? String(s) : String(s).toLowerCase();
+        return row => cols.every(c => {
+          const a = active[c], v = String(row[c]);
+          if (a instanceof Set) return a.has(v);                             // 値を選択（大小区別の完全一致）
+          const hay = norm(v), q = norm(a.q);                                // テキスト一致（既定 大小無視・caseSensitive で区別）
+          return a.mode === 'prefix' ? hay.startsWith(q) : hay.indexOf(q) >= 0;
+        });
       }
       function apply() {
         const p = buildPredicate();
@@ -72,10 +82,14 @@
         closePop();
         popCol = c;
         const vals = distinctValues(c);
-        const allowed = active[c] || new Set(vals);   // 未設定なら全許可
+        const cur = active[c];
+        const curMode = (cur && !(cur instanceof Set)) ? cur.mode : 'set';   // 現在の条件からモードを復元
+        const allowed = (cur instanceof Set) ? cur : new Set(vals);          // 「値を選択」モードのチェック初期状態（未設定=全許可）
         pop = document.createElement('div');
         pop.className = 'tg-filter-pop';
         pop.innerHTML =
+          '<div class="tg-filter-mode"><a data-mode="set">値を選択</a><a data-mode="contains">部分一致</a><a data-mode="prefix">前方一致</a></div>' +
+          '<div class="tg-filter-text"><input type="text" placeholder="文字を入力…"></div>' +
           '<div class="tg-filter-search"><input type="text" placeholder="値を検索…"></div>' +
           '<div class="tg-filter-tools"><a data-act="all">すべて</a> / <a data-act="none">解除</a></div>' +
           '<div class="tg-filter-list">' +
@@ -93,19 +107,44 @@
 
         const search = pop.querySelector('.tg-filter-search input');
         const list = pop.querySelector('.tg-filter-list');
-        search.focus();
+        const textBox = pop.querySelector('.tg-filter-text');
+        const textInput = textBox.querySelector('input');
+
+        // モード切替: 'set'=値チェックリスト／'contains'|'prefix'=テキスト入力。表示を出し分ける。
+        let mode = curMode;
+        function showMode(m) {
+          mode = m;
+          pop.querySelectorAll('.tg-filter-mode a').forEach(a => a.classList.toggle('on', a.dataset.mode === m));
+          const isSet = m === 'set';
+          textBox.style.display = isSet ? 'none' : '';
+          pop.querySelector('.tg-filter-search').style.display = isSet ? '' : 'none';
+          pop.querySelector('.tg-filter-tools').style.display = isSet ? '' : 'none';
+          list.style.display = isSet ? '' : 'none';
+          (isSet ? search : textInput).focus();
+        }
+        pop.querySelectorAll('.tg-filter-mode a').forEach(a => a.onclick = () => showMode(a.dataset.mode));
+        if (curMode !== 'set') textInput.value = cur.q;
+        showMode(curMode);
+
         search.oninput = () => {
           const q = search.value.trim().toLowerCase();
           list.querySelectorAll('label').forEach(l => { l.style.display = (!q || l.textContent.toLowerCase().indexOf(q) >= 0) ? '' : 'none'; });
         };
         pop.querySelector('[data-act=all]').onclick = () => list.querySelectorAll('label:not([style*="none"]) input').forEach(cb => cb.checked = true);
         pop.querySelector('[data-act=none]').onclick = () => list.querySelectorAll('label:not([style*="none"]) input').forEach(cb => cb.checked = false);
-        pop.querySelector('[data-act=apply]').onclick = () => {
-          const checked = [...list.querySelectorAll('input:checked')].map(cb => cb.value);
-          if (checked.length === vals.length) delete active[c];        // 全選択＝この列は無条件
-          else active[c] = new Set(checked);
+        function doApply() {
+          if (mode === 'set') {
+            const checked = [...list.querySelectorAll('input:checked')].map(cb => cb.value);
+            if (checked.length === vals.length) delete active[c];        // 全選択＝この列は無条件
+            else active[c] = new Set(checked);
+          } else {
+            const q = textInput.value.trim();
+            if (!q) delete active[c]; else active[c] = { mode: mode, q: q };   // 空欄＝無条件
+          }
           closePop(); apply();
-        };
+        }
+        pop.querySelector('[data-act=apply]').onclick = doApply;
+        textInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doApply(); } });
         pop.querySelector('[data-act=clear]').onclick = () => { delete active[c]; closePop(); apply(); };
       }
 

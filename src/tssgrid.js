@@ -202,6 +202,10 @@
       this.rowReorder = !!opts.rowReorder;
       this.rowReorderWhole = opts.rowReorder === 'header';   // 'header'=行ヘッダーセル全体が移動ハンドル（クリック=選択/ドラッグ=移動）／true=⠿アイコンのみ
       this.rowReorderMark = opts.rowReorderMark === undefined ? 'before' : opts.rowReorderMark;   // ⠿の位置: 'before'(番号の前/既定) | 'after'(番号の後) | false(出さない)
+      // 右端に非データの「削除列」（🗑）を1列出す。クリックで deleteRows（既存の remove_row と同一経路・1 history・undo で戻せる）。
+      // 非データ・非編集・非選択・幅固定・並べ替え/リサイズ対象外＝getRows/toCSV/列インデックスに現れない。allowDeleteRows:false なら出さない。
+      this.rowDelete = !!opts.rowDelete;
+      this.rowDeleteW = (opts.rowDeleteWidth | 0) || 36;   // 削除列の幅(px)
       // 選択カーソル（緑の選択枠・範囲・セルハイライト・フィルハンドル）を表示するか。
       // false で表示専用グリッド向けに非表示（内部の選択は保持＝コピーは可）。
       this.cursor = opts.cursor !== false;
@@ -227,6 +231,11 @@
       this.onBeforeAutofill = opts.onBeforeAutofill || null;   // (src,target)=>false で取消
       this.onAfterAutofill = opts.onAfterAutofill || null;     // (src,target)
       this.copyPaste = opts.copyPaste !== false;     // false でコピー/カット/ペースト無効
+      // 共有エディタへのブラウザ自動入力(Chrome のポイントカード/住所/支払い等)を強めに抑止する。
+      // 既定 false（name+autocomplete=off の通常抑止のみ）。true で autocomplete='new-password' に切替＝
+      // Chrome の loyalty/payment autofill を確実に止める（'off' は無視される）。副作用として環境により鍵アイコンや
+      // 生成PW提案が出ることがあるため opt-in。周囲に自前のラベル付き input（フォーム塊）を並べる埋め込みで有効。
+      this.suppressAutofill = !!opts.suppressAutofill;
       // 列幅オートフィット（内容に合わせて自動調整）。境界ダブルクリック / autoSizeColumn でも。
       this.autoColumnSize = !!opts.autoColumnSize;
       // データ入力支援
@@ -382,6 +391,9 @@
         const tbody = this.table.querySelector('tbody');
         if (tbody) { let html = ''; for (let r = n0; r < this.ROWS; r++) html += this._rowHTML(r); tbody.insertAdjacentHTML('beforeend', html); }
       }
+      // 追記前が floor 以下（最後の1行=クリア／minRows>1 ロック）だった時だけ、既存行の🗑 状態を再描画せず更新
+      // （appendRows は既存行を描き直さないため title/disabled が古いまま残るのを消す。floor 超過後は常態＝更新不要）。
+      if (this._hasDelCol() && n0 <= Math.max(1, this.minRows)) this._refreshRowDel();
     }
     // 遅延ロード(push・Phase B): 総行数を total に確保する。現行の行はそのまま・不足分を PENDING 行で埋め、超過は切る。
     // dataComplete=false になり、この間 minSpareRows は自動無効（末尾スペアと PENDING tail は両立不可）。
@@ -758,6 +770,23 @@
       this.copybox = q('.tg-copybox'); this.fillhandle = q('.tg-fillhandle'); this.fillpreview = q('.tg-fillpreview');
       this.resizeGuide = q('.tg-resizeguide');
       this._edInput = q('input.tg-editor'); this._edMulti = q('.tg-editor-multi'); this.editor = this._edInput;
+      // ブラウザ/拡張の自動入力（Chrome の「ポイントカード/住所/支払い」等）抑止。
+      // name 無しだとブラウザが周囲のラベルからフィールド種別をML推論して誤爆する（会員番号扱い等）ため、
+      // 非意味的で一意な name を付けて種別マッチと入力記憶を避ける。autocomplete=off に加え各PWマネージャの無視属性も。
+      // ※Chrome のポイントカード/支払い系は autocomplete=off を無視することがあり100%ではない（確実に切るならブラウザ設定側）。
+      // suppressAutofill:true は autocomplete を 'new-password' に（Chrome の loyalty/payment は 'off' を無視するため）。
+      // 公式なフィールド無効化 API が将来出たら、この1行の値を差し替えれば全 TssGrid に波及する。
+      const _acVal = this.suppressAutofill ? 'new-password' : 'off';
+      const _eduid = 'tg-ed-' + (TssGrid._edSeq = (TssGrid._edSeq | 0) + 1);
+      [this._edInput, this._edMulti].forEach((el, i) => {
+        el.name = _eduid + '-' + i;
+        el.setAttribute('autocomplete', _acVal);
+        el.setAttribute('autocapitalize', 'off');
+        el.setAttribute('data-lpignore', 'true');    // LastPass
+        el.setAttribute('data-1p-ignore', 'true');   // 1Password
+        el.setAttribute('data-bwignore', 'true');    // Bitwarden
+        el.setAttribute('data-form-type', 'other');  // 一部ヒューリスティック向けヒント
+      });
       this.select = q('.tg-select'); this.dumpEl = q('.tg-dump');
       this.menuEl = q('.tg-menu');
       this.root = q('.tssgrid');
@@ -1160,6 +1189,27 @@
     _colWidth(c) { return this.colW[c] != null ? this.colW[c] : this.defColW; }
     _rowHeight(r) { return this.rowH[r] != null ? this.rowH[r] : this.defRowH; }
     _rhW() { return this.rowHeaders ? this.rowHeaderW : 0; }   // 行ヘッダ列の幅（非表示なら 0）
+    _hasDelCol() { return this.rowDelete && this.allowDeleteRows; }   // 右端削除列を出すか（allowDeleteRows:false なら出さない）
+    _delW() { return this._hasDelCol() ? this.rowDeleteW : 0; }        // 削除列の幅（非表示なら 0）
+    // 行末の削除セル（🗑）。data-r/data-c を持たない＝各種 td[data-r] 探索に引っかからない（行番号は closest('tr[data-r]') から取る）。
+    _delCellHTML(r) {
+      if (!this._hasDelCol()) return '';
+      const floor = Math.max(1, this.minRows);
+      const canDelete = this.ROWS > floor;
+      const soleClear = !canDelete && this.ROWS === 1;   // 最後の1行＝削除でなく「中身クリア」（行は残す）＝🗑 は有効のまま
+      const dis = (!canDelete && !soleClear) ? ' tg-disabled' : '';   // minRows>1 のロック時だけ無効（クリアもしない）
+      const title = soleClear ? '内容をクリア' : '行を削除';   // 最後の1行は動作が「クリア」なのでツールチップも変える
+      return '<td class="tg-rowdel-cell"><span class="tg-rowdel' + dis + '" title="' + title + '">🗑</span></td>';
+    }
+    // 🗑 の title/disabled は ROWS 依存（最後の1行=「内容をクリア」／minRows>1 ロック=無効）で全行一律。
+    // 行数だけ変えて既存行を再描画しない経路（appendRows の非virtual）用に、描画済み🗑を現在の ROWS へ揃える。
+    _refreshRowDel() {
+      if (!this._hasDelCol() || !this.table) return;
+      const canDelete = this.ROWS > Math.max(1, this.minRows);
+      const soleClear = !canDelete && this.ROWS === 1;
+      const dis = !canDelete && !soleClear, title = soleClear ? '内容をクリア' : '行を削除';
+      this.table.querySelectorAll('tbody .tg-rowdel').forEach(el => { el.classList.toggle('tg-disabled', dis); el.setAttribute('title', title); });
+    }
     // 行ヘッダの表示内容: false=空（数字なし）/ 関数=カスタム（エスケープ）/ 既定=行番号(r+1)。
     _rowHeadLabel(r) {
       const L = this.rowHeaderLabel;
@@ -1228,7 +1278,7 @@
     }
     toggleColumn(c) { this.hiddenCols.has(this.clampC(c)) ? this.showColumn(c) : this.hideColumn(c); }
     _placeholder(c) { const p = this.colCfg(c).placeholder; return p != null ? String(p) : this.placeholder; }
-    _totalWidth() { let w = this._rhW(); for (let c = 0; c < this.COLS; c++) if (!this._isHidden(c)) w += this._colWidth(c); return w; }
+    _totalWidth() { let w = this._rhW(); for (let c = 0; c < this.COLS; c++) if (!this._isHidden(c)) w += this._colWidth(c); return w + this._delW(); }
     // テーブルに合計幅を明示。これが無いと狭い枠で fixed レイアウトが列を比例圧縮し、
     // 保存値(colW)と実描画幅がズレてリサイズのプレビュー線が外れる。
     _applyTableWidth() { this.table.style.width = this._totalWidth() + 'px'; }
@@ -1268,7 +1318,7 @@
     // 上から n 行を固定（実行時変更可）
     freezeRows(n) { this.frozenRows = Math.max(0, Math.min(this.ROWS, n | 0)); this.buildTable(); this.setActive(this.active.r, this.active.c); }
     // リーフ（実列に対応する）ヘッダ行を生成。labels 指定時はその文字列/ {label} を見出しに使う。
-    _leafHeaderTr(withCorner, labels) {
+    _leafHeaderTr(withCorner, labels, delHdr) {
       let html = '<tr>' + (withCorner ? '<th class="rowhead corner"></th>' : '');
       for (let c = 0; c < this.COLS; c++) {
         const cls = [];
@@ -1281,6 +1331,7 @@
         if (lbl && typeof lbl === 'object') lbl = lbl.label != null ? lbl.label : '';
         html += '<th data-c="' + c + '"' + a + '>' + headCb + TssGrid.esc(lbl != null ? lbl : '') + grip + '</th>';
       }
+      if (delHdr) html += '<th class="tg-rowdel-hdr"></th>';   // 右端削除列の見出し（無地・非データ）。ネストヘッダ時は角を rowspan で出すのでここでは出さない
       return html + '</tr>';
     }
     // ネストヘッダ: 各ヘッダ行を異なる top で sticky（段が重ならないように積む）。
@@ -1298,7 +1349,8 @@
       const rh = this.rowHeaders;
       const head = rh ? '<th class="rowhead" data-r="' + r + '">' + this._rowHeadLabel(r) + '</th>' : '';
       const cell = '<td class="tg-pending-cell" colspan="' + this.COLS + '" data-r="' + r + '" data-c="0"><span class="tg-pending-dots"></span></td>';
-      return '<tr data-r="' + r + '" class="tg-row tg-pending-row" style="height:' + this._rowHeight(r) + 'px">' + head + cell + '</tr>';
+      const del = this._hasDelCol() ? '<td class="tg-rowdel-cell"></td>' : '';   // 読込中行は🗑を出さない（値未取得）＝列合わせの空セルのみ
+      return '<tr data-r="' + r + '" class="tg-row tg-pending-row" style="height:' + this._rowHeight(r) + 'px">' + head + cell + del + '</tr>';
     }
     _rowHTML(r) {
       if (this.data[r] === TssGrid.PENDING) return this._pendingRowHTML(r);   // 未取得行＝読込中プレースホルダ（値は読まない）
@@ -1346,7 +1398,7 @@
         const csAttr = (cs > 1 ? ' colspan="' + cs + '"' : '') + (rs > 1 ? ' rowspan="' + rs + '"' : '');
         html += '<td' + a + ico + dccls + sty + titleAttr + csAttr + ' data-r="' + r + '" data-c="' + c + '">' + this._cellHTML(r, c) + '</td>';
       }
-      return html + '</tr>';
+      return html + this._delCellHTML(r) + '</tr>';
     }
     // 仮想スクロール: 現在の scrollTop から描画すべき窓 [start,end)（絶対行）を算出。バッファ込み。
     _vWindow() {
@@ -1365,7 +1417,7 @@
       if (!force && this._vRendered && win.start === this._vStart && win.end === this._vEnd) return false;
       const tbody = this.table && this.table.querySelector('tbody');
       if (!tbody) return false;
-      const rh = this.rowHeaders, colsSpan = this.COLS + (rh ? 1 : 0);
+      const rh = this.rowHeaders, colsSpan = this.COLS + (rh ? 1 : 0) + (this._hasDelCol() ? 1 : 0);
       const topH = win.start * this.defRowH, botH = (this.ROWS - win.end) * this.defRowH;
       let html = '';
       if (topH > 0) html += '<tr class="tg-vspace" aria-hidden="true" style="height:' + topH + 'px"><td colspan="' + colsSpan + '"></td></tr>';
@@ -1412,6 +1464,7 @@
       const rh = this.rowHeaders;
       let html = '<colgroup>' + (rh ? '<col style="width:' + this.rowHeaderW + 'px">' : '');
       for (let c = 0; c < this.COLS; c++) html += '<col data-c="' + c + '"' + (this._isHidden(c) ? ' class="tg-hidden"' : '') + ' style="width:' + (this._isHidden(c) ? 0 : this._colWidth(c)) + 'px">';
+      if (this._hasDelCol()) html += '<col class="tg-rowdel-col" style="width:' + this.rowDeleteW + 'px">';   // 右端削除列（固定幅・システム列）
       html += '</colgroup>';
       if (this.colHeaders) {
         html += '<thead>';
@@ -1430,18 +1483,19 @@
               html += '<th class="tg-grouphdr' + froz + '" colspan="' + span + '" data-c0="' + c + '" data-c1="' + c1 + '">' + TssGrid.esc(label) + '</th>';
               c += span;
             }
+            if (this._hasDelCol() && ri === 0) html += '<th class="tg-rowdel-hdr corner" rowspan="' + nRows + '"></th>';   // 右端削除列の角（全ヘッダ段を rowspan で覆う）
             html += '</tr>';
           });
-          html += this._leafHeaderTr(false, leaf);     // リーフ段（角は上で rowspan 済み）
+          html += this._leafHeaderTr(false, leaf, false);     // リーフ段（左角も右削除角も上段で rowspan 済み）
         } else {
-          html += this._leafHeaderTr(rh, null);
+          html += this._leafHeaderTr(rh, null, this._hasDelCol());
         }
         html += '</thead>';
       }
       html += '<tbody>';
       if (this.virtual) {
         const win = this._vWindow(); this._vStart = win.start; this._vEnd = win.end; this._vRendered = true;
-        const colsSpan = this.COLS + (rh ? 1 : 0);
+        const colsSpan = this.COLS + (rh ? 1 : 0) + (this._hasDelCol() ? 1 : 0);
         const topH = win.start * this.defRowH, botH = (this.ROWS - win.end) * this.defRowH;
         if (topH > 0) html += '<tr class="tg-vspace" aria-hidden="true" style="height:' + topH + 'px"><td colspan="' + colsSpan + '"></td></tr>';
         for (let r = win.start; r < win.end; r++) html += this._rowHTML(r);
@@ -1517,7 +1571,7 @@
       if (this.stretchH === 'none' || !this.stretchH) return;
       const avail = this.wrap ? this.wrap.clientWidth : 0;
       if (!avail) return;
-      const base = this._rhW(), widths = [];
+      const base = this._rhW() + this._delW(), widths = [];   // 削除列は固定幅＝ストレッチ対象外（余白計算から差し引く）
       let sum = 0;
       for (let c = 0; c < this.COLS; c++) { const wd = this._colWidth(c); widths.push(wd); sum += wd; }
       const extra = avail - base - sum;
@@ -2150,14 +2204,16 @@
       }
       this.renderDump();
       const grid = this;
+      // minSpareRows: この編集で末尾スペア行が自動追加された分を、履歴コマンドに畳み込む
+      // （undo で編集値と一緒に追加行も外す／redo で戻す）＝「自動行追加が undo で消えない」不具合の解消。
+      const spareAdded = this._ensureSpare();
       this.history.push({
         label: this.name,
-        apply() { grid._applyCells(changes, 'neu', 'redo'); grid.focusAndSelect(selAfter); },
-        revert() { grid._applyCells(changes, 'old', 'undo'); grid.focusAndSelect(selBefore); },
+        apply() { grid._applyCells(changes, 'neu', 'redo'); grid._addSpareRows(spareAdded); grid.focusAndSelect(selAfter); },
+        revert() { grid._applyCells(changes, 'old', 'undo'); grid._removeSpareRows(spareAdded); grid.focusAndSelect(selBefore); },
       });
       if (this.onAfterChange) { try { this.onAfterChange(this._pubChanges(changes, source), source); } catch (_) {} }
       this._syncHeaderCheckboxes();   // ヘッダ全選択チェックの見た目を同期
-      this._ensureSpare();   // 末尾の空行確保（minSpareRows）
     }
     commit() {
       const wasEditing = this.mode === 'edit';
@@ -2195,14 +2251,28 @@
       }
     }
     // 末尾に常に minSpareRows 行の空行を確保（足りなければ追加。履歴には積まない）。
+    // 追加した空行数を返す（pushCmd が履歴コマンドに畳み込んで undo/redo で戻す／足すため）。
     _ensureSpare() {
-      if (this._renderPaused) { this._renderDirty = true; return; }   // バッチ描画中は保留→resume でまとめて確保
-      if (!this.minSpareRows || this._allRows || !this.dataComplete) return;   // フィルタ中/遅延ロード中(PENDING tail)は末尾の自動空行を足さない
+      if (this._renderPaused) { this._renderDirty = true; return 0; }   // バッチ描画中は保留→resume でまとめて確保
+      if (!this.minSpareRows || this._allRows || !this.dataComplete) return 0;   // フィルタ中/遅延ロード中(PENDING tail)は末尾の自動空行を足さない
       let empties = 0;
       for (let r = this.ROWS - 1; r >= 0; r--) { if (this._rowEmpty(r)) empties++; else break; }
       let added = 0;
       while (empties < this.minSpareRows && (!this.maxRows || this.ROWS < this.maxRows)) { this.data.push(new Array(this.COLS).fill('')); this.rowH.push(undefined); if (this._src) this._src.push({}); this.ROWS++; empties++; added++; }   // maxRows で天井打ち（スペア行も超えない）
       if (added && this.table) { this.buildTable(); this.setActive(this.active.r, this.active.c); }
+      return added;
+    }
+    // pushCmd の undo/redo 用: minSpareRows で自動追加された末尾空行 n 行を、編集の取消/やり直しと一緒に外す/戻す。
+    _addSpareRows(n) {
+      if (!n) return;
+      for (let k = 0; k < n; k++) { this.data.push(new Array(this.COLS).fill('')); this.rowH.push(undefined); if (this._src) this._src.push({}); }
+      this.ROWS += n; this.buildTable();
+    }
+    _removeSpareRows(n) {
+      if (!n) return;
+      n = Math.min(n, this.ROWS - 1);   // 最低1行は残す（防御）
+      this.data.length -= n; this.rowH.length -= n; if (this._src) this._src.length -= n;
+      this.ROWS -= n; this.buildTable();
     }
     // 構造変更を実行＋履歴に積む共通処理。doIt/undoIt は冪等（redo で再実行される）。
     _structCmd(doIt, undoIt, selAfterFn, selBefore, info) {
@@ -2288,6 +2358,15 @@
         }
       };
       this._structCmd(doIt, undoIt, () => { const rr = Math.min(r0, grid.ROWS - 1); return { active: { r: rr, c }, extent: { r: rr, c } }; }, before, { type: 'deleteRows', r0, r1 });
+    }
+    // 右端🗑の「最後の1行」用: 0行にはできない（削除ガード）ので、行は残して中身だけ空にする
+    // （「消してから空行を足す」のと正味同じ結果を、0行に一瞬も落とさず 1 undo で）。readOnly セルはスキップ。
+    clearRow(r) {
+      if (r < 0 || r >= this.ROWS) return;
+      if (this.mode === 'edit') this._commitActive();
+      const before = this.snapSel(), changes = [];
+      for (let c = 0; c < this.COLS; c++) { if (this._isReadOnly(r, c)) continue; this.setCell(r, c, '', changes); }
+      this.pushCmd(changes, before, this.snapSel(), 'delete');   // changes 空（既に空/全 readOnly）なら pushCmd 側で no-op
     }
     insertCol(ci, where = 'left') {
       if (!this.allowInsertCols) return;
@@ -2663,7 +2742,9 @@
         for (let r = sel.r0; r <= sel.r1; r++) for (let c = sel.c0; c <= sel.c1; c++) if (!this._isHidden(c)) this.setCell(r, c, v, changes);
         after = { active: { r: sel.r0, c: sel.c0 }, extent: { r: sel.r1, c: sel.c1 } };
       } else {
-        const r0 = this.active.r, c0 = this.active.c;
+        // アクティブ列が隠し列だと（例: selectRow は active.c=0 を置く＝先頭列が hiddenColumns の時）以下の indexOf が -1 になり、
+        // 貼り付けが1列ずれて先頭値が落ちる。可視列へスナップしてから起点を取る（setActive と同じ「隠し列に置かない」規則）。
+        const r0 = this.active.r, c0 = this._snapVisCol(this.active.c);
         let maxw = 0; for (let i = 0; i < g.length; i++) maxw = Math.max(maxw, g[i].length);
         const p0 = visAll.indexOf(c0), availCols = visAll.length - p0;   // 貼り付けは可視列へ（隠し列をスキップ）
         // オートグロー時に伸ばせる上限行数（maxRows があればそこまで／無ければ無制限）。非オートグローは現状の ROWS。
@@ -2835,6 +2916,7 @@
       this.table.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;   // 右/中クリックは選択ドラッグを開始しない（右は contextmenu で処理）
         const cls = e.target.classList;
+        if (e.target.closest('.tg-rowdel-cell')) { e.preventDefault(); return; }   // 削除列: 選択ドラッグを始めない（実削除は click で）。preventDefault で🗑のテキスト選択も抑止
         if (cls && cls.contains('tg-colgrip')) { this._startColResize(e); return; }  // 列幅リサイズ
         if (cls && cls.contains('tg-rowgrip')) { this._startRowResize(e); return; }  // 行高リサイズ
         if (cls && cls.contains('tg-rowmove') && !this.rowReorderWhole) { this._startRowMove(e); return; }    // ⠿つまみドラッグ移動（'header'モードはセル全体扱い＝_onHeaderMouseDown 経由で選択も伴う）
@@ -2858,6 +2940,13 @@
       // ヘッダ全選択チェックは mousedown で処理済み。click のネイティブ・トグルを止めて二重反転を防ぐ
       this.table.addEventListener('click', (e) => {
         if (e.target.classList && e.target.classList.contains('tg-head-cb')) e.preventDefault();
+        // 右端削除列の🗑クリック。通常は当該行を削除（remove_row と同一経路・1 undo で復活）。
+        // 最後の1行（0行にはできない）は削除でなく「中身クリア（行は残す）」。minRows>1 のロック時は no-op（🗑 も無効表示）。
+        const del = e.target.closest('.tg-rowdel-cell');
+        if (del) {
+          const tr = del.closest('tr[data-r]');
+          if (tr) { const r = +tr.dataset.r; if (this.ROWS > Math.max(1, this.minRows)) this.deleteRows(r, r); else if (this.ROWS === 1) this.clearRow(r); }
+        }
       });
       this.table.addEventListener('dblclick', (e) => {
         // 列境界グリップのダブルクリック＝オートフィット（Excel風）

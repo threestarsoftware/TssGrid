@@ -27,6 +27,7 @@
   --tg-invalid-fg: #d61f2b;      /* 検証NG（keep） */
   --tg-invalid-bg: #ffe3e6;
   --tg-muted: #b6bdc6;           /* 無効メニュー項目など */
+  --tg-danger: var(--tg-invalid-fg);  /* 破壊的操作の色（削除列🗑ホバー等） */
   --tg-radius: 6px;              /* メニュー/ダンプの角丸 */
   --tg-box-color: var(--tg-accent);  /* セル囲み .tg-box の色 */
   --tg-box-width: 2px;               /* セル囲み .tg-box の太さ */
@@ -139,6 +140,21 @@
 /* rowReorder:'header' = 行ヘッダーセル全体が移動ハンドル（クリック=選択／ドラッグ=移動） */
 .tssgrid .tg-table th.rowhead.tg-rowmove-cell { cursor: grab; }
 .tssgrid .tg-table th.rowhead.tg-rowmove-cell:active { cursor: grabbing; }
+/* 右端の専用削除列（rowDelete）。非データ・非選択のシステム列＝データ列の右隣に普通に並ぶ末尾列。
+   横スクロールで貼り付けない（sticky にすると横溢れ時に🗑がデータ列へ重なり・選択枠と衝突するため。見出しの縦 sticky は
+   thead th 既存ルール、固定行の縦 sticky は tr.tg-frozen-row 既存ルールがそのまま担う）。 */
+.tssgrid .tg-table td.tg-rowdel-cell, .tssgrid .tg-table th.tg-rowdel-hdr {
+  text-align: center; padding: 0; cursor: default; background: var(--tg-rowhead-bg); }
+  /* 左の区切りは隣セルの border-right に任せる（自前の border-left を足すと隣の右罫線と重なって 2px になる）。 */
+.tssgrid .tg-table th.tg-rowdel-hdr { background: var(--tg-colheader-bg); }   /* 見出しは無地（縦 sticky は thead th 既存ルール） */
+/* 削除列は最終列でも右罫線を残す（tr>td:last-child の border-right:none を上書き）。
+   枠がグリッドより広い時にグレーのシステム列が右端で“開いて”見えるのを防ぐ＝右端を線で閉じる。 */
+.tssgrid .tg-table tr > td.tg-rowdel-cell, .tssgrid .tg-table tr > th.tg-rowdel-hdr { border-right: 1px solid var(--tg-border); }
+.tssgrid .tg-rowdel { cursor: pointer; opacity: .55; font-size: 13px; line-height: 1; user-select: none;
+  transition: opacity .1s, color .1s; }
+.tssgrid .tg-table tr:hover .tg-rowdel { opacity: .9; }   /* 行ホバーで浮き出る */
+.tssgrid .tg-rowdel:hover { opacity: 1; color: var(--tg-danger); }
+.tssgrid .tg-rowdel.tg-disabled { opacity: .22; pointer-events: none; }   /* minRows 到達＝削除不可 */
 .tssgrid .tg-colgrip:hover { background: var(--tg-edit-accent); opacity: .5; }
 .tssgrid .tg-rowgrip:hover { background: var(--tg-edit-accent); opacity: .5; }
 /* リサイズのプレビュー線（ドラッグ中だけ表示、離して確定） */

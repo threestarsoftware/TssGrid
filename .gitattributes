@@ -1,0 +1,4 @@
+# 改行コードは LF に統一する。
+# text=auto でテキスト/バイナリを自動判定（バイナリは変換対象外）、eol=lf で
+# チェックアウト時も LF に固定＝Windows の core.autocrlf(=true) による LF→CRLF 変換を上書きする。
+* text=auto eol=lf

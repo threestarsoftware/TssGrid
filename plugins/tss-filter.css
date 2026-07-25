@@ -12,6 +12,15 @@
   border: 1px solid #c4ccd6; border-radius: 8px; box-shadow: 0 6px 22px rgba(20,40,80,.22);
   font: 12.5px "Meiryo UI", "Segoe UI", sans-serif; padding: 8px; box-sizing: border-box;
 }
+/* モード切替（値を選択／部分一致／前方一致）。セグメント風に3分割。 */
+.tg-filter-pop .tg-filter-mode { display: flex; gap: 2px; margin-bottom: 7px; border: 1px solid #dbe1ea; border-radius: 6px; padding: 2px; background: #f4f6fa; }
+.tg-filter-pop .tg-filter-mode a {
+  flex: 1; text-align: center; padding: 4px 0; border-radius: 4px; cursor: pointer; color: #5b6470;
+  font-size: 11.5px; white-space: nowrap; user-select: none;
+}
+.tg-filter-pop .tg-filter-mode a:hover { background: #e7edf6; }
+.tg-filter-pop .tg-filter-mode a.on { background: var(--tg-accent, #2f6fed); color: #fff; }
+.tg-filter-pop .tg-filter-text input,
 .tg-filter-pop .tg-filter-search input {
   width: 100%; box-sizing: border-box; padding: 4px 7px; border: 1px solid #cbd2dc; border-radius: 5px; font: inherit;
 }
