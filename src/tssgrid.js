@@ -1031,7 +1031,7 @@
       }
       if (t === 'dropdown') {
         if (v === '') { if (cfg.allowEmpty === false) return { ok: false }; }   // allowEmpty:false＝必須選択（空は不可）
-        else if (!this._optList(c).some(o => o.value === v)) return { ok: false };   // 保存値は option の value と照合
+        else if (!this._optList(c, r).some(o => o.value === v)) return { ok: false };   // 保存値は option の value と照合（行依存 options も r で解決）
       } else if (t === 'checkbox') {
         v = this._isCheckedVal(c, v) ? this._cbChecked(c) : this._cbUnchecked(c);
       }
@@ -1098,16 +1098,20 @@
       if (typeof cfg.format === 'string') return TssGrid._applyDatePattern(v, cfg.format);  // 日付パターン表示
       if (cfg.type === 'number') return TssGrid._formatNumber(v, cfg);  // 数値書式（カンマ/小数/前後綴り）
       if (cfg.type === 'time' && cfg.hour12) return TssGrid._fmtTime12(v);  // 組込 12時間表示
-      if (cfg.type === 'dropdown') return this._optLabel(c, v);  // options が {value,label} なら表示はラベル
+      if (cfg.type === 'dropdown') return this._optLabel(r, c, v);  // options が {value,label} なら表示はラベル（行依存 options も r で解決）
       return v;
     }
     // dropdown の options を [{value,label}] に正規化（文字列なら value=label）。値↔表示を分けられる。
-    _optList(c) {
-      return (this.colCfg(c).options || []).map(o =>
+    // options が関数なら (r, row)=>[…] で行依存（依存ドロップダウン）。row はその行の値配列（this.data[r]）。
+    // 静的配列はそのまま（r は無視）＝後方互換。
+    _optList(c, r) {
+      let opts = this.colCfg(c).options;
+      if (typeof opts === 'function') { try { opts = opts(r, r != null ? this.data[r] : undefined) || []; } catch (_) { opts = []; } }
+      return (opts || []).map(o =>
         (o && typeof o === 'object') ? { value: String(o.value), label: String(o.label != null ? o.label : o.value) }
                                      : { value: String(o), label: String(o) });
     }
-    _optLabel(c, value) { const o = this._optList(c).find(x => x.value === value); return o ? o.label : value; }
+    _optLabel(r, c, value) { const o = this._optList(c, r).find(x => x.value === value); return o ? o.label : value; }
     // 編集開始時にエディタへ入れる文字列。number は Excel風に「素の数値」を出す（書式は表示専用）。
     // ネイティブ(date/time picker)は保存値、それ以外のテキスト編集は表示形。
     _editText(r, c) {
@@ -1121,7 +1125,12 @@
         return '<input type="checkbox" class="tg-cb" tabindex="-1"' + (this._isReadOnly(r, c) ? ' disabled' : '') + (this._isCheckedVal(c, this.data[r][c]) ? ' checked' : '') + '>';
       if (this.data[r][c] === '' && this._placeholder(c) != null) return TssGrid.esc(this._placeholder(c));
       // html:true の列は表示だけ生HTML（値はテキスト保存のまま）。エスケープを外す＝XSS責任は format/値の提供側。
-      if (this.colCfg(c).html) return this._displayValue(r, c);
+      // 空セルでも format を走らせる＝ボタン/アイコン等の"飾り"を全行に描ける（_displayValue は空を素通しするので html+関数formatだけ特別扱い）。
+      if (this.colCfg(c).html) {
+        const fmt = this.colCfg(c).format;
+        if (typeof fmt === 'function' && this.data[r][c] === '') { try { const o = fmt('', { r, c }); return o == null ? '' : String(o); } catch (_) { return ''; } }
+        return this._displayValue(r, c);
+      }
       const _h = TssGrid.esc(this._displayValue(r, c));
       // 複数行セルは絶対配置のクリップ箱で包む＝行を押し広げない（行高一定・仮想スクロール維持／行高ぶんだけ表示）
       if (this.colCfg(c).multiline) return '<div class="tg-ml-clip">' + _h + '</div>';
@@ -3129,7 +3138,7 @@
     _openSelect() {
       const r = this.active.r, c = this.active.c, cfg = this.colCfg(c);
       if (this._isReadOnly(r, c)) return;  // 読み取り専用は <select> を開かない
-      const opts = this._optList(c), values = opts.map(o => o.value), cur = this.data[r][c];
+      const opts = this._optList(c, r), values = opts.map(o => o.value), cur = this.data[r][c];
       const allowEmpty = cfg.allowEmpty !== false;   // 既定: クリア用の空オプションを先頭に付ける
       let html = allowEmpty ? '<option value=""></option>' : '';
       for (const o of opts) html += '<option value="' + TssGrid.esc(o.value) + '">' + TssGrid.esc(o.label) + '</option>';   // value↔label 分離

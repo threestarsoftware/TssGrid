@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — セル内ボタン（html:true ＋ クリック委譲）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 720px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 720px; }
+  #log { font-size: 13px; color: #1a3a6b; min-height: 20px; margin-top: 8px; }
+  /* セル内ボタン（デモ用スタイル。html:true のセルに描かれる） */
+  .tg-cellbtn { font: inherit; font-size: 12px; padding: 2px 10px; border: 1px solid #cbd2dc; background: #fff;
+    border-radius: 5px; cursor: pointer; margin: 0 2px; }
+  .tg-cellbtn:hover { background: #eef4ff; border-color: #1573c0; }
+  .tg-cellbtn.danger:hover { background: #ffe3e6; border-color: #d61f2b; color: #d61f2b; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: セル内ボタン <span class="pill">html:true ＋ クリック委譲</span></h1>
+
+<div class="note">
+専用のボタン列 API はありません。<b><code>columns[c].html:true</code> ＋ <code>format</code> が返す HTML</b> でセルにボタンを描き、<b><code>grid.table</code> に click 委譲</b>して <code>data-act</code> で拾う、が定石です。
+<br>ボタン列は <code>readOnly:true</code> にして<b>編集モードに入らない</b>ように。行番号は <code>closest('tr[data-r]')</code> から取れます。
+<br>⚠️ <code>html:true</code> は<b>エスケープを外す</b>ので、ボタンのラベルにユーザー入力を入れる時は自分でエスケープしてください（XSS 責任は HTML 提供側）。
+</div>
+
+<div class="tssgrid-host"><div id="grid"></div></div>
+<div id="log">&nbsp;</div>
+
+<h2>差し込み</h2>
+<pre id="code"></pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const log = m => document.getElementById('log').textContent = m;
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'btn', width: 560,
+    headers: ['商品', '在庫', '操作'],
+    columns: [
+      {},
+      { type: 'number' },
+      // ★セル内ボタン: html:true ＋ format が返す HTML。値は保存しない飾り列なので readOnly。
+      { html: true, readOnly: true, format: () =>
+        '<button class="tg-cellbtn" data-act="edit">編集</button>' +
+        '<button class="tg-cellbtn danger" data-act="del">削除</button>' },
+    ],
+    data: [
+      ['りんご', '12', ''],
+      ['みかん', '30', ''],
+      ['ぶどう', '8', ''],
+    ],
+  });
+
+  // クリック委譲: セル内ボタンは grid.table で拾う（専用イベントは無い）
+  grid.table.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tg-cellbtn'); if (!btn) return;
+    const tr = btn.closest('tr[data-r]'); if (!tr) return;
+    const r = +tr.dataset.r, name = grid.data[r][0], act = btn.dataset.act;
+    if (act === 'edit') log('「' + name + '」を編集（r=' + r + '）');
+    else if (act === 'del') { grid.deleteRows(r, r); log('「' + name + '」を削除しました'); }
+  });
+
+  document.getElementById('code').textContent =
+    "// ボタン列（値を持たない飾り列＝readOnly）\n" +
+    "{ html: true, readOnly: true, format: () =>\n" +
+    "  '<button class=\"tg-cellbtn\" data-act=\"edit\">編集</button>' +\n" +
+    "  '<button class=\"tg-cellbtn danger\" data-act=\"del\">削除</button>' }\n\n" +
+    "// クリックは grid.table に委譲して data-act で分岐\n" +
+    "grid.table.addEventListener('click', e => {\n" +
+    "  const btn = e.target.closest('.tg-cellbtn'); if (!btn) return;\n" +
+    "  const r = +btn.closest('tr[data-r]').dataset.r;\n" +
+    "  if (btn.dataset.act === 'del') grid.deleteRows(r, r);\n" +
+    "});";
+</script>
+</body>
+</html>

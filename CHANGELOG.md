@@ -3,6 +3,12 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.6] - 2026-07-30
+
+### 追加
+- **依存ドロップダウン＝`columns[c].options` に関数 `(r, row) => [...]`**（コア）— options を関数にすると**行ごとに違う候補**になり、「A 列で選んだ値に応じて B 列のリストが変わる」依存ドロップダウン（都道府県→市区町村 等）が作れる。`row` はその行の値配列（`grid.data[r]`）。開くたびに options を読み直すので、**列共有の静的配列では両立できない「行ごとに別リスト」が同時に成立**（`_optList(c,r)`/`_optLabel(r,c,v)` に r を通し、表示ラベル・保存値の検証もその行の候補で解決）。静的配列は従来どおり（後方互換）。動く例 `examples/dependent-dropdown.html`。
+- **`html:true` 列は `format` を空セルでも実行**（コア）— 従来は空セルだと `_displayValue` が値を素通しして `format` が走らず、**ボタン/アイコン等の"飾り"を空セルに描けなかった**。`html:true` かつ `format` が関数のときは空でも走らせ、**全行にボタン列などを描ける**ように（素テキスト列・非空 html セルは不変）。セル内ボタンは専用 API を持たず `html:true`＋`format`＋`grid.table` への click 委譲で作る（動く例 `examples/cell-button.html`）。
+
 ## [0.1.5] - 2026-07-25
 
 ### 追加

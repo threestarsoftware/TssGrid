@@ -46,8 +46,10 @@ export interface ColumnDef {
   title?: string;
   /** セルタイプ。既定 'text'。 */
   type?: CellType;
-  /** dropdown の選択肢。 */
-  options?: Array<string | { value: string; label?: string }>;
+  /** dropdown の選択肢。関数を渡すと**行ごとに異なる依存ドロップダウン**（例: 都道府県→市区町村）。
+   *  `(r, row)=>[…]` の row はその行の値配列（`grid.data[r]`）。静的配列は全行共通（後方互換）。 */
+  options?: Array<string | { value: string; label?: string }>
+    | ((r: number, row: any[]) => Array<string | { value: string; label?: string }>);
   /** 列ごとの初期幅(px)。列定義に同居＝並べ替え/コピペで幅が追従。 */
   width?: number;
   /** false でこの列だけリサイズ禁止。 */

@@ -269,6 +269,36 @@ new TssGrid(el, { suppressAutofill: true });   // 既定 false
 - 副作用として環境により**鍵アイコン**や**生成パスワードの提案**が出ることがあるため **opt-in**（既定は付けません）。値はマスクされません（`type` は `text` のまま）。
 - **あわせて、あなたのページ側の素の `<input>`（テーブル名欄など）にも同じ `autocomplete="new-password"` を付けてください**。誘発の主因はグリッドではなく周囲のフォーム塊のことが多いためです。
 
+### 依存ドロップダウン（`options` を関数に＝行ごとにリスト差替え）
+
+`columns[c].options` は配列（列共通）のほか、**関数 `(r, row) => [...]`** を渡せます。すると**行ごとに違う候補**になり、「A 列で選んだ値に応じて B 列のリストが変わる」**依存ドロップダウン**（都道府県→市区町村 等）が作れます。`row` はその行の値配列（`grid.data[r]`）。開くたびに `options` を読み直すので、**列共有の静的配列では両立できない「行ごとに別リスト」が同時に成立**します（→ 動く例: [`examples/dependent-dropdown.html`](https://tssgrid.threestarsoftware.co.jp/examples/dependent-dropdown.html)）。
+
+```js
+const CITY = { 東京都:['渋谷区','新宿区'], 大阪府:['大阪市','堺市'] };
+columns: [
+  { type:'dropdown', options: Object.keys(CITY) },          // 親（静的）
+  { type:'dropdown', options: (r, row) => CITY[row[0]] || [] }, // 子（行依存）
+]
+// 親が変わったら子をクリア（古い値が残らないように）
+onAfterChange: (chs) => chs.forEach(ch => { if (ch.c === 0 && ch.oldValue !== ch.newValue) grid.setValue(ch.r, 1, ''); });
+```
+- 行依存でも**表示ラベル・検証（保存値が候補にあるか）はその行の候補で解決**します。静的配列は従来どおり（後方互換）。
+
+### セル内ボタン（`html:true` ＋ クリック委譲）
+
+専用のボタン列 API はありません。**`columns[c].html:true` ＋ `format` が返す HTML** でセルにボタンを描き、**`grid.table` に click 委譲**して `data-*` で拾うのが定石です（→ 動く例: [`examples/cell-button.html`](https://tssgrid.threestarsoftware.co.jp/examples/cell-button.html)）。
+
+```js
+columns: [ /* … */,
+  { html:true, readOnly:true, format: () => '<button class="mybtn" data-act="del">削除</button>' } ]
+grid.table.addEventListener('click', e => {
+  const b = e.target.closest('.mybtn'); if (!b) return;
+  const r = +b.closest('tr[data-r]').dataset.r;
+  if (b.dataset.act === 'del') grid.deleteRows(r, r);
+});
+```
+- ボタン列は `readOnly:true` にして編集モードに入らないように。行番号は `closest('tr[data-r]')` から。**`html:true` はエスケープを外す**ので、ラベルにユーザー入力を入れる時は自分でエスケープを（XSS 責任は HTML 提供側）。空セルでも `format` は走ります（飾り列を全行に描ける）。
+
 ### 非破壊フィルタ（`filter` / `clearFilter`）
 
 **コア内蔵**の非破壊フィルタ（行インデックスマッパ）。全行は内部の `_allRows`（マスタ）に保持したまま、**絞り込んだ可視部分集合だけを描画**します。要点は**絞り込み後の描画・ライブ検索が軽い**こと（自社調べ：10万行を保持して約200行に絞り込み → 初回描画 ≈ 0.5 秒、絞り込み済みのライブ検索 ≈ 数 ms）→ 動く例: [`examples/filter-live.html`](https://tssgrid.threestarsoftware.co.jp/examples/filter-live.html)。
