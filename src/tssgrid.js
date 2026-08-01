@@ -1093,7 +1093,7 @@
       const cfg = this.colCfg(c), v = this.data[r][c];
       if (v === '') return v;
       if (typeof cfg.format === 'function') {
-        try { const out = cfg.format(v, { r, c }); return out == null ? '' : String(out); } catch (_) { return v; }
+        try { const out = cfg.format(v, { r, c }, this.data[r]); return out == null ? '' : String(out); } catch (_) { return v; }   // 第3引数=その行の値配列（options と同形）
       }
       if (typeof cfg.format === 'string') return TssGrid._applyDatePattern(v, cfg.format);  // 日付パターン表示
       if (cfg.type === 'number') return TssGrid._formatNumber(v, cfg);  // 数値書式（カンマ/小数/前後綴り）
@@ -1128,7 +1128,7 @@
       // 空セルでも format を走らせる＝ボタン/アイコン等の"飾り"を全行に描ける（_displayValue は空を素通しするので html+関数formatだけ特別扱い）。
       if (this.colCfg(c).html) {
         const fmt = this.colCfg(c).format;
-        if (typeof fmt === 'function' && this.data[r][c] === '') { try { const o = fmt('', { r, c }); return o == null ? '' : String(o); } catch (_) { return ''; } }
+        if (typeof fmt === 'function' && this.data[r][c] === '') { try { const o = fmt('', { r, c }, this.data[r]); return o == null ? '' : String(o); } catch (_) { return ''; } }
         return this._displayValue(r, c);
       }
       const _h = TssGrid.esc(this._displayValue(r, c));

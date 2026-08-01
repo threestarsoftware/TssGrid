@@ -3,6 +3,12 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.7] - 2026-08-01
+
+### 追加
+- **`format` に第3引数 `row`（その行の値配列＝`grid.data[r]`）**（コア）— `format(value, { r, c }, row)` の第3引数 `row` を追加（`options` の `(r, row)` と同形）。**行の状態でセル内容（ボタン/アイコン等）を出し分ける**時、`format` の中で `grid` を参照せず `row[列index]` から状態を読める＝**初回描画（`const grid = new TssGrid(...)` の構築中に `format` が走る時点で `grid` 未代入＝TDZ で例外）を回避**できる。既存の2引数 `format` はそのまま（後方互換）。
+- **`examples/cell-button.html` を「行の状態で切替」に刷新**＋**`examples/file-upload.html` を追加**（コア無改修のサンプル）— 前者は 未申請/申請中/編集中 で出すボタンを切替（申請/コピー・編集/削除・保存/取消）、click 委譲で状態遷移→`redraw`、複製・削除も。後者は**行ごとのファイル添付**（セル内ボタン＋ドラッグ&ドロップ／落とした行を `closest('tr[data-r]')` で特定して `setValue`）。
+
 ## [0.1.6] - 2026-07-30
 
 ### 追加

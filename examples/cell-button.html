@@ -3,80 +3,101 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TssGrid 例 — セル内ボタン（html:true ＋ クリック委譲）</title>
+<title>TssGrid 例 — セル内ボタン（状態で切替：html:true ＋ format ＋ click委譲）</title>
 <link rel="stylesheet" href="../src/tssgrid.css">
 <style>
   body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
   h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
-  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 720px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
   .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
   .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
-  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 720px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 760px; }
   #log { font-size: 13px; color: #1a3a6b; min-height: 20px; margin-top: 8px; }
-  /* セル内ボタン（デモ用スタイル。html:true のセルに描かれる） */
+  /* セル内ボタン（デモ用スタイル） */
   .tg-cellbtn { font: inherit; font-size: 12px; padding: 2px 10px; border: 1px solid #cbd2dc; background: #fff;
     border-radius: 5px; cursor: pointer; margin: 0 2px; }
   .tg-cellbtn:hover { background: #eef4ff; border-color: #1573c0; }
   .tg-cellbtn.danger:hover { background: #ffe3e6; border-color: #d61f2b; color: #d61f2b; }
+  .tg-cellbtn.primary { background: #1573c0; color: #fff; border-color: #1573c0; }
 </style>
 </head>
 <body>
-<h1>TssGrid 例: セル内ボタン <span class="pill">html:true ＋ クリック委譲</span></h1>
+<h1>TssGrid 例: セル内ボタン（行の状態で切替） <span class="pill">html:true ＋ format ＋ click委譲</span></h1>
 
 <div class="note">
-専用のボタン列 API はありません。<b><code>columns[c].html:true</code> ＋ <code>format</code> が返す HTML</b> でセルにボタンを描き、<b><code>grid.table</code> に click 委譲</b>して <code>data-act</code> で拾う、が定石です。
-<br>ボタン列は <code>readOnly:true</code> にして<b>編集モードに入らない</b>ように。行番号は <code>closest('tr[data-r]')</code> から取れます。
-<br>⚠️ <code>html:true</code> は<b>エスケープを外す</b>ので、ボタンのラベルにユーザー入力を入れる時は自分でエスケープしてください（XSS 責任は HTML 提供側）。
+「操作」列のボタンを<b>行の状態で出し分け</b>る実務パターン。状態は<b>列（<code>状態</code>）に持たせ</b>、<code>format</code> の<b>第3引数 <code>row</code>（その行の値配列）</b>から読んで分岐します。
+<br><b>状態→ボタン</b>：未申請＝<code>申請</code>/<code>コピー</code>／申請中＝<code>編集</code>/<code>削除</code>／編集中＝<code>保存</code>/<code>取消</code>。
+<br>⚠️ <code>format</code> の引数は <b><code>(value, { r, c }, row)</code></b>。<b><code>row</code> はその行の値配列</b>（<code>grid.data[r]</code>・列 index で読む）。<b>初回描画は構築中に走るので <code>format</code> の中で <code>grid</code> 変数を参照しない</b>（まだ未代入＝TDZ）＝状態は <code>row</code> から読むのが安全。状態を変えたら <b><code>grid.redraw()</code></b> で再実行してボタン更新。
 </div>
 
 <div class="tssgrid-host"><div id="grid"></div></div>
 <div id="log">&nbsp;</div>
 
-<h2>差し込み</h2>
+<h2>差し込み（要点）</h2>
 <pre id="code"></pre>
 
 <script src="../src/tssgrid.js"></script>
 <script>
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   const log = m => document.getElementById('log').textContent = m;
+  const btn = (act, label, cls) => '<button type="button" class="tg-cellbtn' + (cls ? ' ' + cls : '') + '" data-act="' + act + '">' + label + '</button>';
 
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'btn', width: 560,
-    headers: ['商品', '在庫', '操作'],
+    name: 'exp', width: 620,
+    headers: ['費目', '金額', '状態', '操作'],
     columns: [
-      {},
-      { type: 'number' },
-      // ★セル内ボタン: html:true ＋ format が返す HTML。値は保存しない飾り列なので readOnly。
-      { html: true, readOnly: true, format: () =>
-        '<button class="tg-cellbtn" data-act="edit">編集</button>' +
-        '<button class="tg-cellbtn danger" data-act="del">削除</button>' },
+      { data: 'name' },
+      { data: 'amount', type: 'number', align: 'right' },
+      { data: 'status', readOnly: true, align: 'center' },   // 状態は列（index 2）に持たせる＝行の値配列で読める
+      // ★操作: 行の状態(status)で出すボタンを切替。format は (value, {r,c}, row)＝row[2] が状態。
+      //   ここで grid を参照しないのが肝（初回は構築中に走り grid 未代入＝TDZ になる）。
+      { data: 'actions', html: true, readOnly: true, align: 'center', format: (_val, _cell, row) => {
+        const st = row[2];   // 状態列（[費目, 金額, 状態, 操作]）
+        if (st === '編集中') return btn('save', '保存', 'primary') + btn('cancel', '取消');
+        if (st === '申請中') return btn('edit', '編集') + btn('del', '削除', 'danger');
+        return btn('submit', '申請', 'primary') + btn('copy', 'コピー');   // 未申請
+      } },
     ],
     data: [
-      ['りんご', '12', ''],
-      ['みかん', '30', ''],
-      ['ぶどう', '8', ''],
+      { name: '交通費', amount: '1200', status: '未申請' },
+      { name: '会議費', amount: '8600', status: '申請中' },
+      { name: '備品', amount: '3300', status: '編集中' },
     ],
   });
 
-  // クリック委譲: セル内ボタンは grid.table で拾う（専用イベントは無い）
+  window.grid = grid;   // コンソール/テスト用に公開（format 内では参照しない＝TDZ回避のため row を使う）
+
+  // クリック委譲: data-act で分岐 → 状態遷移して redraw（format 再実行でボタンが変わる）
   grid.table.addEventListener('click', (e) => {
-    const btn = e.target.closest('.tg-cellbtn'); if (!btn) return;
-    const tr = btn.closest('tr[data-r]'); if (!tr) return;
-    const r = +tr.dataset.r, name = grid.data[r][0], act = btn.dataset.act;
-    if (act === 'edit') log('「' + name + '」を編集（r=' + r + '）');
+    const b = e.target.closest('.tg-cellbtn'); if (!b) return;
+    const tr = b.closest('tr[data-r]'); if (!tr) return;
+    const r = +tr.dataset.r, act = b.dataset.act, name = grid.getValue(r, 'name');
+    const setStatus = (s, msg) => { grid.setValue(r, 'status', s, true); grid.redraw(); log(msg); };  // force=true: readOnly列に書く
+    if (act === 'submit') setStatus('申請中', '「' + name + '」を申請しました');
+    else if (act === 'edit') setStatus('編集中', '「' + name + '」を編集開始');
+    else if (act === 'save') setStatus('申請中', '「' + name + '」を保存（申請中へ）');
+    else if (act === 'cancel') setStatus('申請中', '編集を取消（申請中へ戻す）');
     else if (act === 'del') { grid.deleteRows(r, r); log('「' + name + '」を削除しました'); }
+    else if (act === 'copy') {
+      grid.insertRow(r + 1, 'below');
+      grid.setValue(r + 1, 'name', name, true); grid.setValue(r + 1, 'amount', grid.getValue(r, 'amount'), true);
+      grid.setValue(r + 1, 'status', '未申請', true); grid.redraw();
+      log('「' + name + '」を複製（未申請で追加）');
+    }
   });
 
   document.getElementById('code').textContent =
-    "// ボタン列（値を持たない飾り列＝readOnly）\n" +
-    "{ html: true, readOnly: true, format: () =>\n" +
-    "  '<button class=\"tg-cellbtn\" data-act=\"edit\">編集</button>' +\n" +
-    "  '<button class=\"tg-cellbtn danger\" data-act=\"del\">削除</button>' }\n\n" +
-    "// クリックは grid.table に委譲して data-act で分岐\n" +
+    "{ data:'actions', html:true, readOnly:true, format: (_val, _cell, row) => {\n" +
+    "  const st = row[2];                            // ← 第3引数 row=値配列から状態を読む（grid は参照しない）\n" +
+    "  if (st === '編集中') return '<button data-act=\"save\">保存</button>…';\n" +
+    "  if (st === '申請中') return '<button data-act=\"edit\">編集</button>…';\n" +
+    "  return '<button data-act=\"submit\">申請</button>…';\n" +
+    "} }\n\n" +
     "grid.table.addEventListener('click', e => {\n" +
-    "  const btn = e.target.closest('.tg-cellbtn'); if (!btn) return;\n" +
-    "  const r = +btn.closest('tr[data-r]').dataset.r;\n" +
-    "  if (btn.dataset.act === 'del') grid.deleteRows(r, r);\n" +
+    "  const b = e.target.closest('.tg-cellbtn'); if (!b) return;\n" +
+    "  const r = +b.closest('tr[data-r]').dataset.r;\n" +
+    "  grid.setValue(r, 'status', '申請中', true);    // 状態遷移\n" +
+    "  grid.redraw();                                // ← format 再実行でボタンが変わる\n" +
     "});";
 </script>
 </body>

@@ -286,18 +286,27 @@ onAfterChange: (chs) => chs.forEach(ch => { if (ch.c === 0 && ch.oldValue !== ch
 
 ### セル内ボタン（`html:true` ＋ クリック委譲）
 
-専用のボタン列 API はありません。**`columns[c].html:true` ＋ `format` が返す HTML** でセルにボタンを描き、**`grid.table` に click 委譲**して `data-*` で拾うのが定石です（→ 動く例: [`examples/cell-button.html`](https://tssgrid.threestarsoftware.co.jp/examples/cell-button.html)）。
+専用のボタン列 API はありません。**`columns[c].html:true` ＋ `format` が返す HTML** でセルにボタンを描き、**`grid.table` に click 委譲**して `data-*` で拾うのが定石です。**行の状態でボタンを出し分け**たいときは、状態を**列に持たせて** `format` の**第3引数 `row`（その行の値配列）**から読みます（→ 動く例: [`examples/cell-button.html`](https://tssgrid.threestarsoftware.co.jp/examples/cell-button.html)＝未申請/申請中/編集中でボタン切替）。
 
 ```js
-columns: [ /* … */,
-  { html:true, readOnly:true, format: () => '<button class="mybtn" data-act="del">削除</button>' } ]
+// format の引数は (value, { r, c }, row)。row = その行の値配列（grid.data[r]）
+columns: [ /* …, 状態列(index 2), … */,
+  { html:true, readOnly:true, format: (_v, _cell, row) => {
+    const st = row[2];                       // 状態を「行の値配列」から読む（grid は参照しない）
+    if (st === '編集中') return '<button class="mybtn" data-act="save">保存</button>';
+    if (st === '申請中') return '<button class="mybtn" data-act="edit">編集</button>';
+    return '<button class="mybtn" data-act="submit">申請</button>';
+  } } ]
 grid.table.addEventListener('click', e => {
   const b = e.target.closest('.mybtn'); if (!b) return;
   const r = +b.closest('tr[data-r]').dataset.r;
-  if (b.dataset.act === 'del') grid.deleteRows(r, r);
+  grid.setValue(r, '状態', '申請中', true);   // 状態遷移（readOnly列は force=true）
+  grid.redraw();                             // ← format 再実行でボタンが変わる
 });
 ```
-- ボタン列は `readOnly:true` にして編集モードに入らないように。行番号は `closest('tr[data-r]')` から。**`html:true` はエスケープを外す**ので、ラベルにユーザー入力を入れる時は自分でエスケープを（XSS 責任は HTML 提供側）。空セルでも `format` は走ります（飾り列を全行に描ける）。
+- ボタン列は `readOnly:true` にして編集モードに入らないように。行番号は `closest('tr[data-r]')` から。空セルでも `format` は走ります（飾り列を全行に描ける）。
+- **⚠️ 初回描画は `new TssGrid(...)` の構築中に走る**ので、`format` の中で **`grid` 変数を参照しない**（まだ未代入＝TDZ で例外）。状態は**第3引数 `row`** から読むのが安全（`grid.getValue` を使いたくなるが初回で落ちる）。状態を変えたら **`grid.redraw()`** で `format` を再実行してボタンを更新します。
+- **`html:true` はエスケープを外す**ので、ラベルにユーザー入力を入れる時は自分でエスケープを（XSS 責任は HTML 提供側）。
 
 ### 非破壊フィルタ（`filter` / `clearFilter`）
 

@@ -65,8 +65,10 @@ export interface ColumnDef {
   editor?: EditorDef | (() => EditorDef);
   /** 入力の正規化（保存値へ変換）。 */
   parse?: (input: string, cell: CellCoord) => any;
-  /** 表示の整形（保存値→表示）。文字列 or 宣言的 CellFormat。 */
-  format?: string | object | ((value: any, cell: CellCoord) => string);
+  /** 表示の整形（保存値→表示）。文字列 or 宣言的 CellFormat or 関数。
+   *  関数は `(value, { r, c }, row)`＝第3引数 `row` はその行の値配列（`grid.data[r]`・options と同形）。
+   *  html:true 併用でセル内にボタン/アイコン等の HTML を描ける（空セルでも実行される）。 */
+  format?: string | object | ((value: any, cell: CellCoord, row: any[]) => string);
   /** 数値型: 千区切り表示。 */
   thousands?: boolean;
   /** 数値型: 接頭辞（例 '¥'）。 */

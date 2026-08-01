@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 行ごとのファイル添付（ボタン＋ドラッグ&ドロップ）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 760px; }
+  #log { font-size: 13px; color: #1a3a6b; min-height: 20px; margin-top: 8px; }
+  /* セル内ボタン */
+  .tg-cellbtn { font: inherit; font-size: 12px; padding: 2px 9px; border: 1px solid #cbd2dc; background: #fff;
+    border-radius: 5px; cursor: pointer; margin: 0 2px; vertical-align: middle; }
+  .tg-cellbtn:hover { background: #eef4ff; border-color: #1573c0; }
+  .tg-cellbtn.mini { padding: 2px 6px; color: #8a94a0; }
+  .tg-cellbtn.mini:hover { color: #d61f2b; border-color: #d61f2b; background: #ffe3e6; }
+  .file-name { display: inline-block; max-width: 150px; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; vertical-align: middle; }
+  .file-hint { color: #9aa3af; font-size: 11px; margin-left: 6px; }
+  /* ドロップ中のハイライト */
+  .tssgrid .tg-table td.file-drop-over { outline: 2px dashed #1573c0; outline-offset: -2px; background: #eef4ff; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 行ごとのファイル添付 <span class="pill">ボタン＋ドラッグ&ドロップ</span></h1>
+
+<div class="note">
+各行の「添付ファイル」セルに、<b>クリックで選択</b>（＋追加）と<b>ファイルをドロップ</b>の両方で添付できます。どちらも同じ <code>uploadForRow(r, file)</code> に集約。
+<br>コツ：<b><code>filePath</code> 列の <code>format</code> は“そのセルの値”を第1引数で受け取る</b>ので、値があればファイル名＋差替/削除、無ければ「＋追加」ボタンを描くだけ。アップロード後は <code>grid.setValue(r, 列, パス, true)</code> でセルを更新（format が再実行）。
+<br>ドロップは <b>ドロップ先セルの行を <code>closest('tr[data-r]')</code> で特定</b>して、その行に添付します。<code>dragover</code> で <code>preventDefault()</code> しないと <code>drop</code> が来ない点に注意。
+<br>※このデモはサーバへ送らず<b>ファイル名だけ</b>入れています（実アプリは POST → 返ってきたパスを setValue）。
+</div>
+
+<div class="tssgrid-host"><div id="grid"></div></div>
+<div id="log">&nbsp;</div>
+
+<h2>差し込み（要点）</h2>
+<pre id="code"></pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const log = m => document.getElementById('log').textContent = m;
+  const FILE_COL = 1;   // 「添付ファイル」列の index（[名前, 添付ファイル]）
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'upl', width: 560,
+    headers: ['名前', '添付ファイル'],
+    columns: [
+      {},
+      // ★添付列: format は第1引数にこのセルの値(パス)が来る。値の有無で表示を出し分け。
+      { html: true, readOnly: true, width: 320, format: (value, { r }) => {
+        const path = value || '';
+        if (!path) return '<button type="button" class="tg-cellbtn" data-act="upload">＋ 追加</button>' +
+                          '<span class="file-hint">またはドロップ</span>';
+        const name = path.split('/').pop();
+        return '<span class="file-name" title="' + esc(path) + '">📎 ' + esc(name) + '</span>' +
+               '<button type="button" class="tg-cellbtn" data-act="reupload">差替</button>' +
+               '<button type="button" class="tg-cellbtn mini" data-act="clear" title="削除">×</button>';
+      } },
+    ],
+    data: [
+      ['交通費 8/13', ''],
+      ['会議費 8/14', 'uploads/kaigi_ryoshu.pdf'],
+      ['備品 8/15', ''],
+    ],
+  });
+  window.grid = grid;
+
+  // ---- アップロード処理（ボタン・ドロップ共通の集約点）----
+  const uploadForRow = (r, file) => {
+    // 実アプリ: const fd = new FormData(); fd.append('file', file);
+    //           const res = await api.post('/upload', fd); path = res.data.filePath
+    const path = file.name;                 // ← デモはファイル名をそのまま採用
+    grid.setValue(r, FILE_COL, path, true); // force=true: readOnly 列へ書く → セル再描画で format 再実行
+    log('行 ' + (r + 1) + ' に「' + file.name + '」を添付（' + Math.ceil(file.size / 1024) + ' KB）');
+  };
+
+  // ---- クリックで選択（隠し input を1個使い回し）----
+  let fileInput = null, targetRow = -1;
+  const pickFile = (r) => {
+    if (!fileInput) {
+      fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.style.display = 'none';
+      fileInput.onchange = () => {
+        const f = fileInput.files && fileInput.files[0];
+        if (f && targetRow >= 0) uploadForRow(targetRow, f);
+        fileInput.value = ''; targetRow = -1;   // 同じファイルを連続で選べるようリセット
+      };
+      document.body.appendChild(fileInput);
+    }
+    targetRow = r; fileInput.click();
+  };
+
+  grid.table.addEventListener('click', (e) => {
+    const b = e.target.closest('.tg-cellbtn'); if (!b) return;
+    const tr = b.closest('tr[data-r]'); if (!tr) return;
+    const r = +tr.dataset.r, act = b.dataset.act;
+    if (act === 'upload' || act === 'reupload') pickFile(r);
+    else if (act === 'clear') { grid.setValue(r, FILE_COL, '', true); log('行 ' + (r + 1) + ' の添付を削除'); }
+  });
+
+  // ---- ドラッグ&ドロップ（添付列のセルにだけ受ける）----
+  const isFileCell = (el) => { const c = el && el.closest('td[data-c]'); return c && c.dataset.c === String(FILE_COL) ? c : null; };
+  grid.table.addEventListener('dragover', (e) => {
+    const cell = isFileCell(e.target); if (!cell) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; cell.classList.add('file-drop-over');
+  });
+  grid.table.addEventListener('dragleave', (e) => { const c = isFileCell(e.target); if (c) c.classList.remove('file-drop-over'); });
+  grid.table.addEventListener('drop', (e) => {
+    const cell = isFileCell(e.target); const tr = e.target.closest('tr[data-r]');
+    if (!cell || !tr) return;
+    e.preventDefault(); cell.classList.remove('file-drop-over');
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) uploadForRow(+tr.dataset.r, f);
+  });
+  // グリッド外に落とした時にブラウザがファイルを開くのを防ぐ
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
+
+  document.getElementById('code').textContent =
+    "// 添付列: format はこのセルの値(パス)を第1引数で受ける\n" +
+    "{ html:true, readOnly:true, format: (value, { r }) =>\n" +
+    "    value ? `📎 ${name(value)} <button data-act=\"reupload\">差替</button>`\n" +
+    "          : '<button data-act=\"upload\">＋ 追加</button>' }\n\n" +
+    "// アップロードは1点に集約\n" +
+    "const uploadForRow = (r, file) => {\n" +
+    "  /* 実アプリ: POST → 返ったパス */ const path = file.name\n" +
+    "  grid.setValue(r, FILE_COL, path, true)   // 再描画で format 再実行\n" +
+    "}\n\n" +
+    "// クリック（隠し input）とドロップの両方から uploadForRow へ\n" +
+    "grid.table.addEventListener('drop', e => {\n" +
+    "  const cell = e.target.closest('td[data-c]')\n" +
+    "  const tr   = e.target.closest('tr[data-r]')\n" +
+    "  if (cell?.dataset.c !== String(FILE_COL) || !tr) return\n" +
+    "  e.preventDefault()\n" +
+    "  uploadForRow(+tr.dataset.r, e.dataTransfer.files[0])\n" +
+    "})  // ※ dragover 側で preventDefault() が必須";
+</script>
+</body>
+</html>

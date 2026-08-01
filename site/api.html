@@ -217,7 +217,9 @@ true にすると autocomplete='new-password' に切り替えて確実に止め�
 <tr><td><code>validator</code></td><td><code class="ty">(value: any, cell: CellCoord) =&gt; ValidatorResult</code></td><td>入力検証。編集/貼付/フィルの全経路に効く。</td></tr>
 <tr><td><code>editor</code></td><td><code class="ty">EditorDef | (() =&gt; EditorDef)</code></td><td>カスタム編集UI（薄いオブジェクト契約 or それを返す関数）。</td></tr>
 <tr><td><code>parse</code></td><td><code class="ty">(input: string, cell: CellCoord) =&gt; any</code></td><td>入力の正規化（保存値へ変換）。</td></tr>
-<tr><td><code>format</code></td><td><code class="ty">string | object | ((value: any, cell: CellCoord) =&gt; string)</code></td><td>表示の整形（保存値→表示）。文字列 or 宣言的 CellFormat。</td></tr>
+<tr><td><code>format</code></td><td><code class="ty">string | object | ((value: any, cell: CellCoord, row: any[]) =&gt; string)</code></td><td>表示の整形（保存値→表示）。文字列 or 宣言的 CellFormat or 関数。
+関数は `(value, { r, c }, row)`＝第3引数 `row` はその行の値配列（`grid.data[r]`・options と同形）。
+html:true 併用でセル内にボタン/アイコン等の HTML を描ける（空セルでも実行される）。</td></tr>
 <tr><td><code>thousands</code></td><td><code class="ty">boolean</code></td><td>数値型: 千区切り表示。</td></tr>
 <tr><td><code>prefix</code></td><td><code class="ty">string</code></td><td>数値型: 接頭辞（例 '¥'）。</td></tr>
 <tr><td><code>cellClass</code></td><td><code class="ty">(r: number, c: number, value: any, row: any) =&gt; string</code></td><td>値/行を見てセルに付与する CSS クラス（条件付き書式）。</td></tr>
