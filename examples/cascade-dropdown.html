@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 多段（フライアウト）プルダウン</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-cascade.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 760px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 多段（フライアウト）プルダウン <span class="pill">tss-cascade プラグイン</span></h1>
+
+<div class="note">
+セルをクリックすると、メニューのように <b>大分類 ▸ 中分類 ▸ 小分類</b> がフライアウトで開き、<b>葉を選ぶと確定</b>します（<code>plugins/tss-cascade.js</code>＋<code>.css</code>）。
+<br>保存されるのは<b>葉の <code>value</code></b>（未指定なら label）。表示は <code>TssCascade.pathFormat</code> で「<b>営業 / 国内 / 東日本</b>」のようなパスに。
+<br>操作：クリックで展開／葉クリックで確定。キーボードは <b>↑↓</b> 移動・<b>→/Enter</b> で下位へ・<b>←</b> で戻る・<b>Enter</b> で葉を確定・<b>Esc</b> で取消。
+</div>
+
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み</h2>
+<pre id="code"></pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-cascade.js"></script>
+<script>
+  // 入れ子の選択肢（葉に value・枝に children）
+  const OPTS = [
+    { label: '営業', children: [
+      { label: '国内', children: [
+        { label: '東日本', value: 'sales.jp.east' },
+        { label: '西日本', value: 'sales.jp.west' },
+      ] },
+      { label: '海外', children: [
+        { label: 'アジア', value: 'sales.asia' },
+        { label: '北米', value: 'sales.na' },
+      ] },
+    ] },
+    { label: '開発', children: [
+      { label: 'フロント', value: 'dev.front' },
+      { label: 'バックエンド', value: 'dev.back' },
+      { label: 'インフラ', value: 'dev.infra' },
+    ] },
+    { label: '管理', children: [
+      { label: '人事', value: 'admin.hr' },
+      { label: '経理', value: 'admin.acct' },
+    ] },
+  ];
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'casc', width: 520,
+    headers: ['担当', '配属（多段）'],
+    columns: [
+      { data: 'name' },
+      // ★多段プルダウン: editor に TssCascade、表示は pathFormat でパスに
+      { data: 'dept', width: 320, editor: TssCascade({ options: OPTS }), format: TssCascade.pathFormat(OPTS) },
+    ],
+    data: [
+      { name: '佐藤', dept: 'sales.jp.east' },   // 既存値はパス表示「営業 / 国内 / 東日本」
+      { name: '鈴木', dept: 'dev.back' },
+      { name: '田中', dept: '' },                 // 未選択（クリックで選ぶ）
+    ],
+  });
+  window.grid = grid;
+
+  document.getElementById('code').textContent =
+    "const OPTS = [\n" +
+    "  { label:'営業', children:[\n" +
+    "    { label:'国内', children:[ {label:'東日本', value:'sales.jp.east'}, … ] },\n" +
+    "    { label:'海外', children:[ … ] } ] },\n" +
+    "  { label:'開発', children:[ {label:'フロント', value:'dev.front'}, … ] },\n" +
+    "]\n\n" +
+    "columns: [{\n" +
+    "  data:'dept',\n" +
+    "  editor: TssCascade({ options: OPTS }),      // 多段メニューで編集\n" +
+    "  format: TssCascade.pathFormat(OPTS),        // 表示は「大 / 中 / 小」\n" +
+    "}]";
+</script>
+</body>
+</html>

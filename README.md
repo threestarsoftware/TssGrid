@@ -1214,6 +1214,7 @@ new TssGrid(el, {
 
 - **組込キー**: `row_above` / `row_below` / `remove_row` / `col_left` / `col_right` / `remove_col` / `copy` / `cut` / `paste` / `clear` / `undo` / `redo`、区切りは `'---------'`（ダッシュのみ）。
 - **カスタム項目**: `{ name, callback, disabled?, hidden?, key?, submenu? }`。`name`/`disabled`/`hidden` は**関数**も可＝引数は `(range, ctx)`（`range`＝選択範囲 `{r0,c0,r1,c1}`）。`callback` の `this` はグリッド、引数は `{ range, key, ctx }`。
+- **組込動作のまま name/disabled だけ変えたい**: カスタム項目に `callback` を**書かず** `key` に組込キー（`row_above` 等）を指定すると、**その組込アクションを実行**します（`disabled`/`name` はカスタム側を尊重）。例: `{ name: '行を上に追加', key: 'row_above', disabled: (s) => … }`＝ラベルと活性条件だけ差し替え、挿入動作は組込のまま。
 - **`ctx`＝右クリックの対象** `{ on, r, c }`。`on` は `'col'`（列ヘッダ）/`'row'`（行ヘッダ）/`'cell'`（データセル）/`'corner'`（隅）。例: **列ヘッダを右クリックした時だけ項目を出す**なら `hidden: (range, ctx) => ctx.on !== 'col'`。
 - `submenu` に配列を渡すとフライアウトの**サブメニュー**になります（同じ組込キー／カスタム項目が使えます）。
 

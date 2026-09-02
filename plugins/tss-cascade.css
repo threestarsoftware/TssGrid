@@ -1,0 +1,15 @@
+/* TssCascade — 多段（フライアウト）プルダウン（plugins/tss-cascade.js）。色は --tg-accent を流用。 */
+.tg-cascade {
+  position: fixed; z-index: 1000; min-width: 150px; max-height: 60vh; overflow: auto;
+  background: #fff; color: #1f2733; border: 1px solid #c4ccd6; border-radius: 8px;
+  box-shadow: 0 6px 22px rgba(20, 40, 80, .22);
+  font: 13px "Meiryo UI", "Segoe UI", sans-serif; padding: 4px; box-sizing: border-box;
+}
+.tg-cascade .tg-casc-item {
+  display: flex; align-items: center; gap: 10px; padding: 5px 10px; border-radius: 5px;
+  cursor: pointer; white-space: nowrap; outline: none;
+}
+.tg-cascade .tg-casc-item:hover,
+.tg-cascade .tg-casc-item.active { background: var(--tg-accent, #1573c0); color: #fff; }
+.tg-cascade .tg-casc-label { flex: 1; }
+.tg-cascade .tg-casc-arrow { font-size: 10px; opacity: .7; margin-left: 6px; }

@@ -12,6 +12,9 @@ temp/
 # Internal AI-session handoff / design log（個人情報を含む内部メモ。公開しない＝ローカル専用）
 HANDOFF.md
 
+# 下流/ドッグフーディングからのバグ報告・フィードバック起票（内部・公開しない＝temp と同扱い）
+feedback/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

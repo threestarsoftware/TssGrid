@@ -2545,7 +2545,10 @@
         const disabled = typeof entry.disabled === 'function' ? !!entry.disabled.call(this, s, ctx) : !!entry.disabled;
         const it = { label: String(name == null ? '' : name), disabled, danger: !!entry.danger };
         if (Array.isArray(entry.submenu)) it.submenu = entry.submenu;
-        else it.act = () => { if (typeof entry.callback === 'function') { try { entry.callback.call(this, { range: { ...s }, key: entry.key, ctx }); } catch (_) {} } };
+        else if (typeof entry.callback === 'function') it.act = () => { try { entry.callback.call(this, { range: { ...s }, key: entry.key, ctx }); } catch (_) {} };
+        // callback 無しで key が組込項目（row_above 等）を指すなら、その組込アクションを実行＝
+        // 「組込動作のまま name/disabled だけカスタムしたい」を可能に（key だけ書いて無反応だった不具合の解消）。
+        else if (entry.key) { const bi = this._builtinItem(entry.key, s); if (bi && typeof bi.act === 'function') it.act = bi.act; }
         items.push(it);
       }
       return items;

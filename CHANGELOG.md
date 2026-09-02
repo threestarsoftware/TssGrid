@@ -3,6 +3,14 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.8] - 2026-09-02
+
+### 追加
+- **多段（フライアウト）プルダウン プラグイン `tss-cascade`**（プラグイン・無依存・コア無改変）— メニューのように「大分類 ▸ 中分類 ▸ 小分類」とフライアウトで開き、**葉を選ぶとセルに確定**するカスタムエディタ（`columns[c].editor` 契約に乗る）。`options` は入れ子配列 `[{ label, value?, children? }]`、保存は葉の `value`（未指定なら label）、表示は **`TssCascade.pathFormat(options)`** で「大 / 中 / 小」のパスに。クリック展開＋キーボード（↑↓/→←/Enter/Esc）＋画面端フリップ。動く例 `examples/cascade-dropdown.html`。
+
+### 修正
+- **右クリックメニューのカスタム項目が `key`（組込キー）だけ・`callback` 無しで無反応だったのを修正**（コア）— カスタム項目 `{ name, key:'row_above' }` は `callback` を実行する仕様で、`key` だけ書いても組込アクションが起動せず**何も起きなかった**（位置に依らず／組込文字列 `'row_above'` は最下行でも正常）。**`callback` 無しで `key` が組込項目を指す時はその組込アクションを実行**するようにし、「**組込動作のまま `name`/`disabled` だけカスタムしたい**」を可能に。`callback` 付き・未知 `key`・組込文字列・`disabled` は不変（後方互換）。
+
 ## [0.1.7] - 2026-08-01
 
 ### 追加
