@@ -266,6 +266,9 @@
       // セル単位インラインスタイル: cellStyle(r,c,value,row,src)→{CSSプロパティ} or 'k:v;…'。列版 columns[c].cellStyle(value,{r,c,row,src})。
       // クラス（離散）では出せない連続色・データバー幅(CSS変数)向け。例: cellStyle:(r,c,v)=>({background:heat(v)})
       this.cellStyle = opts.cellStyle || null;
+      // 行ごとに <tr> へ付けるクラス（行の色付け向け）。rowClass(r, row, src)→クラス文字列/配列。
+      // 全体版 cellClass でも代用できるが（全 td に付く）、行単位はこちらが素直。編集で再描画時に追従（_applyRowClass）。
+      this.rowClass = opts.rowClass || null;
       // 列の非表示（描画で畳む＋移動/幅/コピーは隠し列をスキップ）。実行時は hideColumn/showColumn。
       this.hiddenCols = new Set((opts.hiddenColumns || []).map(Number));
       // セル単位の可変状態（キー "r,c"）。整列 / 実行時 readOnly。構造変更で _structCmd がキー追従。
@@ -1154,6 +1157,21 @@
       for (const k of next) td.classList.add(k);
       if (next.length) td.dataset.ccls = next.join(' '); else delete td.dataset.ccls;
     }
+    // 行クラス: rowClass(r, row, src) → 空白区切り文字列（配列は join）。無効/例外は ''。
+    _rowClassStr(r) {
+      if (typeof this.rowClass !== 'function') return '';
+      try { const x = this.rowClass(r, this.data[r], this._src ? this._src[r] : null); return x ? (Array.isArray(x) ? x.filter(Boolean).join(' ') : String(x).trim()) : ''; } catch (_) { return ''; }
+    }
+    // <tr> の行クラスを反映（前回分 data-rcls を外して付け直す＝セル再描画で追従）。
+    _applyRowClass(r) {
+      const tr = this.table && this.table.querySelector('tbody tr[data-r="' + r + '"]');
+      if (!tr) return;
+      const prev = tr.dataset.rcls ? tr.dataset.rcls.split(/\s+/) : [];
+      for (const k of prev) if (k) tr.classList.remove(k);
+      const next = this._rowClassStr(r);
+      if (next) { for (const k of next.split(/\s+/)) if (k) tr.classList.add(k); tr.dataset.rcls = next; }
+      else delete tr.dataset.rcls;
+    }
     // セル単位のインラインスタイル: 列版 columns[c].cellStyle(value,{r,c,row,src}) ＋ 全体版 cellStyle(r,c,value,row,src)。
     // 返り値は CSSプロパティのオブジェクト {'background':'#fde','--pct':'42%'} か文字列 'background:#fde;--pct:42%'。
     // cellClass（クラス＝離散）では出せない**連続値の背景色・データバー幅（CSS変数）**などに（プロパティ名は kebab/標準名 or --var）。
@@ -1193,6 +1211,7 @@
       }
       if (this.cellClass || this.colCfg(c).cellClass) this._applyCellClass(td, r, c);   // 条件付き書式
       if (this.cellStyle || this.colCfg(c).cellStyle) this._applyCellStyle(td, r, c);   // セル単位インラインスタイル
+      if (this.rowClass) this._applyRowClass(r);   // 行クラス（編集で行の色付けが即追従）
     }
 
     _colWidth(c) { return this.colW[c] != null ? this.colW[c] : this.defColW; }
@@ -1373,7 +1392,8 @@
       const inner = after ? (lbl + mark) : (mark + lbl);   // ⠿ を番号の前/後に（rowReorderMark）。番号なしは前後どちらでも中央
       const rhCls = (canMove && this.rowReorderWhole) ? ' tg-rowmove-cell' : '';   // 'header'=行ヘッダーセル全体を掴み手に（grab カーソル）。番号/⠿の表示は独立
       const rcls = (r < this.frozenRows) ? (' tg-frozen-row' + (r === this.frozenRows - 1 ? ' tg-frozen-row-edge' : '')) : '';   // 行固定
-      let html = '<tr data-r="' + r + '" class="tg-row' + rcls + '" style="height:' + this._rowHeight(r) + 'px">' + (rh ? '<th class="rowhead' + rhCls + '" data-r="' + r + '">' + inner + rgrip + '</th>' : '');
+      const rowc = this.rowClass ? this._rowClassStr(r) : '';   // 行クラス（rowClass）＝<tr> に付与
+      let html = '<tr data-r="' + r + '" class="tg-row' + rcls + (rowc ? ' ' + rowc : '') + '"' + (rowc ? ' data-rcls="' + TssGrid.esc(rowc) + '"' : '') + ' style="height:' + this._rowHeight(r) + 'px">' + (rh ? '<th class="rowhead' + rhCls + '" data-r="' + r + '">' + inner + rgrip + '</th>' : '');
       for (let c = 0; c < this.COLS; c++) {
         if (this._merges && this._isCovered(r, c)) continue;   // 結合に覆われた従属セルは td を出さない（アンカーが colspan で覆う）
         const cs = this._merges ? this._colspanAt(r, c) : 1;   // 結合アンカーは colspan で従属列ぶんを覆う

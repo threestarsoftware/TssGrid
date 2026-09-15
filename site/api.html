@@ -87,7 +87,7 @@
 <h1>API リファレンス</h1>
 <p class="lead">公開API（オプション・イベント・メソッド）の一覧。<b><code>src/tssgrid.d.ts</code> を正本に自動生成</b>しています。使い方・サンプルは <a href="docs.html">ドキュメント（ガイド）</a> をどうぞ。</p>
 <h2 id="options">グリッド オプション</h2>
-<p>67 項目（<code>new TssGrid(el, options)</code>）。</p>
+<p>70 項目（<code>new TssGrid(el, options)</code>）。</p>
 <table>
 <thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
 <tbody>
@@ -101,6 +101,11 @@
 <tr><td><code>initialCell</code></td><td><code class="ty">[number, number] | { r: number; c: number | string }</code></td><td></td></tr>
 <tr><td><code>nextCell</code></td><td><code class="ty">(a: { r: number; c: number; key: string; shift: boolean }) =&gt; { r: number; c: number } | null</code></td><td>入力フロー制御。Enter/Tab の移動先を上書き（null で既定方向）。入力セルだけ巡回できる。</td></tr>
 <tr><td><code>columns</code></td><td><code class="ty">ColumnDef[]</code></td><td></td></tr>
+<tr><td><code>cellClass</code></td><td><code class="ty">(r: number, c: number, value: any, row: any[], src: Record&lt;string, any&gt; | null) =&gt; ClassValue</code></td><td>表全体の条件付きクラス（全セルで呼ばれる）。**引数は `(r, c, value, row, src)`**（先頭が行/列番号・列版と順序が違う）。
+`row`=その行の値配列, `src`=元レコード（object モード時・非表示フィールドも見える）。行に色を付けたいなら `rowClass` の方が簡単。</td></tr>
+<tr><td><code>cellStyle</code></td><td><code class="ty">(r: number, c: number, value: any, row: any[], src: Record&lt;string, any&gt; | null) =&gt; StyleValue</code></td><td>表全体のセル単位インラインスタイル。**引数は `(r, c, value, row, src)`**。返り値は CSS オブジェクト or 文字列。</td></tr>
+<tr><td><code>rowClass</code></td><td><code class="ty">(r: number, row: any[], src: Record&lt;string, any&gt; | null) =&gt; ClassValue</code></td><td>行ごとに `&lt;tr&gt;` へ付与する CSS クラス（**行に色を付けるならこれ**）。`(r, row, src)` で呼ばれ、文字列/配列を返す。
+編集でセルが再描画されると即追従。CSS は `.tssgrid tr.クラス &gt; td { … }` のように行単位で当てる。</td></tr>
 <tr><td><code>invalidMode</code></td><td><code class="ty">'revert' | 'keep'</code></td><td>検証NG時。'revert'=元に戻す / 'keep'=赤く警告して残す。</td></tr>
 <tr><td><code>invalidTitle</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>messages</code></td><td><code class="ty">Record&lt;string, any&gt; | ((info: { code: string; params?: any; level?: string }) =&gt; string)</code></td><td>エラーの共通メッセージカタログ。</td></tr>
@@ -222,8 +227,9 @@ true にすると autocomplete='new-password' に切り替えて確実に止め�
 html:true 併用でセル内にボタン/アイコン等の HTML を描ける（空セルでも実行される）。</td></tr>
 <tr><td><code>thousands</code></td><td><code class="ty">boolean</code></td><td>数値型: 千区切り表示。</td></tr>
 <tr><td><code>prefix</code></td><td><code class="ty">string</code></td><td>数値型: 接頭辞（例 '¥'）。</td></tr>
-<tr><td><code>cellClass</code></td><td><code class="ty">(r: number, c: number, value: any, row: any) =&gt; string</code></td><td>値/行を見てセルに付与する CSS クラス（条件付き書式）。</td></tr>
-<tr><td><code>cellStyle</code></td><td><code class="ty">(r: number, c: number, value: any, row: any) =&gt; Partial&lt;CSSStyleDeclaration&gt; | Record&lt;string, string&gt;</code></td><td>セル単位のインラインスタイル（連続色・データバー等）。</td></tr>
+<tr><td><code>cellClass</code></td><td><code class="ty">(value: any, cell: CellClassCtx) =&gt; ClassValue</code></td><td>値/行を見てセルに付与する CSS クラス（条件付き書式）。**引数は `(value, { r, c, row, src })`**（第1引数がそのセルの値）。
+＊表全体版は `TssGridOptions.cellClass`（引数順が違う: `(r, c, value, row, src)`）。</td></tr>
+<tr><td><code>cellStyle</code></td><td><code class="ty">(value: any, cell: CellClassCtx) =&gt; StyleValue</code></td><td>セル単位のインラインスタイル（連続色・データバー等）。**引数は `(value, { r, c, row, src })`**。</td></tr>
 <tr><td><code>html</code></td><td><code class="ty">boolean</code></td><td>true で表示だけ生HTML（値はテキスト保存のまま）。</td></tr>
 <tr><td><code>wordWrap</code></td><td><code class="ty">boolean</code></td><td>列単位の折り返し。</td></tr>
 <tr><td><code>multiline</code></td><td><code class="ty">boolean</code></td><td>複数行(改行)入力を有効化。編集は隠し textarea（IME 直打ち対応）、表示は改行保持(pre-wrap)。行高は自動で伸びないので rowHeights 等で確保する。</td></tr>

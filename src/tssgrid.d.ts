@@ -25,6 +25,12 @@ export interface ChangeItem {
 /** 選択範囲。r0/c0=開始、r1/c1=終了（昇順とは限らない）。 */
 export interface SelectionRange { r0: number; c0: number; r1: number; c1: number; }
 export interface CellCoord { r: number; c: number; }
+/** cellClass/cellStyle（列版）が受け取る第2引数。row=その行の値配列, src=元レコード（object モード時・非表示フィールドも見える／配列モードは null）。 */
+export interface CellClassCtx { r: number; c: number; row: any[]; src: Record<string, any> | null; }
+/** cellClass/cellStyle の戻り値のクラス。文字列（空白区切り可）／配列／null 等（＝クラス無し）。 */
+export type ClassValue = string | string[] | null | undefined | false;
+/** cellStyle の戻り値。CSS プロパティのオブジェクト（`{'background':'#fde','--pct':'42%'}`）か文字列（`'background:#fde;--pct:42%'`）。 */
+export type StyleValue = string | Partial<CSSStyleDeclaration> | Record<string, string> | null | undefined;
 export interface SelectionInfo { range: SelectionRange; active: CellCoord; extent: CellCoord; }
 
 /** validator が弾いたセル（onInvalid / getInvalidCells）。 */
@@ -73,10 +79,11 @@ export interface ColumnDef {
   thousands?: boolean;
   /** 数値型: 接頭辞（例 '¥'）。 */
   prefix?: string;
-  /** 値/行を見てセルに付与する CSS クラス（条件付き書式）。 */
-  cellClass?: (r: number, c: number, value: any, row: any) => string;
-  /** セル単位のインラインスタイル（連続色・データバー等）。 */
-  cellStyle?: (r: number, c: number, value: any, row: any) => Partial<CSSStyleDeclaration> | Record<string, string>;
+  /** 値/行を見てセルに付与する CSS クラス（条件付き書式）。**引数は `(value, { r, c, row, src })`**（第1引数がそのセルの値）。
+   *  ＊表全体版は `TssGridOptions.cellClass`（引数順が違う: `(r, c, value, row, src)`）。 */
+  cellClass?: (value: any, cell: CellClassCtx) => ClassValue;
+  /** セル単位のインラインスタイル（連続色・データバー等）。**引数は `(value, { r, c, row, src })`**。 */
+  cellStyle?: (value: any, cell: CellClassCtx) => StyleValue;
   /** true で表示だけ生HTML（値はテキスト保存のまま）。 */
   html?: boolean;
   /** 列単位の折り返し。 */
@@ -105,6 +112,14 @@ export interface TssGridOptions {
   /** 入力フロー制御。Enter/Tab の移動先を上書き（null で既定方向）。入力セルだけ巡回できる。 */
   nextCell?: (a: { r: number; c: number; key: string; shift: boolean }) => { r: number; c: number } | null;
   columns?: ColumnDef[];
+  /** 表全体の条件付きクラス（全セルで呼ばれる）。**引数は `(r, c, value, row, src)`**（先頭が行/列番号・列版と順序が違う）。
+   *  `row`=その行の値配列, `src`=元レコード（object モード時・非表示フィールドも見える）。行に色を付けたいなら `rowClass` の方が簡単。 */
+  cellClass?: (r: number, c: number, value: any, row: any[], src: Record<string, any> | null) => ClassValue;
+  /** 表全体のセル単位インラインスタイル。**引数は `(r, c, value, row, src)`**。返り値は CSS オブジェクト or 文字列。 */
+  cellStyle?: (r: number, c: number, value: any, row: any[], src: Record<string, any> | null) => StyleValue;
+  /** 行ごとに `<tr>` へ付与する CSS クラス（**行に色を付けるならこれ**）。`(r, row, src)` で呼ばれ、文字列/配列を返す。
+   *  編集でセルが再描画されると即追従。CSS は `.tssgrid tr.クラス > td { … }` のように行単位で当てる。 */
+  rowClass?: (r: number, row: any[], src: Record<string, any> | null) => ClassValue;
   /** 検証NG時。'revert'=元に戻す / 'keep'=赤く警告して残す。 */
   invalidMode?: 'revert' | 'keep';
   invalidTitle?: boolean;

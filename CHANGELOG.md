@@ -3,6 +3,14 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.9] - 2026-09-15
+
+### 追加
+- **`rowClass(r, row, src)`（行ごとに `<tr>` へクラスを付与）**（コア）— 行の状態で**行まるごと色を付ける**のが素直に書けるオプション。`rowClass: (r, row) => row[3] === '欠品' ? 'row-ng' : ''` のように返したクラスが `<tr>` に付く（配列可）。CSS は `.tssgrid tr.row-ng > td { background:#fdecea }` の要領。従来は表全体版 `cellClass` で全 `<td>` に付けて代用していたが、**行単位はこちらが自然**。編集で行の状態が変わっても `_applyRowClass` で即追従。
+
+### 修正
+- **`cellClass` / `cellStyle` の型定義（`.d.ts`）が実装と食い違っていたのを修正**（型のみ・実行時は元から正しい）— (1) **列版**（`columns[c].cellClass`）は第1引数がそのセルの値で `(value, { r, c, row, src }) => クラス`。旧型は `(r, c, value, row) => string` で**引数順が逆**だった。(2) **表全体版**（`TssGridOptions.cellClass` = `(r, c, value, row, src)`）は**そもそも型に無かった**ので追加。`cellStyle` も同様に両方を修正。返り値も `string | string[] | false | null` 等を許容する `ClassValue`/`StyleValue` に。**影響は TypeScript / エディタ補完のみ**（生の JS・README・examples は元から正しい）。
+
 ## [0.1.8] - 2026-09-02
 
 ### 追加

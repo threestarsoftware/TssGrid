@@ -1089,7 +1089,8 @@ columns: [
 cellClass: (r, c, value, row, src) => src.holiday_kbn === '1' ? 'sat' : '',  // 全体版（src=元レコード＝非表示フィールドも見える）
 // CSS は業務側で: .tssgrid td.tg-neg { color:#c00 } .tssgrid td.tg-row-ng { background:#fdecea }
 ```
-- 列版 `columns[c].cellClass(value, {r,c,row,src})` ／ 全体版 `cellClass(r,c,value,row,src)`。返り値は文字列／配列／空（クラス無し）。
+- 列版 `columns[c].cellClass(value, {r,c,row,src})` ／ 全体版 `cellClass(r,c,value,row,src)`。**引数順が違う**ので注意（列版は第1引数が値・全体版は先頭が r,c）。返り値は文字列／配列／空（クラス無し）。
+- **行に色を付けるなら `rowClass` が簡単**: `rowClass: (r, row, src) => 'row-ng'` で **`<tr>` に直接クラス**が付きます（全 td に付ける全体版 cellClass の代用より素直）。**その行のセルを編集すれば即追従**。CSS は `.tssgrid tr.row-ng > td { background:#fdecea }` のように行単位で当てます。
 - `src` は**元レコード**（オブジェクトデータ時）。**画面に出していない隠しフィールド基準の色付け**（勤怠の `holiday_kbn` で土日祝を色分け等）に使えます → 実例: [`examples/attendance.html`](https://tssgrid.threestarsoftware.co.jp/examples/attendance.html)。
 - **他列に依存する行ルール**（状態で行を色分け等）は、依存先の編集時に `grid.redraw()` で行全体を再評価（`onAfterChange: () => grid.redraw()`）。
 - 同じセルに行ルールとセルルールが両方付く場合は **CSSの記述順（後勝ち）**で優先を決めます（セル個別を後に書く）。
