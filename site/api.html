@@ -101,10 +101,10 @@
 <tr><td><code>initialCell</code></td><td><code class="ty">[number, number] | { r: number; c: number | string }</code></td><td></td></tr>
 <tr><td><code>nextCell</code></td><td><code class="ty">(a: { r: number; c: number; key: string; shift: boolean }) =&gt; { r: number; c: number } | null</code></td><td>入力フロー制御。Enter/Tab の移動先を上書き（null で既定方向）。入力セルだけ巡回できる。</td></tr>
 <tr><td><code>columns</code></td><td><code class="ty">ColumnDef[]</code></td><td></td></tr>
-<tr><td><code>cellClass</code></td><td><code class="ty">(r: number, c: number, value: any, row: any[], src: Record&lt;string, any&gt; | null) =&gt; ClassValue</code></td><td>表全体の条件付きクラス（全セルで呼ばれる）。**引数は `(r, c, value, row, src)`**（先頭が行/列番号・列版と順序が違う）。
+<tr><td><code>cellClass</code></td><td><code class="ty">(r: number, c: number, value: any, row: any[], src: any) =&gt; ClassValue</code></td><td>表全体の条件付きクラス（全セルで呼ばれる）。**引数は `(r, c, value, row, src)`**（先頭が行/列番号・列版と順序が違う）。
 `row`=その行の値配列, `src`=元レコード（object モード時・非表示フィールドも見える）。行に色を付けたいなら `rowClass` の方が簡単。</td></tr>
-<tr><td><code>cellStyle</code></td><td><code class="ty">(r: number, c: number, value: any, row: any[], src: Record&lt;string, any&gt; | null) =&gt; StyleValue</code></td><td>表全体のセル単位インラインスタイル。**引数は `(r, c, value, row, src)`**。返り値は CSS オブジェクト or 文字列。</td></tr>
-<tr><td><code>rowClass</code></td><td><code class="ty">(r: number, row: any[], src: Record&lt;string, any&gt; | null) =&gt; ClassValue</code></td><td>行ごとに `&lt;tr&gt;` へ付与する CSS クラス（**行に色を付けるならこれ**）。`(r, row, src)` で呼ばれ、文字列/配列を返す。
+<tr><td><code>cellStyle</code></td><td><code class="ty">(r: number, c: number, value: any, row: any[], src: any) =&gt; StyleValue</code></td><td>表全体のセル単位インラインスタイル。**引数は `(r, c, value, row, src)`**。返り値は CSS オブジェクト or 文字列。</td></tr>
+<tr><td><code>rowClass</code></td><td><code class="ty">(r: number, row: any[], src: any) =&gt; ClassValue</code></td><td>行ごとに `&lt;tr&gt;` へ付与する CSS クラス（**行に色を付けるならこれ**）。`(r, row, src)` で呼ばれ、文字列/配列を返す。
 編集でセルが再描画されると即追従。CSS は `.tssgrid tr.クラス &gt; td { … }` のように行単位で当てる。</td></tr>
 <tr><td><code>invalidMode</code></td><td><code class="ty">'revert' | 'keep'</code></td><td>検証NG時。'revert'=元に戻す / 'keep'=赤く警告して残す。</td></tr>
 <tr><td><code>invalidTitle</code></td><td><code class="ty">boolean</code></td><td></td></tr>

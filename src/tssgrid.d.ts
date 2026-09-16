@@ -25,8 +25,9 @@ export interface ChangeItem {
 /** 選択範囲。r0/c0=開始、r1/c1=終了（昇順とは限らない）。 */
 export interface SelectionRange { r0: number; c0: number; r1: number; c1: number; }
 export interface CellCoord { r: number; c: number; }
-/** cellClass/cellStyle（列版）が受け取る第2引数。row=その行の値配列, src=元レコード（object モード時・非表示フィールドも見える／配列モードは null）。 */
-export interface CellClassCtx { r: number; c: number; row: any[]; src: Record<string, any> | null; }
+/** cellClass/cellStyle（列版）が受け取る第2引数。row=その行の値配列, src=元レコード（object モード時・非表示フィールドも見える／配列モードは null）。
+ *  src は `any`＝利用側が自分の行型（`src: MyRow`）でそのまま受けられる（`Record<string,any>|null` だと二重キャストを強いるため）。 */
+export interface CellClassCtx { r: number; c: number; row: any[]; src: any; }
 /** cellClass/cellStyle の戻り値のクラス。文字列（空白区切り可）／配列／null 等（＝クラス無し）。 */
 export type ClassValue = string | string[] | null | undefined | false;
 /** cellStyle の戻り値。CSS プロパティのオブジェクト（`{'background':'#fde','--pct':'42%'}`）か文字列（`'background:#fde;--pct:42%'`）。 */
@@ -114,12 +115,12 @@ export interface TssGridOptions {
   columns?: ColumnDef[];
   /** 表全体の条件付きクラス（全セルで呼ばれる）。**引数は `(r, c, value, row, src)`**（先頭が行/列番号・列版と順序が違う）。
    *  `row`=その行の値配列, `src`=元レコード（object モード時・非表示フィールドも見える）。行に色を付けたいなら `rowClass` の方が簡単。 */
-  cellClass?: (r: number, c: number, value: any, row: any[], src: Record<string, any> | null) => ClassValue;
+  cellClass?: (r: number, c: number, value: any, row: any[], src: any) => ClassValue;
   /** 表全体のセル単位インラインスタイル。**引数は `(r, c, value, row, src)`**。返り値は CSS オブジェクト or 文字列。 */
-  cellStyle?: (r: number, c: number, value: any, row: any[], src: Record<string, any> | null) => StyleValue;
+  cellStyle?: (r: number, c: number, value: any, row: any[], src: any) => StyleValue;
   /** 行ごとに `<tr>` へ付与する CSS クラス（**行に色を付けるならこれ**）。`(r, row, src)` で呼ばれ、文字列/配列を返す。
    *  編集でセルが再描画されると即追従。CSS は `.tssgrid tr.クラス > td { … }` のように行単位で当てる。 */
-  rowClass?: (r: number, row: any[], src: Record<string, any> | null) => ClassValue;
+  rowClass?: (r: number, row: any[], src: any) => ClassValue;
   /** 検証NG時。'revert'=元に戻す / 'keep'=赤く警告して残す。 */
   invalidMode?: 'revert' | 'keep';
   invalidTitle?: boolean;

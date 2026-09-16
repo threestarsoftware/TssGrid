@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.11] - 2026-09-16
+
+### 修正
+- **表全体版 `cellClass` / `cellStyle` / `rowClass` と `CellClassCtx` の `src`（元レコード）を `any` に**（型定義のみ・実行時は不変）— `src` は関数の**引数（反変位置）**なので `Record<string, any> | null` で固定すると、**自分で行の型を書いている利用者が関数を渡せず** `as unknown as MyRow` の二重キャストを強いられていた（0.1.9〜0.1.10 で該当）。`any` にすると利用側が `src: MyRow` と**そのまま注釈でき、関数内はその型で検査される**（今より安全側・既に `row: any[]` なので揃う）。d.ts 4か所（`CellClassCtx.src` / 表全体 `cellClass`・`cellStyle`・`rowClass`）＋ api.html を更新。※将来の `TssGrid<Row>` ジェネリック化は 0.2 系で検討。
+
 ## [0.1.10] - 2026-09-16
 
 ### 追加
