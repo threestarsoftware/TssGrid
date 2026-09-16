@@ -237,7 +237,7 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 </tbody>
 </table>
 <h2 id="methods">メソッド</h2>
-<p>公開メソッド 67 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
+<p>公開メソッド 68 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
 <h3 id="m-0">データ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
@@ -279,6 +279,9 @@ setData で解除。AG Grid の Infinite Row Model 相当を push プリミテ�
 <div class="api-m"><code class="sig">selectRow(r: number): void</code></div>
 <div class="api-m"><code class="sig">selectCol(c: number): void</code></div>
 <div class="api-m"><code class="sig">selectAll(): void</code></div>
+<div class="api-m"><code class="sig">scrollToRow(r: number, align?: 'start' | 'center' | 'end' | 'nearest'): void</code><p>指定行までスクロール（HTML の `#` アンカー相当・選択は変えない）。
+`align` は `'start'`（既定＝その行を先頭＝sticky ヘッダ直下へ）/ `'center'` / `'end'` / `'nearest'`（可視ならそのまま）。
+仮想（均一行高）でも非仮想（可変行高・実DOM測定）でも動く。範囲外の `r` は自動でクランプ。</p></div>
 <div class="api-m"><code class="sig">getSelectedColumns(): number[]</code><p>選択中の列インデックス（Ctrl+ヘッダクリックの飛び飛び選択に対応・昇順）。列選択モードでなければ `[]`。</p></div>
 <div class="api-m"><code class="sig">getSelectedRows(): number[]</code><p>選択中の行インデックス（Ctrl+行ヘッダクリックの飛び飛び選択に対応・昇順）。行選択モードでなければ `[]`。</p></div>
 <div class="api-m"><code class="sig">deleteColsSet(cols: number[]): void</code><p>飛び飛びの複数列をまとめて削除（高index側から。右クリック「N 列を削除」の実体）。</p></div>

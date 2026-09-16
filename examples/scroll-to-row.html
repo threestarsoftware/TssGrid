@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 指定行へスクロール（# アンカー相当）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 760px; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+  .bar input[type=number] { width: 84px; padding: 4px 6px; font-size: 14px; }
+  .bar button { padding: 4px 12px; font-size: 13px; cursor: pointer; }
+  .bar select { padding: 4px 6px; font-size: 13px; }
+  /* ★ジャンプ先の行を目立たせる（v0.1.9 の rowClass で <tr> に付いたクラスに当てる）
+     `.tg-table` を挟んで詳細度を上げ、readOnly 列（td.tg-readonly）の淡色にも勝たせる＝行全体を確実に黄色く */
+  .tssgrid .tg-table tr.jump-target > td { background: #fff4c8; transition: background .25s; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 指定行へスクロール <span class="pill">scrollToRow</span></h1>
+
+<div class="note">
+HTML の <code>#</code> アンカーみたいに<b>任意の行を画面の先頭へ</b>持ってくる <code>grid.scrollToRow(r)</code>。<b>大量行（仮想スクロール）でも一発</b>で飛べます。
+<br><code>align</code> で寄せ方を選べます: <b><code>'start'</code>（既定＝先頭＝sticky ヘッダ直下）</b> / <code>'center'</code> / <code>'end'</code> / <code>'nearest'</code>（可視ならそのまま）。
+<br>ここでは飛んだ先を <b><code>rowClass</code>（v0.1.9）</b>で黄色くハイライトしています（<code>scrollToRow</code> は<b>選択を変えない</b>ので、目印が欲しい時は rowClass やハイライトを併用）。
+</div>
+
+<div class="bar">
+  行番号:
+  <input type="number" id="r" min="0" value="250">
+  <label>寄せ <select id="align">
+    <option value="start">start（先頭）</option>
+    <option value="center">center（中央）</option>
+    <option value="end">end（下端）</option>
+    <option value="nearest">nearest（可視ならそのまま）</option>
+  </select></label>
+  <button id="go">ジャンプ</button>
+  <button id="top">先頭へ</button>
+  <button id="bottom">末尾へ</button>
+</div>
+
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み</h2>
+<pre id="code"></pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  // 1000 行のダミーデータ（仮想スクロールで軽い）
+  const data = Array.from({ length: 1000 }, (_, i) => [
+    String(i), '商品-' + i, (Math.round(Math.random() * 9000) + 1000) + '円', ['在庫', '欠品', '予約'][i % 3],
+  ]);
+
+  let target = -1;   // ジャンプ先の行（ハイライト用）
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'scroll', width: 560, height: '320px',
+    virtual: true,   // 大量行は仮想スクロール（scrollToRow は非仮想でも動く）
+    headers: ['#', '商品名', '価格', '状態'],
+    columns: [{ readOnly: true }, {}, {}, {}],
+    data,
+    // ★飛んだ先の行に 'jump-target' クラスを付ける（CSS で黄色ハイライト）
+    rowClass: (r) => r === target ? 'jump-target' : '',
+  });
+
+  function jump(align) {
+    target = Math.max(0, Math.min(data.length - 1, +document.getElementById('r').value || 0));
+    grid.redraw();                    // rowClass を反映（ハイライト位置更新）
+    grid.scrollToRow(target, align);  // ← 本体：その行へスクロール
+  }
+  document.getElementById('go').onclick = () => jump(document.getElementById('align').value);
+  document.getElementById('top').onclick = () => { document.getElementById('r').value = 0; jump('start'); };
+  document.getElementById('bottom').onclick = () => { document.getElementById('r').value = data.length - 1; jump('start'); };
+
+  document.getElementById('code').textContent =
+    "// 任意の行を先頭へ（# アンカー相当）\n" +
+    "grid.scrollToRow(250);            // 既定 = 'start'（先頭・sticky ヘッダ直下）\n" +
+    "grid.scrollToRow(250, 'center');  // 中央\n" +
+    "grid.scrollToRow(250, 'end');     // 下端\n" +
+    "grid.scrollToRow(250, 'nearest'); // 可視ならそのまま\n" +
+    "\n" +
+    "// 選択は変えないので、目印は rowClass などで（v0.1.9）\n" +
+    "rowClass: (r) => r === target ? 'jump-target' : ''";
+</script>
+</body>
+</html>

@@ -399,6 +399,12 @@ export declare class TssGrid {
   selectRow(r: number): void;
   selectCol(c: number): void;
   selectAll(): void;
+  /**
+   * 指定行までスクロール（HTML の `#` アンカー相当・選択は変えない）。
+   * `align` は `'start'`（既定＝その行を先頭＝sticky ヘッダ直下へ）/ `'center'` / `'end'` / `'nearest'`（可視ならそのまま）。
+   * 仮想（均一行高）でも非仮想（可変行高・実DOM測定）でも動く。範囲外の `r` は自動でクランプ。
+   */
+  scrollToRow(r: number, align?: 'start' | 'center' | 'end' | 'nearest'): void;
   /** 選択中の列インデックス（Ctrl+ヘッダクリックの飛び飛び選択に対応・昇順）。列選択モードでなければ `[]`。 */
   getSelectedColumns(): number[];
   /** 選択中の行インデックス（Ctrl+行ヘッダクリックの飛び飛び選択に対応・昇順）。行選択モードでなければ `[]`。 */

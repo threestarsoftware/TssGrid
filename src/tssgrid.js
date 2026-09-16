@@ -1486,6 +1486,35 @@
       if (st !== cur) this.wrap.scrollTop = st;
       this._renderWindow(this._vWindow(), false);   // 窓を即同期（place 前に DOM を確定）
     }
+    // 指定行までスクロール（HTML の # アンカー相当）。align: 'start'(既定=先頭へ)/'center'/'end'/'nearest'。
+    // 仮想（均一行高）でも非仮想（実DOM・可変行高）でも動く。sticky ヘッダの下にちゃんと収める。
+    scrollToRow(r, align = 'start') {
+      if (!this.wrap || !this.ROWS) return;
+      r = Math.max(0, Math.min(this.ROWS - 1, Math.trunc(r || 0)));
+      if (align === 'nearest' && this.virtual) { this._vEnsureVisible(r); return; }   // 最小移動は既存ロジックに委譲
+      const head = this.colHeaders ? (this._theadH || 0) : 0;
+      const viewH = this.wrap.clientHeight || 400;
+      let top, rowH;
+      if (this.virtual) {
+        rowH = this.defRowH; top = r * rowH;   // 均一行高: content-top（sticky thead 直下が基準）
+      } else {
+        const tr = this.table && this.table.querySelector('tbody tr[data-r="' + r + '"]');
+        if (!tr) return;
+        const t = tr.getBoundingClientRect(), w = this.wrap.getBoundingClientRect();
+        rowH = t.height; top = t.top - w.top + this.wrap.scrollTop - head;   // 実DOMから測る（可変行高対応）
+      }
+      let st = top;   // start: 行を先頭（sticky thead 直下）へ
+      if (align === 'center') st = top - Math.max(0, (viewH - head - rowH) / 2);
+      else if (align === 'end') st = top - Math.max(0, viewH - head - rowH);
+      else if (align === 'nearest') {   // 非仮想の nearest: 既に可視なら動かさない
+        const vt = top - this.wrap.scrollTop;
+        if (vt >= 0 && vt + rowH <= viewH - head) return;
+        if (vt > 0) st = top - (viewH - head - rowH);   // 下にはみ出し→下端、上は top のまま
+      }
+      const max = this.wrap.scrollHeight - this.wrap.clientHeight;
+      this.wrap.scrollTop = Math.max(0, Math.min(st, max));
+      if (this.virtual) this._renderWindow(this._vWindow(), false);   // 窓を即同期
+    }
     buildTable() {
       if (this._renderPaused) { this._renderDirty = true; return; }   // バッチ描画中は最後にまとめて1回（_withBatchedRender）
       if (this._customEditor && this._customCancel) this._customCancel();   // 開いているカスタムエディタを閉じる（body直下ポップアップの取り残し防止・_commitActive と同じ扱い）

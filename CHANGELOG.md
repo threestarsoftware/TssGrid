@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.10] - 2026-09-16
+
+### 追加
+- **`scrollToRow(r, align?)`（指定行までスクロール＝HTML の `#` アンカー相当）**（コア）— 任意の行を画面の**先頭へ**持ってくる公開メソッド。`align` は `'start'`（既定＝先頭・sticky ヘッダ直下）/ `'center'` / `'end'` / `'nearest'`（可視ならそのまま）。**仮想（均一行高）でも非仮想（実DOM測定・可変行高）でも動く**。範囲外の `r` は自動クランプ。**選択は変えない**（目印が欲しい時は `rowClass` 等を併用）。動く例 `examples/scroll-to-row.html`（1000行・行番号ジャンプ＋align 切替＋rowClass ハイライト）。
+
 ## [0.1.9] - 2026-09-15
 
 ### 追加
