@@ -56,6 +56,18 @@ import '@threestarsoftware/tssgrid/tssgrid.css';
 ```
 **型定義 (`.d.ts`) 同梱**なので TypeScript ではそのまま補完が効きます（APIリファレンス → [tssgrid…/api](https://tssgrid.threestarsoftware.co.jp/api.html)）。
 
+**プラグインの型（TypeScript）**: エディタ系プラグインは **`.d.ts` 同梱で `import` するだけで型が効きます**（`.js` 付きで import）:
+```ts
+import TssCombo from '@threestarsoftware/tssgrid/plugins/tss-combo.js';   // ← 型が効く
+// 対応: tss-combo / tss-autocomplete / tss-cascade / tss-calendar / tss-datetime / tss-time
+columns: [{ data: 'pay', editor: TssCombo({ options: [{ code: '01', label: '現金' }], other: { code: '99', label: 'その他' }, codeField: 'payCode' }) }];
+```
+それ以外のプラグイン（`usePlugin` 系・`format` ヘルパ系）は型定義がまだ無いので、必要なら5行のアンビエント宣言で補えます（`editor.open/close` を持つ戻り値は `EditorDef`）:
+```ts
+import type { EditorDef } from '@threestarsoftware/tssgrid';
+declare function TssXxx(opts: any): EditorDef;   // 未同梱プラグインの暫定宣言
+```
+
 **Node / CommonJS**:
 
 ```js

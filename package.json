@@ -1,6 +1,6 @@
 {
   "name": "@threestarsoftware/tssgrid",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "軽量・ノービルド・日本語IME堅牢な編集グリッド（vanilla JS / 依存なし / MIT）。Excel ライクな入力画面を <script> タグ1本で。",
   "license": "MIT",
   "author": "ThreeStarSoftware (https://www.threestarsoftware.co.jp/)",
@@ -35,6 +35,30 @@
       "default": "./src/tssgrid.js"
     },
     "./tssgrid.css": "./src/tssgrid.css",
+    "./plugins/tss-combo.js": {
+      "types": "./plugins/tss-combo.d.ts",
+      "default": "./plugins/tss-combo.js"
+    },
+    "./plugins/tss-autocomplete.js": {
+      "types": "./plugins/tss-autocomplete.d.ts",
+      "default": "./plugins/tss-autocomplete.js"
+    },
+    "./plugins/tss-cascade.js": {
+      "types": "./plugins/tss-cascade.d.ts",
+      "default": "./plugins/tss-cascade.js"
+    },
+    "./plugins/tss-calendar.js": {
+      "types": "./plugins/tss-calendar.d.ts",
+      "default": "./plugins/tss-calendar.js"
+    },
+    "./plugins/tss-datetime.js": {
+      "types": "./plugins/tss-datetime.d.ts",
+      "default": "./plugins/tss-datetime.js"
+    },
+    "./plugins/tss-time.js": {
+      "types": "./plugins/tss-time.d.ts",
+      "default": "./plugins/tss-time.js"
+    },
     "./plugins/*": "./plugins/*",
     "./package.json": "./package.json"
   },

@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.13] - 2026-09-24
+
+### 追加
+- **エディタ系プラグイン6つに型定義 `.d.ts` を同梱（TypeScript ファースト）** — `columns[c].editor` に入れるエディタ工場プラグインを **`import` するだけで型が効く**ように。対象は `tss-combo` / `tss-autocomplete` / `tss-cascade` / `tss-calendar` / `tss-datetime` / `tss-time`。UMD 形（`export =` ＋ `export as namespace`）なので **module import でも `<script>` グローバルでも**型が効く。戻り値は `EditorDef` を満たし、静的メソッド（`TssCombo.codeOf` / `TssCascade.pathFormat`・`pathOf` / `TssDatetime.format`）や単体 `openAt` も型付け。`package.json` の `exports` に6プラグインの `types` エントリを追加（その他の `usePlugin`/`format` 系プラグインは従来どおり untyped＝必要なら5行のアンビエント宣言で補える。README 参照）。コア無改変。
+
 ## [0.1.12] - 2026-09-24
 
 ### 追加
