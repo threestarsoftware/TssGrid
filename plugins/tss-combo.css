@@ -1,0 +1,26 @@
+/* TssCombo — コード付きプルダウン＋その他自由入力（plugins/tss-combo.js）。色は --tg-accent を流用。 */
+.tg-combo {
+  position: fixed; z-index: 1000; min-width: 150px; max-height: 60vh; overflow: auto;
+  background: #fff; color: #1f2733; border: 1px solid #c4ccd6; border-radius: 8px;
+  box-shadow: 0 6px 22px rgba(20, 40, 80, .22);
+  font: 13px "Meiryo UI", "Segoe UI", sans-serif; padding: 4px; box-sizing: border-box;
+}
+.tg-combo .tg-combo-item {
+  padding: 5px 10px; border-radius: 5px; cursor: pointer; white-space: nowrap; outline: none;
+}
+.tg-combo .tg-combo-item:hover,
+.tg-combo .tg-combo-item.active { background: var(--tg-accent, #1573c0); color: #fff; }
+.tg-combo .tg-combo-other { font-style: italic; opacity: .95; }
+.tg-combo .tg-combo-sep { height: 1px; background: #e2e7ee; margin: 4px 6px; }
+/* その他モードの入力欄 */
+.tg-combo .tg-combo-inputwrap { padding: 4px; min-width: 180px; }
+.tg-combo .tg-combo-input {
+  width: 100%; box-sizing: border-box; padding: 5px 8px; font: inherit;
+  border: 1px solid #c4ccd6; border-radius: 5px; outline: none;
+}
+.tg-combo .tg-combo-input:focus { border-color: var(--tg-accent, #1573c0); }
+.tg-combo .tg-combo-actions { display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end; }
+.tg-combo .tg-combo-actions button {
+  padding: 3px 12px; font: inherit; cursor: pointer; border-radius: 5px; border: 1px solid #c4ccd6; background: #f5f7fa;
+}
+.tg-combo .tg-combo-actions .tg-combo-ok { background: var(--tg-accent, #1573c0); color: #fff; border-color: transparent; }

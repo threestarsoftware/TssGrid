@@ -647,6 +647,29 @@ columns: [
 - ↑↓で候補移動・Enter確定・Esc取消・クリック選択。`source`(配列 or 関数) / `strict`(候補のみ) / `minChars` / `max` / `match`(`includes`/`startsWith`/関数) / `openOnClick`。
 - カスタムエディタ契約（`editor.open/close`）に乗るだけ。見た目は `tss-ac-*` クラスと `--ac-*` 変数で。
 
+### 同梱プラグイン: コード付きプルダウン＋その他自由入力（tss-combo）
+
+`plugins/tss-combo.js`＝ 「**選択肢から選ぶ。ただし『その他』を選んだら自由入力**」を、業務側で**その他かどうかを分岐せず** **(コード, 値) のペア**で扱えるようにするエディタ。**コードはそのまま**（選んだ項目の code／その他は固定 code）、**値だけ**が「選択ラベル or 入力文字列」に変わる。動く例: [`examples/combo-other.html`](https://tssgrid.threestarsoftware.co.jp/examples/combo-other.html)（tss-combo の各パターン＋ autocomplete / 2セル方式の比較も）。
+
+```html
+<link rel="stylesheet" href="plugins/tss-combo.css">
+<script src="plugins/tss-combo.js"></script>
+```
+```js
+columns: [
+  { data: 'payCode', readOnly: true },                  // コード列（hidden 運用も可＝hiddenColumns:[…]）
+  { data: 'payName', editor: TssCombo({
+      options: [ { code:'01', label:'現金' }, { code:'02', label:'振込' } ],
+      other:     { code:'99', label:'その他' },          // 選ぶと入力欄に切替（省略で自由入力なし）
+      codeField: 'payCode',                              // コードの書き戻し先（data キー or 列 index）
+  }) },
+];
+// 通常項目 → (payCode, payName) = (その code, label)／その他 → ('99', 入力文字列)
+```
+- 値列にエディタを付け、`codeField` で**別のコード列へ code を書き戻す**（`setValueRaw`＝派生値・`readOnly` 列にも書ける）。`options` は `{code,label}` か文字列配列（code=label）。既存の「その他」値（選択肢に無い値）は開くと**入力欄に復元**。
+- undo/redo・貼付で code を値に追従させたい時は `TssCombo.codeOf({options, other})` を `onAfterChange` に噛ませる（任意）。
+- 見た目は `tg-combo*` クラス、色は `--tg-accent` を流用。`openOnClick` / `otherPlaceholder` / `icon` / `className`。
+
 ### 同梱プラグイン: セル内スパークライン（sparkline・ミニグラフ）
 
 `plugins/tss-sparkline.js`（**SVG自前描画**）＝ セルの数列を**ミニ折れ線/棒**で描く。`columns[c].html:true` ＋ `format`（format が返す SVG がセルに入る）seam に乗るだけ。Chart.js 等は積まない。動く例: [`examples/sparkline.html`](https://tssgrid.threestarsoftware.co.jp/examples/sparkline.html)（月次売上→動向グラフ・編集でライブ更新）。

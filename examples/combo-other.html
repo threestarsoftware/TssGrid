@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — プルダウン＋「その他」で自由入力（コードと値のペア）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-combo.css">
+<link rel="stylesheet" href="../plugins/tss-autocomplete.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 16px; margin-top: 30px; border-bottom: 2px solid #e2e7ee; padding-bottom: 4px; }
+  h3 { font-size: 14px; margin: 18px 0 6px; color: #1573c0; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 820px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  .tag { display:inline-block; font-size:11px; border-radius:9px; padding:0 7px; margin-left:6px; }
+  .tag-main { background:#e6f4ea; color:#1a7f37; } .tag-alt { background:#fff3d6; color:#8a6100; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12px; overflow: auto; max-width: 820px; }
+  .readout { font: 12px/1.5 "Consolas", monospace; background:#0b1020; color:#9fe; padding:8px 12px; border-radius:6px; margin-top:8px; max-width:560px; white-space:pre-wrap; }
+  .cols { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+  .col { min-width: 300px; }
+  .desc { font-size:12.5px; color:#555; margin:2px 0 8px; max-width:560px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: プルダウン＋「その他」で自由入力 <span class="pill">コードと値のペア</span></h1>
+
+<div class="note">
+「<b>選択肢から選ぶ。ただし『その他』を選んだら自由入力</b>」を、業務側で<b>その他かどうかを分岐せず</b>に扱えるようにする例。
+モデルは <b>(コード, 値)</b> のペア：<b>コードはそのまま</b>（選んだ項目の code、その他なら固定 code）／<b>値だけ</b>が「選択ラベル or 入力文字列」に変わる。
+<br>やり方は3通り。<b>C＝<code>tss-combo</code>（本命・1操作で code と値を両方書く）</b>／A＝<code>tss-autocomplete</code>（そもそも自由入力主体）／B＝2セル（<code>dropdown</code>＋詳細列を readonly 切替）。全部このページに載せています。
+</div>
+
+<h2>C. tss-combo <span class="tag tag-main">本命</span></h2>
+<div class="desc">値列にエディタを付け、<code>codeField</code> で別のコード列へ書き戻す。通常項目＝(code, label)／「その他」＝(その他code, 入力値)。<b>下の JSON がリアルタイムの (コード, 値) ペア。</b>編集して確かめてください。</div>
+
+<div class="cols">
+  <div class="col">
+    <h3>C-1 基本：コード列＋名称列を両方表示</h3>
+    <div class="desc">支払方法セル（▾）を編集。コード列は裏側で自動追従（ここでは見えるように表示）。「その他…」で自由入力に切替。</div>
+    <div id="gC1"></div>
+    <div class="readout" id="outC1"></div>
+  </div>
+  <div class="col">
+    <h3>C-2 コード列は隠して名称だけ見せる</h3>
+    <div class="desc"><code>hidden:true</code> でコード列を非表示にしても、データには code が入り続ける（下の JSON で確認）。</div>
+    <div id="gC2"></div>
+    <div class="readout" id="outC2"></div>
+  </div>
+</div>
+
+<div class="cols">
+  <div class="col">
+    <h3>C-3 「その他」なし＝素のコード選択</h3>
+    <div class="desc"><code>other</code> を省略すると自由入力は出ず、コード付きプルダウンとして機能（core の <code>options:{value,label}</code> と同義だが、コードを別列に書き戻せる）。</div>
+    <div id="gC3"></div>
+  </div>
+  <div class="col">
+    <h3>C-4 options を文字列配列で</h3>
+    <div class="desc"><code>options: ['A','B','C']</code> のように文字列でも可（code＝label）。その他あり。</div>
+    <div id="gC4"></div>
+  </div>
+</div>
+
+<h2>A. tss-autocomplete（自由入力主体） <span class="tag tag-alt">代替</span></h2>
+<div class="desc">「だいたい決まってるが新規もある」項目（取引先名など）向け。<code>strict:false</code> で候補から選んでも新規に打ってもOK。<b>「その他」項目は不要＝リストに無ければそのまま入力</b>。コードは持たない単一値。</div>
+<div id="gA"></div>
+
+<h2>B. 2セル：dropdown＋詳細列を readonly 切替 <span class="tag tag-alt">代替</span></h2>
+<div class="desc">種別で「その他」を選んだ行だけ、隣の「詳細」列を編集可能にする（<code>onAfterChange</code>＋<code>setCellReadOnly</code>）。<b>種別と自由入力を明確に別セルで持ちたい</b>時に。</div>
+<div id="gB"></div>
+
+<h2>差し込み（C の要点）</h2>
+<pre id="code"></pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-combo.js"></script>
+<script src="../plugins/tss-autocomplete.js"></script>
+<script>
+  const PAY = [
+    { code: '01', label: '現金' },
+    { code: '02', label: '振込' },
+    { code: '03', label: 'クレジット' },
+  ];
+
+  // 現在の (コード, 値) ペアを JSON で見せる（object モード＝getRows）
+  function readout(grid, el, codeKey, nameKey) {
+    const rows = grid.getRows().map(r => ({ code: r[codeKey], value: r[nameKey] }));
+    el.textContent = JSON.stringify(rows, null, 0).replace(/\},\{/g, '},\n {');
+  }
+
+  // ---- C-1 基本：コード列＋名称列を両方表示 ----
+  const gC1 = new TssGrid(document.getElementById('gC1'), {
+    name: 'c1', width: 360,
+    headers: ['日付', '支払コード', '支払方法'],
+    columns: [
+      { data: 'date' },
+      { data: 'payCode', readOnly: true },                         // コード列（エディタが書き戻す＝手編集不可）
+      { data: 'payName', editor: TssCombo({
+          options: PAY, other: { code: '99', label: 'その他' }, codeField: 'payCode',
+      }) },
+    ],
+    data: [
+      { date: '9/1', payCode: '01', payName: '現金' },
+      { date: '9/3', payCode: '99', payName: '商品券' },           // 既存の「その他」値＝開くと入力欄に復元
+      { date: '9/5', payCode: '', payName: '' },
+    ],
+    onAfterChange: () => readout(gC1, document.getElementById('outC1'), 'payCode', 'payName'),
+  });
+  readout(gC1, document.getElementById('outC1'), 'payCode', 'payName');
+
+  // ---- C-2 コード列は hidden ----
+  const gC2 = new TssGrid(document.getElementById('gC2'), {
+    name: 'c2', width: 300,
+    headers: ['日付', '支払コード', '支払方法'],
+    hiddenColumns: [1],                                            // ← コード列を非表示（データには code が入り続ける）
+    columns: [
+      { data: 'date' },
+      { data: 'payCode' },
+      { data: 'payName', editor: TssCombo({ options: PAY, other: { code: '99', label: 'その他' }, codeField: 'payCode' }) },
+    ],
+    data: [
+      { date: '9/1', payCode: '02', payName: '振込' },
+      { date: '9/2', payCode: '', payName: '' },
+    ],
+    onAfterChange: () => readout(gC2, document.getElementById('outC2'), 'payCode', 'payName'),
+  });
+  readout(gC2, document.getElementById('outC2'), 'payCode', 'payName');
+
+  // ---- C-3 その他なし（素のコード選択） ----
+  new TssGrid(document.getElementById('gC3'), {
+    name: 'c3', width: 300,
+    headers: ['区分コード', '区分'],
+    columns: [
+      { data: 'kbnCode', readOnly: true },
+      { data: 'kbn', editor: TssCombo({ options: PAY, codeField: 'kbnCode' }) },   // other 省略＝自由入力なし
+    ],
+    data: [{ kbnCode: '01', kbn: '現金' }, { kbnCode: '', kbn: '' }],
+  });
+
+  // ---- C-4 options を文字列配列で ----
+  new TssGrid(document.getElementById('gC4'), {
+    name: 'c4', width: 260,
+    headers: ['サイズコード', 'サイズ'],
+    columns: [
+      { data: 'szCode', readOnly: true },
+      { data: 'sz', editor: TssCombo({ options: ['S', 'M', 'L'], other: true, codeField: 'szCode' }) },  // code=label、その他=99
+    ],
+    data: [{ szCode: 'M', sz: 'M' }, { szCode: '', sz: '' }],
+  });
+
+  // ---- A. autocomplete（自由入力主体） ----
+  new TssGrid(document.getElementById('gA'), {
+    name: 'a', width: 360,
+    headers: ['取引先', '担当'],
+    columns: [
+      { data: 'client', editor: TssAutocomplete({ source: ['三星商事', '三星製作所', '星光物流', '北斗テック'], strict: false }) },
+      { data: 'staff' },
+    ],
+    data: [{ client: '三星商事', staff: '佐藤' }, { client: '（新規取引先も直接入力）', staff: '' }],
+  });
+
+  // ---- B. 2セル：dropdown＋詳細列を readonly 切替 ----
+  const TYPE = 0, DETAIL = 1;
+  const gB = new TssGrid(document.getElementById('gB'), {
+    name: 'b', width: 420,
+    headers: ['種別', '詳細（その他のとき入力）'],
+    columns: [
+      { type: 'dropdown', options: ['現金', '振込', 'その他'] },
+      {},
+    ],
+    data: [['現金', ''], ['その他', '商品券'], ['振込', '']],
+    onAfterChange: (chs) => {
+      chs.forEach(ch => {
+        if (ch.c !== TYPE) return;
+        const isOther = gB.getValue(ch.r, TYPE) === 'その他';
+        if (!isOther) gB.setValue(ch.r, DETAIL, '');           // ロック前にクリア（ロック後だと readOnly で弾かれる）
+        gB.setCellReadOnly(!isOther, { r0: ch.r, c0: DETAIL, r1: ch.r, c1: DETAIL });
+      });
+    },
+  });
+  // 初期の readonly 状態（種別≠その他の行の詳細をロック）
+  for (let r = 0; r < gB.ROWS; r++) {
+    const isOther = gB.getValue(r, TYPE) === 'その他';
+    gB.setCellReadOnly(!isOther, { r0: r, c0: DETAIL, r1: r, c1: DETAIL });
+  }
+
+  Object.assign(window, { gC1, gC2, gB });   // devtools で触れるように公開（例）
+
+  document.getElementById('code').textContent =
+    "columns: [\n" +
+    "  { data:'payCode', readOnly:true },                 // コード列（hidden:true でも可）\n" +
+    "  { data:'payName', editor: TssCombo({\n" +
+    "      options: [{code:'01',label:'現金'}, {code:'02',label:'振込'}],\n" +
+    "      other:     { code:'99', label:'その他' },       // 選ぶと入力欄に切替\n" +
+    "      codeField: 'payCode',                           // コードの書き戻し先\n" +
+    "  }) },\n" +
+    "]\n" +
+    "// → 通常項目: (payCode, payName) = (その項目の code, label)\n" +
+    "//   その他:   (payCode, payName) = ('99', 入力文字列)   ← 分岐不要で (コード,値) が揃う";
+</script>
+</body>
+</html>

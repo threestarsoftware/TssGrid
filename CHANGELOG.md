@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.12] - 2026-09-24
+
+### 追加
+- **コード付きプルダウン＋「その他」で自由入力 プラグイン `tss-combo`**（プラグイン・無依存・コア無改変）— 「**選択肢から選ぶ。ただし『その他』を選んだら自由入力**」を、業務側で**その他かどうかを分岐せず** **(コード, 値) のペア**で扱えるカスタムエディタ（`columns[c].editor` 契約に乗る）。**コードはそのまま**（選んだ項目の code／その他は固定 code）、**値だけ**が「選択ラベル or 入力文字列」に変わる。値列にエディタを付け `codeField` で**別のコード列へ code を書き戻す**（`setValueRaw`＝派生値・`readOnly` 列にも書ける）。`options` は `{code,label}` か文字列配列、`other` 省略で自由入力なし（素のコード選択）。既存の「その他」値（選択肢に無い値）は開くと**入力欄に復元**。undo/redo・貼付で code を追従させたい時用に `TssCombo.codeOf({options,other})` ヘルパ。動く例 `examples/combo-other.html`（tss-combo の各パターン＝コード+名称両表示/hidden/その他なし/文字列options ＋ autocomplete・2セル方式の比較も）。
+
 ## [0.1.11] - 2026-09-16
 
 ### 修正
