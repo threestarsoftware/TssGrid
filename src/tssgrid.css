@@ -203,6 +203,14 @@
 }
 .tssgrid .tg-table td.tg-readonly.tg-haspicker { padding-right: 6px; }   /* 読取専用は出さない */
 .tssgrid .tg-table td.tg-readonly.tg-haspicker::after { display: none; }
+/* editor.icon:'▾'（＝プルダウン相当のキャレット）はネイティブ dropdown と同じ SVG シェブロンで統一
+   （combo / autocomplete 等・文字グリフの三角ではなく tg-dropdown と揃った見た目に）。絵文字系(📅/🕐)は対象外。 */
+.tssgrid .tg-table td.tg-haspicker[data-ico="▾"] { padding-right: 18px; }
+.tssgrid .tg-table td.tg-haspicker[data-ico="▾"]::after {
+  content: ''; right: 5px; top: 50%; bottom: auto; transform: translateY(-50%);
+  display: block; width: 11px; height: 8px; font-size: 0;
+  background: url("data:image/svg+xml;charset=utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='8'><path d='M1.5 2.2l4 4 4-4' fill='none' stroke='%237d8a99' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat center / 11px 8px;
+}
 
 /* 固定列(frozen)は dropdown/haspicker/multiline でも sticky を維持する。
    これら型の position:relative は .tg-frozen と同じ詳細度(0,3,1)で後勝ち＝固定列の

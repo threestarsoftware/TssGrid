@@ -681,6 +681,7 @@ columns: [
 - 値列にエディタを付け、`codeField` で**別のコード列へ code を書き戻す**（`setValueRaw`＝派生値・`readOnly` 列にも書ける）。`options` は `{code,label}` か文字列配列（code=label）。既存の「その他」値（選択肢に無い値）は開くと**入力欄に復元**。
 - undo/redo・貼付で code を値に追従させたい時は `TssCombo.codeOf({options, other})` を `onAfterChange` に噛ませる（任意）。
 - 見た目は `tg-combo*` クラス、色は `--tg-accent` を流用。`openOnClick` / `otherPlaceholder` / `icon` / `className`。
+- **開いたリストの見た目はネイティブ `type:'dropdown'`（OS 描画の `<select>`）とはあえて別**（自前ポップアップ＝角丸・影・アクセント色＝「ここは『その他』入力もできる」合図）。**セル右の ▾ キャレットはネイティブ dropdown と統一済み**。リストを素の dropdown に寄せたい場合は `.tg-combo*` / `--tg-accent` を上書きすれば調整できます（※逆にネイティブ `<select>` のリストは OS 製で CSS 装飾不可）。
 
 ### 同梱プラグイン: セル内スパークライン（sparkline・ミニグラフ）
 

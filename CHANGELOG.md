@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.14] - 2026-09-29
+
+### 修正
+- **カスタムエディタの ▾ アイコンをネイティブ `type:'dropdown'` と同じ SVG キャレットに統一**（コア・CSS のみ・挙動不変）— `editor.icon:'▾'`（`tss-combo` / `tss-autocomplete` 等）は従来 `tg-haspicker` の**文字グリフ**で描かれ、`tg-dropdown` の**SVG シェブロン**と字形・余白（20px vs 18px）が食い違っていた。`data-ico="▾"` のときだけネイティブ dropdown と同一の SVG（11×8・`#7d8a99`・`padding-right:18px`）に差し替えて統一。絵文字系アイコン（`📅`/`🕐` 等）は対象外。※開いたリスト自体は、ネイティブ dropdown が OS 描画の `<select>`（CSS 装飾不可）・combo 等は自前ポップアップ（角丸/影/アクセント色）で、**見た目差はあえて残す**（「その他」入力を持つ合図・combo 側は `.tg-combo*`/`--tg-accent` で調整可）。
+
 ## [0.1.13] - 2026-09-24
 
 ### 追加
