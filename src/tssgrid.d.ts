@@ -206,6 +206,14 @@ export interface TssGridOptions {
   allowInsertCols?: boolean;
   allowDeleteCols?: boolean;
   shortcuts?: any[];
+  /** 組込ショートカット Ctrl+;（今日）/ Ctrl+:（現在時刻）を有効化（既定 true）。 */
+  dateShortcuts?: boolean;
+  /** 組込ショートカット Ctrl+D（上をコピー=fill down）/ Ctrl+R（左をコピー=fill right）を有効化（既定 true）。 */
+  fillShortcuts?: boolean;
+  /** Ctrl+; が「date 型でない列」に入れる日付形式（既定 'YYYY-MM-DD'）。トークン YYYY/MM/DD、または (d:Date)=>string。date 列は列の仕組み（ISO 保存＋列 format 表示）に従う。 */
+  todayFormat?: string | ((d: Date) => string);
+  /** Ctrl+: が「time 型でない列」に入れる時刻形式（既定 'HH:MM'）。トークン HH/mm、または (d:Date)=>string。time 列は 'HH:MM' 保存。 */
+  nowFormat?: string | ((d: Date) => string);
   /** プラグイン（関数 or 登録名）。init(grid) で初期化。 */
   plugins?: any[];
 

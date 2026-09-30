@@ -281,6 +281,13 @@
       this._merges = null;          // セル結合（横）: [{r,c,colspan}] or null。null=結合なし＝全経路ゼロコスト
       this._listeners = [];         // destroy() 用に登録した document/window リスナを記録
       this._destroyed = false;
+      // Excel 入力ショートカット（組込・既定 ON・opt-out 可・未バインドキーなので追加的）。
+      this.dateShortcuts = opts.dateShortcuts !== false;   // Ctrl+;=今日の日付 / Ctrl+:=現在時刻（文字で判定＝JIS の Ctrl+: も US の Ctrl+Shift+; も拾う）
+      this.fillShortcuts = opts.fillShortcuts !== false;   // Ctrl+D=上のセルをコピー(fill down) / Ctrl+R=左のセルをコピー(fill right)
+      // Ctrl+; / Ctrl+: が「テキスト等（date/time 型でない）」列に入れる形式（文字列トークン YYYY/MM/DD・HH/mm、または関数）。
+      // date/time 型の列はこの設定に関係なく列の仕組み（ISO 保存＋列 format 表示）に従う。
+      this.todayFormat = opts.todayFormat || 'YYYY-MM-DD';
+      this.nowFormat = opts.nowFormat || 'HH:MM';
       (opts.shortcuts || []).forEach(s => this.addShortcut(s));
 
       this._padToMin();        // minRows/minCols まで空行・空列を補う
@@ -2290,6 +2297,45 @@
       else { const { r0, r1, c0, c1 } = this.rectRange(); for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) this.setCell(r, c, '', changes); }
       this.pushCmd(changes, before, this.snapSel(), 'delete');
     }
+    // フォーマット文字列 or 関数で日時を成形。トークン: YYYY/MM/DD（日付）・HH/mm（時刻）。
+    _fmtDateTime(d, spec, isTime) {
+      if (typeof spec === 'function') { try { return String(spec(d)); } catch (_) { return ''; } }
+      const p2 = n => String(n).padStart(2, '0');
+      const map = isTime ? { HH: p2(d.getHours()), mm: p2(d.getMinutes()) }
+                         : { YYYY: String(d.getFullYear()), MM: p2(d.getMonth() + 1), DD: p2(d.getDate()) };
+      return String(spec).replace(/YYYY|MM|DD|HH|mm/g, t => (map[t] != null ? map[t] : t));
+    }
+    // Excel の Ctrl+; / Ctrl+: 相当。date/time 列は ISO ストレージ（表示は列 format）に従い、
+    // テキスト等の列は todayFormat / nowFormat（既定 'YYYY-MM-DD' / 'HH:MM'）で成形。検証/Undo を通る setValue。
+    _insertDateTime(isTime) {
+      const r = this.active.r, c = this.active.c;
+      if (this._isReadOnly(r, c)) return;
+      const d = new Date(), p2 = n => String(n).padStart(2, '0');
+      let val;
+      if (isTime) {
+        val = this.colType(c) === 'time' ? (p2(d.getHours()) + ':' + p2(d.getMinutes()))   // time 列は保存形式 HH:MM
+                                         : this._fmtDateTime(d, this.nowFormat, true);
+      } else {
+        val = this.colType(c) === 'date' ? (d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()))   // date 列は ISO 保存（表示は列 format）
+                                         : this._fmtDateTime(d, this.todayFormat, false);
+      }
+      this.setValue(r, c, val);
+    }
+    // Excel の Ctrl+D / Ctrl+R 相当。選択範囲を先頭行/左端列の値で埋める（単一セルなら上/左のセルをコピー）。readOnly はスキップ・1 undo。
+    _fillFrom(dir) {
+      const { r0, r1, c0, c1 } = this.rectRange();
+      const single = (r0 === r1 && c0 === c1);
+      const before = this.snapSel(), changes = [];
+      const put = (r, c, v) => { if (!this._isReadOnly(r, c)) this.setCell(r, c, v, changes); };
+      if (dir === 'down') {
+        if (single) { if (r0 > 0) put(r0, c0, this.data[r0 - 1][c0]); }
+        else { for (let c = c0; c <= c1; c++) { const v = this.data[r0][c]; for (let r = r0 + 1; r <= r1; r++) put(r, c, v); } }
+      } else {
+        if (single) { if (c0 > 0) put(r0, c0, this.data[r0][c0 - 1]); }
+        else { for (let r = r0; r <= r1; r++) { const v = this.data[r][c0]; for (let c = c0 + 1; c <= c1; c++) put(r, c, v); } }
+      }
+      if (changes.length) this.pushCmd(changes, before, this.snapSel(), 'edit');
+    }
 
     // ---- 行/列の挿入・削除（構造変更。Undo に1コマンドで積む） ----
     // 並列配列（columns/colW は疎なことがある）を現在の COLS/ROWS 長に揃えてから splice する。
@@ -3289,6 +3335,9 @@
       if (ctrl && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); this.history.redo(); return; }
       if (ctrl && e.key.toLowerCase() === 'c') { e.preventDefault(); this.copy(false); return; }
       if (ctrl && e.key.toLowerCase() === 'x') { e.preventDefault(); this.copy(true); return; }
+      // Excel 入力ショートカット（未バインドキー＝追加的）。文字で判定＝JIS(Ctrl+:) も US(Ctrl+Shift+;) も拾う。
+      if (this.dateShortcuts && ctrl && (e.key === ';' || e.key === ':')) { e.preventDefault(); this._insertDateTime(e.key === ':'); return; }
+      if (this.fillShortcuts && ctrl && !e.shiftKey && (e.key.toLowerCase() === 'd' || e.key.toLowerCase() === 'r')) { e.preventDefault(); this._fillFrom(e.key.toLowerCase() === 'd' ? 'down' : 'right'); return; }
       // Ctrl+V は keydown で拾わず native paste イベントへ委譲（editor の paste リスナが処理）。
       // ここで preventDefault すると paste イベント自体を止めかねないため分岐を置かない。
       if (e.shiftKey && e.key.startsWith('Arrow')) {

@@ -3,6 +3,15 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.15] - 2026-09-30
+
+### 追加
+- **Excel 入力ショートカットを組込**（コア・既定 ON・opt-out 可・すべて未バインドキー＝追加的）— 業務入力でよく使うキーを最初から用意。**`Ctrl+;`＝今日の日付** / **`Ctrl+:`＝現在時刻** / **`Ctrl+D`＝上のセルをコピー（fill down）** / **`Ctrl+R`＝左のセルをコピー（fill right）**。`Ctrl+;`/`Ctrl+:` は**打鍵結果の文字で判定**するので **JIS の `:` 専用キーも US の `Ctrl+Shift+;` も両対応**。fill は範囲選択で一括（単一セルは上/左をコピー）、`setValue`／検証を通り **Undo 1回**・`readOnly` スキップ・**列の型に合わない値は貼付同様に弾く**。無効化は `dateShortcuts:false` / `fillShortcuts:false`（`addShortcut` で同キー登録すればそちらが優先）。
+- **`todayFormat` / `nowFormat`**（コア）— `Ctrl+;` / `Ctrl+:` が**テキスト等（date/time 型でない）列**に入れる日付/時刻の形式を選べる（既定 `'YYYY-MM-DD'` / `'HH:MM'`）。文字列トークン（`YYYY`/`MM`/`DD`・`HH`/`mm`）か `(d: Date) => string`。例 `todayFormat:'YYYY/MM/DD'`。**`date`/`time` 型の列は従来どおり列の仕組み（ISO 保存＋列 `format` 表示）に従う**（この設定に非依存）。
+
+### 変更
+- README のカスタムショートカット例を `Ctrl+D`→`Alt+D` に変更（組込 `Ctrl+D`=fill down と紛れないように・機能変更なし）。
+
 ## [0.1.14] - 2026-09-29
 
 ### 修正

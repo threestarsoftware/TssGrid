@@ -392,7 +392,7 @@ shared.getMaster();                         // マスタ全行（getRows 形式�
 ```js
 new TssGrid(el, {
   shortcuts: [
-    { keys: 'Ctrl+D', name: 'dup', context: 'grid', handler: (e, { grid }) => grid.insertRow(grid.active.r, 'below') },
+    { keys: 'Alt+D', name: 'dup', context: 'grid', handler: (e, { grid }) => grid.insertRow(grid.active.r, 'below') },
     { keys: ['Ctrl+S', 'Ctrl+Shift+S'], handler: () => save() },   // 複数キー可
   ],
 });
@@ -401,6 +401,19 @@ grid.removeShortcut('dup');
 ```
 - マッチすると既定動作を抑止します（`handler` が `true` を返すと既定も続行）。`cmd`/`meta` は `Ctrl` 扱い。
 - 全キーをまとめて捌きたいなら **`onBeforeKeyDown(e)`**（`false` / `preventDefault()` でグリッド既定を止める）。
+
+**組込ショートカット（Excel 互換・既定 ON）**: 業務入力でよく使うキーを最初から用意（すべて未バインドキー＝追加的）。
+
+| キー | 動作 | 備考 |
+|---|---|---|
+| `Ctrl+;` | **今日の日付**（`YYYY-MM-DD`）をセルへ | `date` 列にそのまま入る |
+| `Ctrl+:` | **現在時刻**（`HH:MM`）をセルへ | **JIS の `:` 専用キーも US の `Ctrl+Shift+;` も両対応**（打鍵結果の文字で判定） |
+| `Ctrl+D` | **上のセルをコピー**（fill down）| 範囲選択なら先頭行を下へ一括 |
+| `Ctrl+R` | **左のセルをコピー**（fill right）| 範囲選択なら左端列を右へ一括 |
+
+- いずれも `setValue`／検証を通り **Undo 1回**で戻せます（fill は**列の型に合わない値は貼り付けと同様に弾かれます**）。`readOnly` セルはスキップ。
+- 無効化: `dateShortcuts: false`（`Ctrl+;`/`Ctrl+:`）・`fillShortcuts: false`（`Ctrl+D`/`Ctrl+R`）。独自に `addShortcut` で同じキーを登録すれば**そちらが優先**されます。
+- **入れる形式**: `date`/`time` 型の列は**列の仕組みに従う**（ISO 保存＝`YYYY-MM-DD`/`HH:MM`、見た目は列の `format` で `/` でも自由）。**それ以外（テキスト等）の列は** `todayFormat` / `nowFormat` で形式を選べます（既定 `'YYYY-MM-DD'` / `'HH:MM'`。トークン `YYYY`/`MM`/`DD`・`HH`/`mm`、または `(d: Date) => string`）。例: `todayFormat: 'YYYY/MM/DD'`（スラッシュ区切り）。
 
 **プラグイン**（軽量 base-plugin 相当。`init(grid)→{destroy?}` の薄い契約）:
 
@@ -935,6 +948,10 @@ new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
 | `onHeaderRender` | `(th, c)=>void` | — | 各列ヘッダ `th` の生成後に呼ぶ（**再描画毎に自動で再実行**）。ソートアイコン等の要素差し込み用 → 動く例: [`examples/multisort.html`](https://tssgrid.threestarsoftware.co.jp/examples/multisort.html) |
 | `disjointSelect` | `boolean` | `true` | Ctrl+ヘッダで**行/列を飛び飛びに複数選択**（`false` で Ctrl+クリックは単一選択に戻る）。`getSelectedColumns()`/`getSelectedRows()`・飛び飛びコピー/カットと連動 |
 | `shortcuts` | `Array` | `[]` | カスタムショートカット（→ [ショートカット / プラグイン](#ショートカット--プラグイン--破棄)） |
+| `dateShortcuts` | `boolean` | `true` | 組込 `Ctrl+;`=今日 / `Ctrl+:`=現在時刻（`false` で無効） |
+| `fillShortcuts` | `boolean` | `true` | 組込 `Ctrl+D`=上をコピー / `Ctrl+R`=左をコピー（`false` で無効） |
+| `todayFormat` | `string \| (d:Date)=>string` | `'YYYY-MM-DD'` | `Ctrl+;` が**テキスト等の列**に入れる日付形式（トークン `YYYY`/`MM`/`DD`）。`date` 列は列準拠 |
+| `nowFormat` | `string \| (d:Date)=>string` | `'HH:MM'` | `Ctrl+:` が**テキスト等の列**に入れる時刻形式（トークン `HH`/`mm`）。`time` 列は列準拠 |
 | `plugins` | `Array` | `[]` | プラグイン（関数 or 登録名）。`init(grid)` で初期化 |
 | `onPasteOverflow` | `(info)=>void` | — | `pasteOverflow:'error'` で超過時。`info = { anchor:{r,c}, height, width, rows, cols, overRows, overCols }` |
 

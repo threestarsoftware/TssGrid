@@ -87,7 +87,7 @@
 <h1>API リファレンス</h1>
 <p class="lead">公開API（オプション・イベント・メソッド）の一覧。<b><code>src/tssgrid.d.ts</code> を正本に自動生成</b>しています。使い方・サンプルは <a href="docs.html">ドキュメント（ガイド）</a> をどうぞ。</p>
 <h2 id="options">グリッド オプション</h2>
-<p>70 項目（<code>new TssGrid(el, options)</code>）。</p>
+<p>74 項目（<code>new TssGrid(el, options)</code>）。</p>
 <table>
 <thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
 <tbody>
@@ -169,6 +169,10 @@ true にすると autocomplete='new-password' に切り替えて確実に止め�
 <tr><td><code>allowInsertCols</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>allowDeleteCols</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>shortcuts</code></td><td><code class="ty">any[]</code></td><td></td></tr>
+<tr><td><code>dateShortcuts</code></td><td><code class="ty">boolean</code></td><td>組込ショートカット Ctrl+;（今日）/ Ctrl+:（現在時刻）を有効化（既定 true）。</td></tr>
+<tr><td><code>fillShortcuts</code></td><td><code class="ty">boolean</code></td><td>組込ショートカット Ctrl+D（上をコピー=fill down）/ Ctrl+R（左をコピー=fill right）を有効化（既定 true）。</td></tr>
+<tr><td><code>todayFormat</code></td><td><code class="ty">string | ((d: Date) =&gt; string)</code></td><td>Ctrl+; が「date 型でない列」に入れる日付形式（既定 'YYYY-MM-DD'）。トークン YYYY/MM/DD、または (d:Date)=&gt;string。date 列は列の仕組み（ISO 保存＋列 format 表示）に従う。</td></tr>
+<tr><td><code>nowFormat</code></td><td><code class="ty">string | ((d: Date) =&gt; string)</code></td><td>Ctrl+: が「time 型でない列」に入れる時刻形式（既定 'HH:MM'）。トークン HH/mm、または (d:Date)=&gt;string。time 列は 'HH:MM' 保存。</td></tr>
 <tr><td><code>plugins</code></td><td><code class="ty">any[]</code></td><td>プラグイン（関数 or 登録名）。init(grid) で初期化。</td></tr>
 </tbody>
 </table>
