@@ -3011,6 +3011,18 @@
         if (e.key === 'Enter') { e.preventDefault(); this._commitSelect(); this._advance('enter', e.shiftKey); }
         else if (e.key === 'Tab') { e.preventDefault(); this._commitSelect(); this._advance('tab', e.shiftKey); }
         else if (e.key === 'Escape') { e.preventDefault(); this._cancelSelect(); }
+        else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          // ←→↑↓ はネイティブ <select> の「オプション変更」を止め、現在値を確定して隣セルへ移動（Excel 流の nav）。
+          // これが無いと、未選択(空)のまま矢印を押すと select が選択肢を 空→先頭 に変え change が即確定＝「矢印で先頭が選ばれる」不具合になる。
+          // リストが開いている時は OS ポップアップがキーを奪いこのハンドラは発火しない＝閉じて focus だけ残った時の誤爆のみ防ぐ。
+          e.preventDefault();
+          this._commitSelect();
+          const r = this.active.r, c = this.active.c;
+          if (e.key === 'ArrowUp') this.setActive(this._stepRowM(r, c, -1), c);
+          else if (e.key === 'ArrowDown') this.setActive(this._stepRowM(r, c, 1), c);
+          else if (e.key === 'ArrowLeft') this.setActive(r, this._stepColM(r, c, -1));
+          else this.setActive(r, this._stepColM(r, c, 1));
+        }
       });
       this.select.addEventListener('blur', () => { if (this.mode === 'edit' && this.select.style.display !== 'none') this._commitSelect(); });
       // 選択肢を選んだら即確定（移動はしない＝Excel と同様にそのセルに留まる）。
