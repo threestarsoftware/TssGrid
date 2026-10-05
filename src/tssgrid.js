@@ -1368,10 +1368,13 @@
         if (this._isHidden(c)) cls.push('tg-hidden');
         const a = cls.length ? ' class="' + cls.join(' ') + '"' : '';
         const grip = (this.resizeCols && this.colCfg(c).resizable !== false) ? '<div class="tg-colgrip"></div>' : '';
-        const headCb = (this.colType(c) === 'checkbox' && this.colCfg(c).headerCheckbox !== false) ? '<input type="checkbox" class="tg-cb tg-head-cb" tabindex="-1">' : '';
         let lbl = labels ? labels[c] : this.headers[c];
         if (lbl && typeof lbl === 'object') lbl = lbl.label != null ? lbl.label : '';
-        html += '<th data-c="' + c + '"' + a + '>' + headCb + TssGrid.esc(lbl != null ? lbl : '') + grip + '</th>';
+        const lblStr = lbl != null ? String(lbl) : '';
+        // 見出しチェック: 見出し文字が無い（単独）なら中央寄せ＝本体セルの中央チェックと揃える。文字がある時だけ右 4px で間隔。
+        const headCb = (this.colType(c) === 'checkbox' && this.colCfg(c).headerCheckbox !== false)
+          ? '<input type="checkbox" class="tg-cb tg-head-cb' + (lblStr === '' ? ' tg-head-cb-solo' : '') + '" tabindex="-1">' : '';
+        html += '<th data-c="' + c + '"' + a + '>' + headCb + TssGrid.esc(lblStr) + grip + '</th>';
       }
       if (delHdr) html += '<th class="tg-rowdel-hdr"></th>';   // 右端削除列の見出し（無地・非データ）。ネストヘッダ時は角を rowspan で出すのでここでは出さない
       return html + '</tr>';

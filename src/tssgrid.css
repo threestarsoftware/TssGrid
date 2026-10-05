@@ -186,6 +186,8 @@
 .tssgrid .tg-table td .tg-cb { display: block; margin: 0 auto; cursor: pointer; }
 /* ヘッダの全選択チェックボックス（columns[c].headerCheckbox:false で非表示）。外部CSSで再デザイン可 */
 .tssgrid .tg-table thead th .tg-head-cb { display: inline-block; margin: 0 4px 0 0; vertical-align: middle; cursor: pointer; }
+/* 見出し文字が無い（単独）＝本体セルと同じく中央寄せ（右 4px を打ち消して列中央でチェックが縦に揃う） */
+.tssgrid .tg-table thead th .tg-head-cb.tg-head-cb-solo { display: block; margin: 0 auto; }
 
 /* ドロップダウン列: V（シェブロン）キャレットを常時表示。編集中の <select> と同じ SVG＝サイズも一致 */
 .tssgrid .tg-table td.tg-dropdown { position: relative; padding-right: 18px; cursor: pointer; }
