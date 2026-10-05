@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.17] - 2026-10-05
+
+### 修正
+- **チェックボックス列のヘッダに `data` 名（'checked' 等）が出てしまう不具合を修正**（コア）— `{ type:'checkbox', data:'checked' }` のように **`title` を書かない**と、見出し決定ロジックが「title 未設定 → `data` 名」に落ちてヘッダに「checked」が表示されていた。checkbox 列のヘッダは「**全選択チェックボックス**」なので data 名が出るのはほぼ常に不要。**checkbox 列は title 未設定でもヘッダを空**にするよう修正（`title` を明示すればそれを尊重／`title:''` も従来どおり空）。**非 checkbox 列は従来どおり**（title 未設定なら data 名→列ラベル）。
+
 ## [0.1.16] - 2026-10-04
 
 ### 修正

@@ -61,8 +61,15 @@
       this.name = opts.name || 'grid';
       this.columns = opts.columns || [];
       // 見出し: 明示 headers > columns の title/data 由来 > 既定 A,B,C
+      // 見出しの決定: 明示 title（'' 含む）を最優先で尊重。checkbox 列は「ヘッダ＝全選択チェック」なので
+      // title 未設定でも data 名（'checked' 等）を出さない（空）。それ以外は title 未設定なら data 名→無ければ列ラベル。
       this.headers = opts.headers || (this.columns.length
-        ? this.columns.map((c, i) => (c && (c.title || c.data)) || TssGrid._colLabel(i))
+        ? this.columns.map((c, i) => {
+            if (!c) return undefined;                            // 列定義なし＝従来どおり（空表示）
+            if (c.title != null) return c.title;                 // 明示 title（'' で見出し無し）を尊重
+            if (c.type === 'checkbox') return '';                // checkbox は data 名を見出しに出さない
+            return c.data || TssGrid._colLabel(i);               // 従来: title 未設定は data 名 → 無ければ列ラベル
+          })
         : ['A', 'B', 'C']);
       this.COLS = this.headers.length;
       // データ取り込み: 配列(string[][]) と オブジェクト配列(object[]) を自動判別。
