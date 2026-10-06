@@ -413,6 +413,7 @@ grid.removeShortcut('dup');
 
 - いずれも `setValue`／検証を通り **Undo 1回**で戻せます（fill は**列の型に合わない値は貼り付けと同様に弾かれます**）。`readOnly` セルはスキップ。
 - 無効化: `dateShortcuts: false`（`Ctrl+;`/`Ctrl+:`）・`fillShortcuts: false`（`Ctrl+D`/`Ctrl+R`）。独自に `addShortcut` で同じキーを登録すれば**そちらが優先**されます。
+- `Ctrl+;`/`Ctrl+:` は **date/time/カレンダー等のピッカーを開いている編集中でも効きます**（ピッカーを閉じて今日/現在時刻を挿入。これによりキーがブラウザ既定に素通りするのも防止）。テキスト（自由入力）編集中は横取りしません。**JIS で時刻は `Ctrl+:`**（`:` 専用キー）を使ってください（`Ctrl+Shift+;` は JIS では `+` ＝ブラウザ拡大になります）。
 - **入れる形式**: `date`/`time` 型の列は**列の仕組みに従う**（ISO 保存＝`YYYY-MM-DD`/`HH:MM`、見た目は列の `format` で `/` でも自由）。**それ以外（テキスト等）の列は** `todayFormat` / `nowFormat` で形式を選べます（既定 `'YYYY-MM-DD'` / `'HH:MM'`。トークン `YYYY`/`MM`/`DD`・`HH`/`mm`、または `(d: Date) => string`）。例: `todayFormat: 'YYYY/MM/DD'`（スラッシュ区切り）。
 
 **プラグイン**（軽量 base-plugin 相当。`init(grid)→{destroy?}` の薄い契約）:

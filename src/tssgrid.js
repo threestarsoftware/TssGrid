@@ -3343,6 +3343,18 @@
         // input ベース編集では「打ち始め」時に元値が input に入らないためネイティブ undo では元値に戻せない。
         // ここで元値（this.data[r][c]＝未確定）に戻す＝Excel流。続けて Ctrl+Z すると nav の history.undo で前の確定操作へ連鎖。
         const ctrl = e.ctrlKey || e.metaKey;
+        // 日付/時刻ショートカットはカレンダー等（date/time/カスタムエディタ）の編集中でも効かせる。
+        // これが無いと編集モードでは素通りして「ブラウザ既定」（環境により拡大など）に抜ける。
+        // テキスト（自由入力）編集中は対象外＝打鍵・IME を壊さない。
+        if (this.dateShortcuts && ctrl && (e.key === ';' || e.key === ':')) {
+          const t = this.colType(this.active.c);
+          if (this.colCfg(this.active.c).editor || t === 'date' || t === 'time') {
+            e.preventDefault();
+            this.toNav();                          // 開いているピッカー/inline エディタを閉じる
+            this._insertDateTime(e.key === ':');   // 今日/現在時刻を挿入（検証/Undo を通る）
+            return;
+          }
+        }
         if (e.key === 'Escape' || (ctrl && !e.shiftKey && e.key.toLowerCase() === 'z')) {
           e.preventDefault();
           const r = this.active.r, c = this.active.c, v = this.data[r][c];
