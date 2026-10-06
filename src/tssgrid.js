@@ -1611,7 +1611,9 @@
     _columnCheckState(c) {
       let checked = 0, total = 0;
       for (let r = 0; r < this.ROWS; r++) {
-        if (this._rowBlankExcept(r, c)) continue;
+        // 全選択は readOnly をスキップする（setColumnChecked と同じ）ので、状態判定も「操作できる行」だけで数える。
+        // これを入れないと「選べる行は全部 ON なのに、押せない行のせいで − 表示」になる。
+        if (this._rowBlankExcept(r, c) || this._isReadOnly(r, c)) continue;
         total++; if (this._isCheckedVal(c, this.data[r][c])) checked++;
       }
       return total === 0 ? 'none' : (checked === total ? 'all' : (checked === 0 ? 'none' : 'some'));
@@ -2642,8 +2644,8 @@
         case 'cut': return { label: '切り取り', disabled: !this.copyPaste, act: () => this.copy(true) };
         case 'paste': return { label: '貼り付け', disabled: !this.copyPaste, act: () => this.paste() };
         case 'clear': return { label: '内容をクリア', act: () => this.clearRange() };
-        case 'check_column': return this.colType(s.c0) === 'checkbox' ? { label: 'すべてチェック', act: () => this.setColumnChecked(s.c0, true) } : null;
-        case 'uncheck_column': return this.colType(s.c0) === 'checkbox' ? { label: 'すべて外す', act: () => this.setColumnChecked(s.c0, false) } : null;
+        case 'check_column': return (this.colType(s.c0) === 'checkbox' && !this._columnAllReadOnly(s.c0)) ? { label: 'すべてチェック', act: () => this.setColumnChecked(s.c0, true) } : null;   // 全 read-only 列は no-op なので出さない（ヘッダ無効と整合）
+        case 'uncheck_column': return (this.colType(s.c0) === 'checkbox' && !this._columnAllReadOnly(s.c0)) ? { label: 'すべて外す', act: () => this.setColumnChecked(s.c0, false) } : null;
         case 'undo': return { label: '元に戻す', disabled: !this.history.canUndo(), act: () => this.history.undo() };
         case 'redo': return { label: 'やり直し', disabled: !this.history.canRedo(), act: () => this.history.redo() };
         default: return /^-+$/.test(key) || key === 'separator' ? { sep: true } : null;
