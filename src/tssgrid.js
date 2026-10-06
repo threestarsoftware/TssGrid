@@ -1616,6 +1616,15 @@
       }
       return total === 0 ? 'none' : (checked === total ? 'all' : (checked === 0 ? 'none' : 'some'));
     }
+    // 非空セルが1つ以上あり、その全部が readOnly ＝ 全選択で操作できるセルが無い（＝ヘッダは無効化）。
+    _columnAllReadOnly(c) {
+      let nonBlank = 0, togglable = 0;
+      for (let r = 0; r < this.ROWS; r++) {
+        if (this._rowBlankExcept(r, c)) continue;
+        nonBlank++; if (!this._isReadOnly(r, c)) togglable++;
+      }
+      return nonBlank > 0 && togglable === 0;
+    }
     // ヘッダの全選択チェックボックスの見た目を現在の列状態に同期（some は indeterminate）。
     _syncHeaderCheckboxes() {
       if (!this.colHeaders) return;
@@ -1623,8 +1632,12 @@
         if (this.colType(c) !== 'checkbox' || this.colCfg(c).headerCheckbox === false) continue;
         const cb = this.table.querySelector('thead th[data-c="' + c + '"] .tg-head-cb');
         if (!cb) continue;
-        const st = this._columnCheckState(c);
-        cb.checked = st === 'all'; cb.indeterminate = st === 'some';
+        if (this._columnAllReadOnly(c)) {   // 全 readOnly＝操作不可。安定して「− かつ無効（押せない）」に
+          cb.disabled = true; cb.checked = false; cb.indeterminate = true;
+        } else {
+          const st = this._columnCheckState(c);
+          cb.disabled = false; cb.checked = st === 'all'; cb.indeterminate = st === 'some';
+        }
       }
     }
     // 列 c の checkbox を全 ON/OFF（readOnly はスキップ）。1コマンドで履歴に積む＝Undo 一発。
@@ -1639,6 +1652,7 @@
     // ヘッダのチェックボックスクリック: 全 ON or 全 OFF をトグル（全部 ON なら OFF、それ以外は ON）。
     _toggleColumnAll(c) {
       if (this.colType(c) !== 'checkbox') return;
+      if (this._columnAllReadOnly(c)) return;   // 全 readOnly＝ヘッダは無効（押しても何もしない）
       this.setColumnChecked(c, this._columnCheckState(c) !== 'all');
     }
     // 列ストレッチ: 余白を埋めるよう col 幅を伸ばす（枠に幅制約がある時だけ効く）。colW は変えない。
