@@ -489,6 +489,13 @@ export declare class TssGrid {
   /** 遅延ロード: 未取得行を表す sentinel。setRowCount が未取得ぶんを data[r] に入れ、fillRows で実データへ差し替える。 */
   static readonly PENDING: unique symbol;
 
+  /** 全角→半角（数字・符号・小数点・カンマ・%・¥・空白＋日付/時刻の区切り ／：）。IME 誤入力対策のユーティリティ。
+   *  number/date/time の組込 parse で使うほか、カスタム `parse`/`format` から `TssGrid.zen2han(v)` として呼べる。 */
+  static zen2han(s: string): string;
+
+  /** HTML エスケープ（`&` `<` `>`）。`format` で HTML を組む時などに。 */
+  static esc(s: any): string;
+
   [k: string]: any;
 }
 

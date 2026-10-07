@@ -961,7 +961,7 @@
     static _colLabel(n) { let s = ''; n = n | 0; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0); return s; }
     // 入力文字列 → 'yyyy-mm-dd'（不正は null）。yyyymmdd / yyyy-mm-dd / yyyy/mm/dd / yyyy.mm.dd を許容。
     static _parseDate(s) {
-      s = TssGrid._zen2han(String(s).trim());   // IME ON の全角（２０２６／０１／０１ 等）も半角化して受理
+      s = TssGrid.zen2han(String(s).trim());   // IME ON の全角（２０２６／０１／０１ 等）も半角化して受理
       if (s === '') return null;
       let y, m, d;
       const sep = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(s);
@@ -974,7 +974,7 @@
     // 入力文字列 → 24時間制 'HH:MM' / 'HH:MM:SS'（不正は null）。24h と 12h(AM/PM) の両方を受理。
     static _parseTime(s) {
       // IME ON の全角（９：３０ 等）も半角化して受理
-      const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][.]?[Mm][.]?)?$/.exec(TssGrid._zen2han(String(s).trim()));
+      const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][.]?[Mm][.]?)?$/.exec(TssGrid.zen2han(String(s).trim()));
       if (!m) return null;
       let h = +m[1]; const mi = +m[2], se = m[3] == null ? null : +m[3];
       const ap = m[4] ? m[4][0].toLowerCase() : null;  // 'a' | 'p' | null
@@ -991,9 +991,10 @@
       return h + ':' + m[2] + (m[3] != null ? ':' + m[3] : '') + ' ' + ap;
     }
     // CellFormat: 入力(グルーピング/前後綴り混じり) → 正規化した数値文字列（保存値）。不正は null。
-    // 全角→半角（数値・日付・時刻文脈）。数字・符号・小数点・カンマ・%・¥・空白＋日付/時刻の区切り（／：）を半角化。
+    // 全角→半角（公開 static ユーティリティ）。数字・符号・小数点・カンマ・%・¥・空白＋日付/時刻の区切り（／：）を半角化。
     // 業務フォームの IME 誤入力対策（IME ON のまま「２０２６／０１／０１」「９：３０」等を打っても弾かず半角で受理）。
-    static _zen2han(s) {
+    // 内部（number/date/time の parse）で使うほか、カスタム parse/format から TssGrid.zen2han(v) として呼べる。
+    static zen2han(s) {
       return String(s)
         .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
         .replace(/＋/g, '+').replace(/[－−ー―]/g, '-')
@@ -1003,7 +1004,7 @@
     }
     static _parseNumber(v, cfg) {
       let s = String(v).trim();
-      if (cfg.zenkaku !== false) s = TssGrid._zen2han(s);   // 既定で全角→半角（cfg.zenkaku:false で無効化）
+      if (cfg.zenkaku !== false) s = TssGrid.zen2han(s);   // 既定で全角→半角（cfg.zenkaku:false で無効化）
       if (cfg.prefix) s = s.split(cfg.prefix).join('');
       if (cfg.suffix) s = s.split(cfg.suffix).join('');
       s = s.replace(/,/g, '').replace(/\s/g, '');

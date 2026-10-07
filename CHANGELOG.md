@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.23] - 2026-10-08
+
+### 追加
+- **`TssGrid.zen2han(s)` / `TssGrid.esc(s)` を公開 static として型定義（`.d.ts`）に追加**（コア）— 全角→半角ユーティリティ（内部名 `_zen2han` を公開名 `zen2han` にリネーム）と HTML エスケープ `esc` を、**TypeScript から型付きで呼べる**ように宣言。`number`/`date`/`time` の組込 parse で使うほか、**カスタム `parse`/`format` から `TssGrid.zen2han(v)` を再利用**できる（例: 和暦・年月日の自前パーサの前処理で全角も吸収）。挙動は不変。
+
 ## [0.1.22] - 2026-10-07
 
 ### 追加

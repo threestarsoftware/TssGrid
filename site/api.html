@@ -241,7 +241,7 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 </tbody>
 </table>
 <h2 id="methods">メソッド</h2>
-<p>公開メソッド 69 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
+<p>公開メソッド 71 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
 <h3 id="m-0">データ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
@@ -346,6 +346,9 @@ format が外部状態に依存する／セル内ボタンの状態を更新し�
 <div class="api-m"><code class="sig">copy(cut?: boolean): void</code><p>選択範囲をクリップボードへ。cut=true で切り取り。</p></div>
 <div class="api-m"><code class="sig">buildTable(): void</code><p>テーブルDOMを再構築（低レベル）。※通常は redraw() を推奨。主にプラグイン拡張者向け。</p></div>
 <div class="api-m"><code class="sig">cellEl(r: number, c: number): HTMLTableCellElement | null</code><p>セルの DOM 要素を返す（低レベル・内部DOM構造に依存）。結合セルはアンカーに解決。</p></div>
+<div class="api-m"><code class="sig">zen2han(s: string): string</code><p>全角→半角（数字・符号・小数点・カンマ・%・¥・空白＋日付/時刻の区切り ／：）。IME 誤入力対策のユーティリティ。
+number/date/time の組込 parse で使うほか、カスタム `parse`/`format` から `TssGrid.zen2han(v)` として呼べる。</p></div>
+<div class="api-m"><code class="sig">esc(s: any): string</code><p>HTML エスケープ（`&amp;` `&lt;` `&gt;`）。`format` で HTML を組む時などに。</p></div>
 </div>
 <h2 id="history">HistoryManager</h2>
 <p>Undo/Redo 履歴。複数グリッドで共有すると Undo タイムラインが繋がります。</p>
