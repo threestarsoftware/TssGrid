@@ -526,6 +526,13 @@
     }
     // 列定義(format/hour12 等)を変えた後の再描画。データと選択は保持。
     redraw() { this.buildTable(); this.setActive(this.active.r, this.active.c); }
+    // セル1つだけ表示を描き直す（テキスト/HTML・条件付き書式〔cellClass/cellStyle/rowClass〕・無効表示を最新データで）。
+    // 全体 redraw() より軽い。format が外部状態に依存する／セル内ボタンの状態を更新した等で「このセルだけ」を描き直す用。
+    // c は列 index か data キー。非表示・仮想で窓外のセルは安全に no-op（描画対象の DOM が無いだけ）。
+    renderCell(r, c) {
+      const ci = this._resolveCol(c); if (ci < 0 || r < 0 || r >= this.ROWS) return;
+      this._renderCell(r, ci);
+    }
 
     // ---- 並べ替え（A方式: データ実体を並べ替え。Undo には積まない／状態は行に追従） ----
     // 行を order(=新しい並びの「元index配列」)で再配置。data/rowH/_src と セル状態(整列/cellRO)も行ごと追従。
@@ -954,7 +961,8 @@
     static _colLabel(n) { let s = ''; n = n | 0; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0); return s; }
     // 入力文字列 → 'yyyy-mm-dd'（不正は null）。yyyymmdd / yyyy-mm-dd / yyyy/mm/dd / yyyy.mm.dd を許容。
     static _parseDate(s) {
-      s = String(s).trim(); if (s === '') return null;
+      s = TssGrid._zen2han(String(s).trim());   // IME ON の全角（２０２６／０１／０１ 等）も半角化して受理
+      if (s === '') return null;
       let y, m, d;
       const sep = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(s);
       if (sep) { y = +sep[1]; m = +sep[2]; d = +sep[3]; }
@@ -965,7 +973,8 @@
     }
     // 入力文字列 → 24時間制 'HH:MM' / 'HH:MM:SS'（不正は null）。24h と 12h(AM/PM) の両方を受理。
     static _parseTime(s) {
-      const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][.]?[Mm][.]?)?$/.exec(String(s).trim());
+      // IME ON の全角（９：３０ 等）も半角化して受理
+      const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][.]?[Mm][.]?)?$/.exec(TssGrid._zen2han(String(s).trim()));
       if (!m) return null;
       let h = +m[1]; const mi = +m[2], se = m[3] == null ? null : +m[3];
       const ap = m[4] ? m[4][0].toLowerCase() : null;  // 'a' | 'p' | null
@@ -982,12 +991,14 @@
       return h + ':' + m[2] + (m[3] != null ? ':' + m[3] : '') + ' ' + ap;
     }
     // CellFormat: 入力(グルーピング/前後綴り混じり) → 正規化した数値文字列（保存値）。不正は null。
-    // 全角→半角（数値文脈）。数字・符号・小数点・カンマ・%・¥・空白を半角化。業務フォームの IME 誤入力対策。
+    // 全角→半角（数値・日付・時刻文脈）。数字・符号・小数点・カンマ・%・¥・空白＋日付/時刻の区切り（／：）を半角化。
+    // 業務フォームの IME 誤入力対策（IME ON のまま「２０２６／０１／０１」「９：３０」等を打っても弾かず半角で受理）。
     static _zen2han(s) {
       return String(s)
         .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
         .replace(/＋/g, '+').replace(/[－−ー―]/g, '-')
         .replace(/．/g, '.').replace(/，/g, ',')
+        .replace(/／/g, '/').replace(/：/g, ':')
         .replace(/％/g, '%').replace(/￥/g, '¥').replace(/　/g, ' ');
     }
     static _parseNumber(v, cfg) {

@@ -462,6 +462,9 @@ export declare class TssGrid {
   downloadCSV(filename: string, opts?: CsvOptions): void;
   /** 列定義変更後などの再描画（データ・選択は保持）。 */
   redraw(): void;
+  /** セル1つだけ表示を描き直す（テキスト/HTML・条件付き書式・無効表示を最新データで）。全体 redraw より軽い。
+   *  format が外部状態に依存する／セル内ボタンの状態を更新した等に。`c` は列 index か data キー。窓外/非表示は no-op。 */
+  renderCell(r: number, cOrKey: number | string): void;
   /** 画像/フォント等の遅延レイアウト後に幾何キャッシュを再構築する保険。 */
   refreshGeometry(): void;
   /** グリッドを破棄（リスナ除去・DOM 撤去・idempotent）。フレームワークの teardown で呼ぶ。 */

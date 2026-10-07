@@ -241,7 +241,7 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 </tbody>
 </table>
 <h2 id="methods">メソッド</h2>
-<p>公開メソッド 68 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
+<p>公開メソッド 69 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
 <h3 id="m-0">データ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
@@ -328,6 +328,8 @@ setData で解除。AG Grid の Infinite Row Model 相当を push プリミテ�
 <div class="api-m"><code class="sig">toCSV(opts?: CsvOptions): string</code></div>
 <div class="api-m"><code class="sig">downloadCSV(filename: string, opts?: CsvOptions): void</code></div>
 <div class="api-m"><code class="sig">redraw(): void</code><p>列定義変更後などの再描画（データ・選択は保持）。</p></div>
+<div class="api-m"><code class="sig">renderCell(r: number, cOrKey: number | string): void</code><p>セル1つだけ表示を描き直す（テキスト/HTML・条件付き書式・無効表示を最新データで）。全体 redraw より軽い。
+format が外部状態に依存する／セル内ボタンの状態を更新した等に。`c` は列 index か data キー。窓外/非表示は no-op。</p></div>
 <div class="api-m"><code class="sig">refreshGeometry(): void</code><p>画像/フォント等の遅延レイアウト後に幾何キャッシュを再構築する保険。</p></div>
 <div class="api-m"><code class="sig">destroy(): void</code><p>グリッドを破棄（リスナ除去・DOM 撤去・idempotent）。フレームワークの teardown で呼ぶ。</p></div>
 </div>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — ページネーション（サーバ側ページング＋setData）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 780px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12px; overflow: auto; max-width: 780px; }
+  .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+  .bar button { padding: 4px 12px; font-size: 13px; cursor: pointer; }
+  .bar button:disabled { opacity: .45; cursor: default; }
+  .bar select { padding: 3px 6px; font-size: 13px; }
+  .count { font-size: 13px; color: #444; }
+  .count b { color: #1573c0; }
+  .loading { font-size: 12px; color: #a66; margin-left: 6px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: ページネーション <span class="pill">サーバ側ページング</span></h1>
+
+<div class="note">
+ページネーションは<b>サーバの API 形（offset/limit・total 件数の有無）に依存</b>するので、<b>TssGrid 本体は「渡された1ページ分を描く」だけ</b>に徹します。ロジックはアプリ側：<b>ページ変更 → fetch（offset/limit）→ <code>grid.setData(pageRows)</code></b>、ページ番号ボタンや「N件中 M〜」は<b>グリッドの外</b>に置きます。
+<br>ここでは<b>モックのサーバ</b>（全237件・遅延つき）を <code>fetchPage(offset, limit)</code> で叩き、<code>{ rows, total }</code> を受けて描画しています。total が返るので「全何件・何ページ」まで出せます（cursor だけで total 不明なら「もっと読む」＝<code>appendRows</code> の無限スクロール型にします）。
+</div>
+
+<div class="bar">
+  <button id="first">« 先頭</button>
+  <button id="prev">‹ 前へ</button>
+  <span class="count" id="count">—</span>
+  <button id="next">次へ ›</button>
+  <button id="last">末尾 »</button>
+  <label>1ページ <select id="size"><option>10</option><option>20</option><option>50</option></select> 件</label>
+  <span class="loading" id="loading" hidden>読み込み中…</span>
+</div>
+
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み（要点）</h2>
+<pre id="code"></pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  // ───────── モックのサーバ（実際は REST/GraphQL 等）─────────
+  // 全件は "サーバ側" にあり、ブラウザには1ページ分しか来ない前提。
+  const DB = Array.from({ length: 237 }, (_, i) => ({
+    id: String(i + 1).padStart(4, '0'),
+    name: ['佐藤', '鈴木', '高橋', '田中', '渡辺', '伊藤'][i % 6] + (i + 1),
+    dept: ['営業', '開発', '総務', '経理'][i % 4],
+    joined: '20' + String(10 + (i % 15)).padStart(2, '0') + '-' + String((i % 12) + 1).padStart(2, '0') + '-01',
+  }));
+  function fetchPage(offset, limit) {
+    // サーバの offset/limit ページング＋total を返す想定（遅延つき）
+    return new Promise(resolve => setTimeout(() => {
+      resolve({ rows: DB.slice(offset, offset + limit), total: DB.length });
+    }, 220));
+  }
+
+  // ───────── グリッド（ビュー）─────────
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'page', width: 560, height: '280px',
+    readOnly: true,                                  // 一覧（閲覧）なので読み取り専用
+    headers: ['ID', '氏名', '部署', '入社日'],
+    columns: [{ data: 'id' }, { data: 'name' }, { data: 'dept' }, { data: 'joined', type: 'date' }],
+    data: [],
+  });
+
+  // ───────── ページング状態＆制御（アプリ側）─────────
+  let page = 1, size = 10, total = 0;
+  const $ = id => document.getElementById(id);
+
+  async function load() {
+    $('loading').hidden = false;
+    setButtons(true);                                // 取得中はボタン無効
+    const offset = (page - 1) * size;
+    const res = await fetchPage(offset, size);       // ← サーバから1ページ分だけ取得
+    total = res.total;
+    grid.setData(res.rows);                          // ← TssGrid は受け取った行を描くだけ
+    renderCount();
+    setButtons(false);
+    $('loading').hidden = true;
+  }
+  function pages() { return Math.max(1, Math.ceil(total / size)); }
+  function renderCount() {
+    const from = total === 0 ? 0 : (page - 1) * size + 1;
+    const to = Math.min(page * size, total);
+    $('count').innerHTML = '全 <b>' + total + '</b> 件中 <b>' + from + '〜' + to + '</b>（<b>' + page + '</b> / ' + pages() + ' ページ）';
+  }
+  function setButtons(loading) {
+    const last = pages();
+    $('first').disabled = loading || page <= 1;
+    $('prev').disabled = loading || page <= 1;
+    $('next').disabled = loading || page >= last;
+    $('last').disabled = loading || page >= last;
+  }
+  function go(p) { page = Math.max(1, Math.min(pages(), p)); load(); }
+
+  $('first').onclick = () => go(1);
+  $('prev').onclick = () => go(page - 1);
+  $('next').onclick = () => go(page + 1);
+  $('last').onclick = () => go(pages());
+  $('size').onchange = (e) => { size = +e.target.value; page = 1; load(); };
+
+  load();   // 初期ページ
+
+  $('code').textContent =
+    "// ページ変更のたびに「サーバから1ページ分 fetch → setData」するだけ\n" +
+    "async function load() {\n" +
+    "  const { rows, total } = await fetchPage((page - 1) * size, size);  // offset/limit\n" +
+    "  grid.setData(rows);                 // ← TssGrid は1ページ分を描くだけ\n" +
+    "  renderCount(total);                 // 「N件中 M〜」はグリッドの外で\n" +
+    "}\n" +
+    "// 前/次/ページ番号ボタンは <button> で外に置き、go(p) → load() を呼ぶ\n" +
+    "// ※ total が無い（cursor のみ）サーバなら appendRows で『もっと読む』型に";
+</script>
+</body>
+</html>

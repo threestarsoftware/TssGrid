@@ -351,6 +351,22 @@ new TssGrid(el, { virtual: { buffer: 10 }, data });   // 窓の上下バッフ�
 - 制約（v1）: **行高一定**／**固定行列・折り返し・セル結合は非対応**（指定時は自動で無効化＋警告）。行番号の桁数が増える場合は `rowHeaderWidth` で行ヘッダ幅を広げられます。
 - フィルタとの関係: `filter()` は「絞り込んだ部分集合だけ描く」軽さ、`virtual` は「絞らず全件をスクロールする」軽さ。用途で使い分け（v1 では併用は未対応）。
 
+### ページネーション（サーバ側ページング）
+
+ページネーションは**サーバの API 形（offset/limit・`total` 件数の有無）に依存**するので、**TssGrid 本体は「渡された1ページ分を描く」だけ**に徹します（コアに作り込みません）。ロジックはアプリ側で、**ページ変更 → fetch → `grid.setData(pageRows)`**、ページ番号ボタンや「N 件中 M〜」は**グリッドの外**に置きます。動く例: [`examples/pagination.html`](https://tssgrid.threestarsoftware.co.jp/examples/pagination.html)。
+
+```js
+async function load() {
+  const { rows, total } = await fetchPage((page - 1) * size, size);  // サーバの offset/limit
+  grid.setData(rows);          // ← TssGrid は1ページ分を描くだけ
+  renderCount(total);          // 「N 件中 M〜」はグリッドの外で
+}
+// 前/次/ページ番号は <button> で外に置き、go(p) → load() を呼ぶ
+```
+- **`total` が返るサーバ**: 「全何件・何ページ」まで出せる（上の例）。**`total` が無い（cursor のみ）**: ページ番号は出せないので **`appendRows` で「もっと読む」＝無限スクロール型**に。
+- **1本の長いスクロールで必要分だけ取得**したいなら、ページ送りでなく `setRowCount(total)` ＋ `onViewportChange` ＋ `fillRows(start, rows)`（AG Grid の Infinite Row Model 相当・上の「メソッド」参照）。
+- sort/filter をサーバ側でやる場合も同じ＝**操作 → 再 fetch → `setData`**（遅延スクロール型なら `onSortFilterChange` で委譲）。
+
 ### 同梱プラグイン: ヘッダ オートフィルタ（filter UI）
 
 `plugins/tss-filter.js`＋`.css`＝ 各見出しの**ロート（漏斗）アイコン**をクリックで**値チェックリスト＋検索**のポップアップ（Excel風。ソートの▲▼と区別できるアイコン）。複数列の条件は **AND**。中身は上の**コア `filter()` を呼ぶだけ**。動く例: [`examples/filter-ui.html`](https://tssgrid.threestarsoftware.co.jp/examples/filter-ui.html)。
@@ -972,7 +988,7 @@ new TssGrid(el, {
 });
 ```
 
-メソッド: `getData()` / `getRows()` / `getRow(r)` / `getColumn(cOrKey)` / `getColumns()` / `setData(rows)` / `appendRows(rows,opts?)`（**背景で"育てる"追記**＝data末尾に足し可視窓だけ再描画。buildTable全再描画せずスクロール位置・選択・編集中エディタを保ち履歴にも積まない。「先頭ページを描く→残りをidleでappendRows」でfirst-paintを早める土台。既存経路は不変のopt-in） / `setRowCount(total)` ＋ `fillRows(start,rows)`（**遅延ロード=on-demand**＝virtual前提。総件数を確保し未取得ぶんは「読込中」行、`onViewportChange(start,end)` で要る範囲を受け `fillRows` で実データを流し込む。sort/filterは遅延中ローカル計算せず `onSortFilterChange` でサーバ委譲、未取得セルは編集不可、export（getData/toCSV）はロード済みのみ＝AG Grid の Infinite Row Model 相当を push で） / `getValue(r,cOrKey)` / `setValue(r,cOrKey,val,force?)` / `setValueRaw(r,cOrKey,val)`（履歴に積まない派生値書き込み・計算列用） / `hideColumn(c)` / `showColumn(c)` / `toggleColumn(c)` / `isColumnHidden(c)` / `getHiddenColumns()` / `setAlignment(align,range?)` / `getAlignment(r,c)` / `setCellReadOnly(flag,range?)` / `autoSizeColumn(c)` / `autoSizeAllColumns()` / `sortBy(cOrKey, dir)` / `sortRows(cmp)` / `addShortcut(s)` / `removeShortcut(name)` / `usePlugin(fn)` / `getPlugin(name)` / `destroy()` / `setActive(r,c)` / `scrollToRow(r, align?)`（**指定行までスクロール＝HTML の `#` アンカー相当**。`align` は `'start'`〔既定＝先頭・sticky ヘッダ直下〕/`'center'`/`'end'`/`'nearest'`〔可視ならそのまま〕。仮想・非仮想どちらでも動き、範囲外 `r` は自動クランプ。**選択は変えない**ので目印は `rowClass` 等を併用。例 `examples/scroll-to-row.html`） / `selectRow(r)` / `selectCol(c)` / `selectAll()` / `setColWidth(c,px)` / `setRowHeight(r,px)` / `freezeCols(n)` / `freezeRows(n)` / `moveRow(from,to)` / `moveRows(r0,r1,to)` / `clearSort()` / `toCSV(opts)` / `downloadCSV(name,opts)` / `insertRow(ri,'above'|'below')` / `insertRows(ri,count?,'above'|'below')`（count 行を1回の再描画・1 undo で一括挿入＝大量挿入が O(N)） / `deleteRows(r0,r1?)` / `insertCol(ci,'left'|'right')` / `deleteCols(c0,c1?)` / `redraw()`（列定義変更後の再描画, データ・選択は保持）ほか。
+メソッド: `getData()` / `getRows()` / `getRow(r)` / `getColumn(cOrKey)` / `getColumns()` / `setData(rows)` / `appendRows(rows,opts?)`（**背景で"育てる"追記**＝data末尾に足し可視窓だけ再描画。buildTable全再描画せずスクロール位置・選択・編集中エディタを保ち履歴にも積まない。「先頭ページを描く→残りをidleでappendRows」でfirst-paintを早める土台。既存経路は不変のopt-in） / `setRowCount(total)` ＋ `fillRows(start,rows)`（**遅延ロード=on-demand**＝virtual前提。総件数を確保し未取得ぶんは「読込中」行、`onViewportChange(start,end)` で要る範囲を受け `fillRows` で実データを流し込む。sort/filterは遅延中ローカル計算せず `onSortFilterChange` でサーバ委譲、未取得セルは編集不可、export（getData/toCSV）はロード済みのみ＝AG Grid の Infinite Row Model 相当を push で） / `getValue(r,cOrKey)` / `setValue(r,cOrKey,val,force?)` / `setValueRaw(r,cOrKey,val)`（履歴に積まない派生値書き込み・計算列用） / `hideColumn(c)` / `showColumn(c)` / `toggleColumn(c)` / `isColumnHidden(c)` / `getHiddenColumns()` / `setAlignment(align,range?)` / `getAlignment(r,c)` / `setCellReadOnly(flag,range?)` / `autoSizeColumn(c)` / `autoSizeAllColumns()` / `sortBy(cOrKey, dir)` / `sortRows(cmp)` / `addShortcut(s)` / `removeShortcut(name)` / `usePlugin(fn)` / `getPlugin(name)` / `destroy()` / `setActive(r,c)` / `scrollToRow(r, align?)`（**指定行までスクロール＝HTML の `#` アンカー相当**。`align` は `'start'`〔既定＝先頭・sticky ヘッダ直下〕/`'center'`/`'end'`/`'nearest'`〔可視ならそのまま〕。仮想・非仮想どちらでも動き、範囲外 `r` は自動クランプ。**選択は変えない**ので目印は `rowClass` 等を併用。例 `examples/scroll-to-row.html`） / `selectRow(r)` / `selectCol(c)` / `selectAll()` / `setColWidth(c,px)` / `setRowHeight(r,px)` / `freezeCols(n)` / `freezeRows(n)` / `moveRow(from,to)` / `moveRows(r0,r1,to)` / `clearSort()` / `toCSV(opts)` / `downloadCSV(name,opts)` / `insertRow(ri,'above'|'below')` / `insertRows(ri,count?,'above'|'below')`（count 行を1回の再描画・1 undo で一括挿入＝大量挿入が O(N)） / `deleteRows(r0,r1?)` / `insertCol(ci,'left'|'right')` / `deleteCols(c0,c1?)` / `redraw()`（列定義変更後の再描画, データ・選択は保持） / `renderCell(r, cOrKey)`（**セル1つだけ表示を描き直す**＝テキスト/HTML・条件付き書式・無効表示を最新データで。全体 `redraw()` より軽い。`format` が外部状態に依存する／セル内ボタンの状態を更新した等に。窓外/非表示は no-op）ほか。
 
 ## イベント
 
@@ -1046,8 +1062,8 @@ new TssGrid(el, {
 | `'text'`（既定） | テキスト入力 | そのまま |
 | `'dropdown'` | `<select>`（`options` 必須）。セルに ▾ を表示、**1クリックで一覧が開き**、選ぶと即確定 | 選択肢 or 空のみ許可。範囲外は拒否。**クリア用の空オプションは自動で先頭に付く**ので `options` に `''` を入れない（入れると空が二重）。`allowEmpty:false` で**空オプションを出さず空値も弾く**＝ラジオ的な必須選択。**`options` は `string[]` または `{value,label}[]`＝保存値(value=内部コード)と表示(label)を分離**（`getData`/`getRows` は value で返る・検証も value で照合） |
 | `'checkbox'` | Space / クリックでトグル | `checked`(既定 `'1'`) / `unchecked`(既定 `''`)。貼付値も正規化 |
-| `'date'` | `<input type="date">` | `YYYY-MM-DD` のみ。実在しない日付（例 `2026-02-30`）は拒否 |
-| `'time'` | `<input type="time">` / テキスト | `HH:MM[:SS]`（24時間制）で保存。`hour12:true` で AM/PM 表示・入力 |
+| `'date'` | `<input type="date">` | `YYYY-MM-DD` のみ。実在しない日付（例 `2026-02-30`）は拒否。**全角→半角を正規化**（IME ON のまま `２０２６／０１／０５` と打っても受理。区切りは `-` `/` `.` ＋ 8桁 `20260105` も可） |
+| `'time'` | `<input type="time">` / テキスト | `HH:MM[:SS]`（24時間制）で保存。`hour12:true` で AM/PM 表示・入力。**全角→半角を正規化**（IME ON のまま `９：３０` と打っても受理） |
 | `'number'` | テキスト（編集時は素の数値） | 数値のみ。`decimals`/`thousands`/`prefix`/`suffix` で表示書式（→ [CellFormat](#cellformat宣言的な表示書式数値--日付)）。**全角→半角を既定で正規化**（`１２３`→`123`、`zenkaku:false`で無効化）。右寄せ |
 
 - **`validator(value, { r, c })`**: `true`/`undefined` で許可、`false` で拒否、**文字列を返すとエラーメッセージ付きで拒否**。型と併用可（型 → validator の順で評価）。
