@@ -364,7 +364,7 @@ async function load() {
 // 前/次/ページ番号は <button> で外に置き、go(p) → load() を呼ぶ
 ```
 - **`total` が返るサーバ**: 「全何件・何ページ」まで出せる（上の例）。**`total` が無い（cursor のみ）**: ページ番号は出せないので **`appendRows` で「もっと読む」＝無限スクロール型**に。
-- **1本の長いスクロールで必要分だけ取得**したいなら、ページ送りでなく `setRowCount(total)` ＋ `onViewportChange` ＋ `fillRows(start, rows)`（AG Grid の Infinite Row Model 相当・上の「メソッド」参照）。
+- **1本の長いスクロールで必要分だけ取得**したいなら、ページ送りでなく `setRowCount(total)` ＋ `onViewportChange(start,end)` ＋ `fillRows(start, rows)`（AG Grid の Infinite Row Model 相当・`virtual:true` 前提／未取得行は「読込中」表示）。動く例: [`examples/lazy-load.html`](https://tssgrid.threestarsoftware.co.jp/examples/lazy-load.html)（10万件を見える範囲だけ取得）。
 - sort/filter をサーバ側でやる場合も同じ＝**操作 → 再 fetch → `setData`**（遅延スクロール型なら `onSortFilterChange` で委譲）。
 
 ### 同梱プラグイン: ヘッダ オートフィルタ（filter UI）

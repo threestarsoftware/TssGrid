@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.24] - 2026-10-08
+
+### 追加
+- **遅延ロード（`setRowCount` / `fillRows` / `onViewportChange`）のサンプルを追加** — `examples/lazy-load.html`。AG Grid の Infinite Row Model 相当＝**10万件を一度に取らず、仮想スクロールで見える範囲だけ取得**する型を動く例に。①`setRowCount(total)` で確保（未取得は「読込中」表示）→ ②`onViewportChange(start,end)` で要る範囲を受け → ③`fillRows(start, rows)` で流し込む。ブロック単位取得（取得済み/取得中はスキップ）＋サーバ呼び出しログで「可視ぶんだけ取得」を可視化。README のページネーション節からリンク。コア変更なし。
+
 ## [0.1.23] - 2026-10-08
 
 ### 追加

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 遅延ロード（setRowCount / fillRows / onViewportChange）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 820px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12px; overflow: auto; max-width: 820px; }
+  .cols { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start; }
+  .count { font-size: 13px; color: #444; margin: 8px 0; }
+  .count b { color: #1573c0; }
+  .log { font: 12px/1.5 "Consolas", monospace; background:#0b1020; color:#9fe; padding:8px 12px; border-radius:6px; width:300px; height:320px; overflow:auto; white-space:pre-wrap; }
+  .log .hit { color:#6f9; } .log .skip { color:#789; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 遅延ロード（オンデマンド取得） <span class="pill">setRowCount / fillRows</span></h1>
+
+<div class="note">
+<b>10 万件</b>を<b>一度に取らず、スクロールで見える範囲だけ</b>サーバから取得する型（AG Grid の Infinite Row Model 相当）。ページ送りと違い<b>1本の長いスクロール</b>で、スクロール位置に応じて必要なブロックだけ fetch します。<code>virtual:true</code> 前提。
+<br>流れは3手：<b>①<code>setRowCount(総件数)</code></b> で高さを確保（未取得行は「読込中」表示）→ <b>②<code>onViewportChange(start,end)</code></b> で「今この範囲が要る」通知を受け → <b>③<code>fillRows(start, 取得した行)</code></b> で流し込む。右のログに<b>実際に fetch したブロックだけ</b>が出ます（取得済みはスキップ）。
+</div>
+
+<div class="count" id="count">—</div>
+
+<div class="cols">
+  <div class="tssgrid-host"><div id="grid"></div></div>
+  <div>
+    <div style="font-size:12px;color:#666;margin-bottom:4px;">サーバ呼び出しログ（可視範囲ぶんだけ）</div>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<h2>差し込み（要点）</h2>
+<pre id="code"></pre>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  // ───────── モックのサーバ（実際は REST 等。10万件はサーバにあり、ブロック単位で返す）─────────
+  const TOTAL = 100000, BLOCK = 50;        // 総件数 / 1ブロックの行数
+  const NAMES = ['佐藤', '鈴木', '高橋', '田中', '渡辺', '伊藤'], DEPTS = ['営業', '開発', '総務', '経理'];
+  function fetchBlock(b) {                  // ブロック b の行だけ返す（遅延つき）
+    return new Promise(resolve => setTimeout(() => {
+      const start = b * BLOCK, rows = [];
+      for (let i = 0; i < BLOCK && start + i < TOTAL; i++) {
+        const n = start + i;
+        rows.push({ id: String(n + 1).padStart(6, '0'), name: NAMES[n % 6] + (n + 1), dept: DEPTS[n % 4], val: (n * 37) % 1000 });
+      }
+      resolve(rows);
+    }, 260));
+  }
+
+  // ───────── ブロック取得の管理（取得済み/取得中はスキップ）─────────
+  // ※ onViewportChange は「グリッド生成時」「setRowCount 時」に同期発火するので、ensure が参照する
+  //   loaded/inflight は生成より前に用意しておく（後に置くと初回発火で TDZ になり無言で失敗する）。
+  const loaded = new Set(), inflight = new Set();
+
+  // ───────── グリッド（ビュー）─────────
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'lazy', width: 540, height: '320px',
+    virtual: true,                         // 遅延ロードは仮想スクロール前提
+    readOnly: true,                        // 一覧（閲覧）
+    headers: ['ID', '氏名', '部署', '値'],
+    columns: [{ data: 'id' }, { data: 'name' }, { data: 'dept' }, { data: 'val', type: 'number' }],
+    data: [],
+    // ② 「今この範囲が見えている」通知 → 足りないブロックだけ取得
+    onViewportChange(start, end) { ensure(start, end); },
+  });
+
+  async function ensure(start, end) {
+    const b0 = Math.floor(start / BLOCK), b1 = Math.floor((end - 1) / BLOCK);
+    for (let b = b0; b <= b1; b++) {
+      if (loaded.has(b) || inflight.has(b)) { log('skip block ' + b + '（取得済み）', 'skip'); continue; }
+      inflight.add(b);
+      log('fetch block ' + b + '（行 ' + (b * BLOCK) + '〜' + (b * BLOCK + BLOCK - 1) + '）');
+      const rows = await fetchBlock(b);    // ← サーバからそのブロックだけ
+      inflight.delete(b); loaded.add(b);
+      grid.fillRows(b * BLOCK, rows);      // ③ 「読込中」を実データに差し替え
+      log('  ↳ filled block ' + b, 'hit');
+      renderCount();
+    }
+  }
+
+  // ① 総件数を確保＝高さが決まり、未取得行は「読込中」。初期窓の onViewportChange がここで自動発火（→ ensure）
+  grid.setRowCount(TOTAL);
+
+  function renderCount() {
+    document.getElementById('count').innerHTML =
+      '全 <b>' + TOTAL.toLocaleString() + '</b> 件（確保済み）／取得済み <b>' + (loaded.size * BLOCK).toLocaleString() + '</b> 件'
+      + '（<b>' + loaded.size + '</b> ブロック）＝<b>見えたぶんだけ</b>取得';
+  }
+  function log(msg, cls) {
+    const el = document.getElementById('log'), line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    el.appendChild(line); el.scrollTop = el.scrollHeight;
+  }
+  renderCount();
+
+  document.getElementById('code').textContent =
+    "const grid = new TssGrid(el, {\n" +
+    "  virtual: true,                          // 遅延ロードは仮想前提\n" +
+    "  columns, data: [],\n" +
+    "  onViewportChange(start, end) {          // ② 今この範囲が要る\n" +
+    "    ensure(start, end);                   //   → 足りないブロックを fetch\n" +
+    "  },\n" +
+    "});\n" +
+    "grid.setRowCount(TOTAL);                  // ① 総件数を確保（未取得は『読込中』）\n" +
+    "\n" +
+    "async function ensure(start, end) {       // ブロック単位で取得（取得済みはスキップ）\n" +
+    "  for (const b of blocksIn(start, end)) {\n" +
+    "    if (loaded.has(b)) continue;\n" +
+    "    const rows = await fetchBlock(b);     // サーバからそのブロックだけ\n" +
+    "    grid.fillRows(b * BLOCK, rows);       // ③ 『読込中』→ 実データ\n" +
+    "  }\n" +
+    "}\n" +
+    "// ※ サーバ側 sort/filter は onSortFilterChange(state) を受けて取り直す（setRowCount+再fill）";
+</script>
+</body>
+</html>
