@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.25] - 2026-10-13
+
+### 修正
+- **`data: []` 始まりの遅延ロードで `rowClass` / `cellClass` の `src`（元レコード）が空になる不具合を修正**（コア）— `data: []` + `virtual` + `setRowCount` + `fillRows(オブジェクト)` の遅延ロードで、`_src` が未作成のため `fillRows` が src を保持せず、`rowClass`/`cellClass` の `src` が `undefined` になり**列に無いフィールド（例: `hidden`）を見られなかった**（`_ingest` は `data` 先頭がオブジェクトの時だけ `_src` を作るため `data: []` だと `null` のまま）。**`fillRows` にオブジェクトが来て `_src` が無ければ `ROWS` 長で作成（＋object モード化）**、**`setRowCount` は `_src` があるとき行数変更に長さを追従**するように。これで `data: []` → `setRowCount` → `fillRows` の遅延ロードでも、元レコードを見た行/セルの色付けが効く。型は従来どおり（`rowClass`/`cellClass` の `src` は `any`・`setRowCount`/`fillRows`/`onViewportChange` も宣言済み）。
+
 ## [0.1.24] - 2026-10-08
 
 ### 追加

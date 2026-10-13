@@ -419,8 +419,8 @@
     setRowCount(total) {
       total = Math.max(0, total | 0);
       const cur = this.ROWS;
-      if (total > cur) { for (let r = cur; r < total; r++) { this.data.push(TssGrid.PENDING); this.rowH.push(undefined); } }
-      else if (total < cur) { this.data.length = total; this.rowH.length = total; }
+      if (total > cur) { for (let r = cur; r < total; r++) { this.data.push(TssGrid.PENDING); this.rowH.push(undefined); if (this._src) this._src.push({}); } }
+      else if (total < cur) { this.data.length = total; this.rowH.length = total; if (this._src) this._src.length = total; }
       this.ROWS = total;
       let pend = 0; for (let r = 0; r < this.ROWS; r++) if (this.data[r] === TssGrid.PENDING) pend++;   // 確保時の一度きり O(N)。以降 fillRows が差分で維持
       this._pendingCount = pend; this.dataComplete = pend === 0;
@@ -437,6 +437,9 @@
         const r = start + i; if (r >= this.ROWS) break;
         const src = rows[i];
         const srcIsObj = src && !Array.isArray(src) && typeof src === 'object';
+        // data:[] で始めて setRowCount→fillRows でオブジェクトを流す遅延ロード時、_src が未作成だとここで作る
+        // （src＝元レコードを保持＝rowClass/cellClass の src・非表示フィールドが見える）。
+        if (srcIsObj && !this._src) { this._objectMode = true; this._src = new Array(this.ROWS); for (let k = 0; k < this.ROWS; k++) this._src[k] = {}; }
         const srcObj = srcIsObj ? Object.assign({}, src) : {};
         let rowArr;
         if (srcIsObj) rowArr = this._objToRow(src);
