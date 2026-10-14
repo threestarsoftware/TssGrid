@@ -360,7 +360,7 @@ format が外部状態に依存する／セル内ボタンの状態を更新し�
 <div class="api-m"><code class="sig">cellEl(r: number, c: number): HTMLTableCellElement | null</code><p>セルの DOM 要素を返す（低レベル・内部DOM構造に依存）。結合セルはアンカーに解決。</p></div>
 <div class="api-m"><code class="sig">zen2han(s: string): string</code><p>全角→半角（数字・符号・小数点・カンマ・%・¥・空白＋日付/時刻の区切り ／：）。IME 誤入力対策のユーティリティ。
 number/date/time の組込 parse で使うほか、カスタム `parse`/`format` から `TssGrid.zen2han(v)` として呼べる。</p></div>
-<div class="api-m"><code class="sig">esc(s: any): string</code><p>HTML エスケープ（`&amp;` `&lt;` `&gt;`）。`format` で HTML を組む時などに。</p></div>
+<div class="api-m"><code class="sig">esc(s: any): string</code><p>HTML エスケープ（`&amp;` `&lt;` `&gt;` `"` `'`）。`format` で HTML/属性を組む時などに（属性値も安全）。</p></div>
 </div>
 <h2 id="history">HistoryManager</h2>
 <p>Undo/Redo 履歴。複数グリッドで共有すると Undo タイムラインが繋がります。</p>

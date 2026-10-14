@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.27] - 2026-10-14
+
+### セキュリティ修正
+- **`rowClass` / `cellClass` の戻り値がエスケープされず `class` 属性に差し込まれる XSS を修正**（コア）— `rowClass` が返すクラス名が `<tr class="...">` に生で入っており（`data-rcls` は esc 済みだが class 側は未処理）、利用者データ（行の値／`src`）由来のクラス名に `"` を含めると属性を差し込める（`onmouseover` 等＝XSS）。`cellClass`→`class`／`classList.add` も同型。**`_cellClasses`/`_rowClassStr` が返すクラストークンを「安全なクラス名（空白や `" ' < > &` を含まない）」だけに絞る**ように修正（class 属性・`classList.add` の両経路に有効。Tailwind 風の `/` `:` `.` や Unicode クラスは保持）。あわせて **`TssGrid.esc` が `"` `'` も escape** するように（従来 `& < >` のみ）＝`data-rcls`/`data-ccls`/`title` 等 esc 済み属性の `"` 抜けも根から解消。正規のクラスでは挙動不変。
+
 ## [0.1.26] - 2026-10-14
 
 ### 追加

@@ -867,7 +867,14 @@
       if (this.height) this.wrap.style.maxHeight = this.height;  // 高さ制約（縦スクロール用）
     }
 
-    static esc(s) { return String(s).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])); }
+    static esc(s) { return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
+    // rowClass/cellClass が返す値を「CSS クラス名として安全なトークン配列」に。class 属性へ生で入る＋classList.add
+    // するため、空白や " ' < > & を含むトークンは捨てる＝属性抜け(XSS)や classList.add の例外を防ぐ。
+    static _clsSafe(x) {
+      if (!x) return [];
+      const toks = (Array.isArray(x) ? x : [x]).filter(Boolean).map(String).join(' ').split(/\s+/);
+      return toks.filter(t => t && /^[^\s"'<>&]+$/.test(t));
+    }
     cellEl(r, c) { if (this._merges) { const a = this._anchorOf(r, c); r = a.r; c = a.c; } return this.table.querySelector('td[data-r="' + r + '"][data-c="' + c + '"]'); }
     activeTd() { return this.cellEl(this.active.r, this.active.c); }
     clampR(r) { return Math.max(0, Math.min(this.ROWS - 1, r)); }
@@ -1215,7 +1222,7 @@
       const cc = this.colCfg(c).cellClass;
       if (typeof cc === 'function') { try { push(cc(v, { r, c, row: this.data[r], src })); } catch (_) {} }
       if (typeof this.cellClass === 'function') { try { push(this.cellClass(r, c, v, this.data[r], src)); } catch (_) {} }   // row=値配列, src=元レコード
-      return out.filter(Boolean);
+      return TssGrid._clsSafe(out);   // クラス名として安全なトークンのみ（class 属性/classList.add へ生で入るため）
     }
     // 条件付きクラスをセルに反映（前回分 data-ccls を外してから付け直す＝値変更で追従）。
     _applyCellClass(td, r, c) {
@@ -1228,7 +1235,8 @@
     // 行クラス: rowClass(r, row, src) → 空白区切り文字列（配列は join）。無効/例外は ''。
     _rowClassStr(r) {
       if (typeof this.rowClass !== 'function') return '';
-      try { const x = this.rowClass(r, this.data[r], this._src ? this._src[r] : null); return x ? (Array.isArray(x) ? x.filter(Boolean).join(' ') : String(x).trim()) : ''; } catch (_) { return ''; }
+      let x; try { x = this.rowClass(r, this.data[r], this._src ? this._src[r] : null); } catch (_) { return ''; }
+      return TssGrid._clsSafe(x).join(' ');   // クラス名として安全なトークンのみ（<tr class>/classList.add へ生で入るため）
     }
     // <tr> の行クラスを反映（前回分 data-rcls を外して付け直す＝セル再描画で追従）。
     _applyRowClass(r) {

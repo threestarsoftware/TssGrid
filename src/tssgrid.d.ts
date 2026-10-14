@@ -525,7 +525,7 @@ export declare class TssGrid {
    *  number/date/time の組込 parse で使うほか、カスタム `parse`/`format` から `TssGrid.zen2han(v)` として呼べる。 */
   static zen2han(s: string): string;
 
-  /** HTML エスケープ（`&` `<` `>`）。`format` で HTML を組む時などに。 */
+  /** HTML エスケープ（`&` `<` `>` `"` `'`）。`format` で HTML/属性を組む時などに（属性値も安全）。 */
   static esc(s: any): string;
 
   [k: string]: any;
