@@ -241,7 +241,7 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 </tbody>
 </table>
 <h2 id="methods">メソッド</h2>
-<p>公開メソッド 71 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
+<p>公開メソッド 81 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
 <h3 id="m-0">データ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
@@ -251,6 +251,10 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 <div class="api-m"><code class="sig">getColumns(): any[][]</code><p>全列を配列の配列で取得。</p></div>
 <div class="api-m"><code class="sig">getValue(r: number, cOrKey: number | string): any</code><p>1セルの値を取得（c は index か data キー）。</p></div>
 <div class="api-m"><code class="sig">setData(rows: any[][] | Record&lt;string, any&gt;[]): void</code><p>データを差し替え（履歴・フィルタ・整列状態はリセット）。</p></div>
+<div class="api-m"><code class="sig">setColumns(columns: ColumnDef[], headers?: (string | { label?: string })[]): void</code><p>実行時に列定義を差し替える（Vue の `:columns` 変更等）。`headers` 省略時は columns から再導出。
+object モードは元レコード(`_src`)から新 columns で再展開、配列モードは各行を新 COLS に詰める。
+列構造が変わるので整列/セル単位 readOnly はクリア、frozen/選択は範囲内へクランプ。</p></div>
+<div class="api-m"><code class="sig">setReadOnly(flag: boolean): void</code><p>グリッド全体の読み取り専用を実行時に切替（Vue の `:readonly` 等）。</p></div>
 <div class="api-m"><code class="sig">appendRows(rows: any[][] | Record&lt;string, any&gt;[], opts?: { keepScroll?: boolean; noHistory?: boolean }): void</code><p>背景で"育てる"追記（progressive）。data 末尾へ rows を足し、可視窓＋スペーサだけ再描画する。
 buildTable 全再描画をせず、スクロール位置・アクティブセル・フォーカス・選択・編集中のエディタと値を保ち、履歴にも積まない。
 「先頭ページを描く→残りを idle で appendRows」して first-paint を早める土台（既存の setData/insertRows 経路は不変）。
@@ -262,6 +266,9 @@ setData で解除。AG Grid の Infinite Row Model 相当を push プリミテ�
 塗り替え範囲が可視窓に重なる時だけ窓を再描画＝スクロール/選択/アクティブは不変。全 PENDING が埋まると dataComplete=true。</p></div>
 <div class="api-m"><code class="sig">setValue(r: number, cOrKey: number | string, val: any, force?: boolean): void</code><p>1セルに書き込み（履歴あり・検証/onBeforeChange 経由）。force=true で readOnly 貫通。</p></div>
 <div class="api-m"><code class="sig">setValueRaw(r: number, cOrKey: number | string, val: any): void</code><p>履歴に積まず・検証も通さず直接書き込み（計算列など派生値用。readOnly 貫通）。</p></div>
+<div class="api-m"><code class="sig">setCells(cells: { r: number; c: number | string; value: any }[]): void</code><p>複数セルをまとめて書き込み、1 undo にする。`c` は列 index か data キー。値コピー→再計算等の batch 書き込みに。</p></div>
+<div class="api-m"><code class="sig">toEdit(value?: any, caretEnd?: boolean): void</code><p>アクティブセルを編集モードにする（低レベル）。`value` 指定でその値から開始、`caretEnd` でキャレット末尾。読取専用は無視。</p></div>
+<div class="api-m"><code class="sig">pasteGrid(grid: any[][]): void</code><p>アクティブセルを左上に、2次元配列を貼り付け（はみ出しは pasteOverflow ポリシー・1 undo）。</p></div>
 </div>
 <h3 id="m-1">並べ替え / フィルタ</h3>
 <div class="api-list">
@@ -288,6 +295,8 @@ setData で解除。AG Grid の Infinite Row Model 相当を push プリミテ�
 仮想（均一行高）でも非仮想（可変行高・実DOM測定）でも動く。範囲外の `r` は自動でクランプ。</p></div>
 <div class="api-m"><code class="sig">getSelectedColumns(): number[]</code><p>選択中の列インデックス（Ctrl+ヘッダクリックの飛び飛び選択に対応・昇順）。列選択モードでなければ `[]`。</p></div>
 <div class="api-m"><code class="sig">getSelectedRows(): number[]</code><p>選択中の行インデックス（Ctrl+行ヘッダクリックの飛び飛び選択に対応・昇順）。行選択モードでなければ `[]`。</p></div>
+<div class="api-m"><code class="sig">getSelection(): { r0: number; c0: number; r1: number; c1: number; active: { r: number; c: number }; extent: { r: number; c: number } }</code><p>現在の選択範囲（矩形＋active/extent）を取得。</p></div>
+<div class="api-m"><code class="sig">rectRange(): { r0: number; c0: number; r1: number; c1: number }</code><p>現在の選択矩形 `{r0,c0,r1,c1}`（active↔extent の正規化）。</p></div>
 <div class="api-m"><code class="sig">deleteColsSet(cols: number[]): void</code><p>飛び飛びの複数列をまとめて削除（高index側から。右クリック「N 列を削除」の実体）。</p></div>
 <div class="api-m"><code class="sig">deleteRowsSet(rows: number[]): void</code><p>飛び飛びの複数行をまとめて削除（高index側から。右クリック「N 行を削除」の実体）。</p></div>
 </div>
@@ -309,6 +318,9 @@ setData で解除。AG Grid の Infinite Row Model 相当を push プリミテ�
 <div class="api-m"><code class="sig">toggleColumn(c: number): void</code></div>
 <div class="api-m"><code class="sig">isColumnHidden(c: number): boolean</code></div>
 <div class="api-m"><code class="sig">getHiddenColumns(): number[]</code></div>
+<div class="api-m"><code class="sig">colCfg(c: number): ColumnDef</code><p>列 c の定義（columns[c]）を取得（列の introspection 用）。</p></div>
+<div class="api-m"><code class="sig">colType(c: number): string</code><p>列 c の型（'text'|'dropdown'|'checkbox'|'date'|'time'|'number'）。</p></div>
+<div class="api-m"><code class="sig">setColumnChecked(c: number, flag: boolean): void</code><p>checkbox 列を全 ON/OFF（readOnly 行はスキップ・1 undo）。</p></div>
 <div class="api-m"><code class="sig">setColWidth(c: number, px: number): void</code></div>
 <div class="api-m"><code class="sig">autoSizeColumn(c: number): void</code></div>
 <div class="api-m"><code class="sig">autoSizeAllColumns(): void</code></div>

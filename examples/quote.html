@@ -225,9 +225,9 @@
     grid._normalizeArrays();
     const snaps = rowClip.snaps, n = snaps.length, base = H.undoStack.length;
     for (let k = 0; k < n; k++) grid.insertRow(to + k, 'above');
-    const before = grid.snapSel(), ch = [];
-    for (let k = 0; k < n; k++) { const r = to + k; for (let c = 0; c < grid.COLS; c++) grid.setCell(r, c, snaps[k][c], ch); }
-    grid.pushCmd(ch, before, grid.snapSel(), 'edit');
+    const cells = [];
+    for (let k = 0; k < n; k++) { const r = to + k; for (let c = 0; c < grid.COLS; c++) cells.push({ r, c, value: snaps[k][c] }); }
+    grid.setCells(cells);                                                // 値コピーを1 undo で
     const added = H.undoStack.splice(base);
     let insertCmd = null;
     if (added.length) { insertCmd = { label: 'rowins', apply() { added.forEach(c => c.apply()); }, revert() { for (let i = added.length - 1; i >= 0; i--) added[i].revert(); } }; H.undoStack.push(insertCmd); }

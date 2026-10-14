@@ -3,6 +3,21 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.26] - 2026-10-14
+
+### 追加
+- **公開APIの棚卸し＝実務ギャップを一括で公開＋型付け**（コア・TS/Vue 利用向け）。
+  - **`setColumns(columns, headers?)`**：実行時に列定義を差し替え（Vue の `:columns` 変更等）。object モードは元レコード(`_src`)から再展開、配列モードは行を新 COLS に詰める。
+  - **`setReadOnly(flag)`**：グリッド全体の読み取り専用を実行時に切替（`:readonly`）。
+  - **`getSelection()`** / **`rectRange()`**：現在の選択範囲を取得。
+  - **`setCells(cells)`**：`[{r,c,value}]`（c は index か data キー）を **1 undo でまとめ書き込み**（値コピー→再計算等の batch 書き込み）。
+  - **状態プロパティを `.d.ts` に宣言**：`name`/`active`/`extent`/`virtual`/`readOnly`（readonly。`ROWS`/`COLS`/`dataComplete` は既存）。
+  - **`colCfg`/`colType`/`setColumnChecked`/`toEdit`/`pasteGrid` を `.d.ts` に宣言**（元から public だが未宣言だったものを TS で型付きに）。
+  - examples `invoice`/`quote` の低レベル書き込みを `setCells` に移行。挙動は不変。
+
+### 追加（サンプル）
+- **遅延ロード例に「列に無い `src` 項目で行を色付け」を追加**（`examples/lazy-load.html`）— `rowClass:(r,row,src)=>src.retired?…` で退職者行を赤く＝v0.1.25 修正（`data:[]` 遅延ロードでも src が届く）の動く例。
+
 ## [0.1.25] - 2026-10-13
 
 ### 修正

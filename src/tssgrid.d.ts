@@ -342,6 +342,16 @@ export declare class TssGrid {
   /** Enter/Tab 確定後の移動方向（代入で即反映）。 */
   enterMoves: MoveDir;
   tabMoves: MoveDir;
+  /** グリッド名（読み取り）。 */
+  readonly name: string;
+  /** アクティブセル（読み取り。移動は setActive）。 */
+  readonly active: { r: number; c: number };
+  /** 選択の伸長端（読み取り。setExtent で移動）。 */
+  readonly extent: { r: number; c: number };
+  /** 仮想スクロール有効か（読み取り）。 */
+  readonly virtual: boolean;
+  /** グリッド全体の読み取り専用（読み取り。実行時変更は setReadOnly）。 */
+  readonly readOnly: boolean;
 
   // ---- データ -------------------------------------------------------------
   /** 全データを2次元配列で取得（コピー）。 */
@@ -358,6 +368,12 @@ export declare class TssGrid {
   getValue(r: number, cOrKey: number | string): any;
   /** データを差し替え（履歴・フィルタ・整列状態はリセット）。 */
   setData(rows: any[][] | Record<string, any>[]): void;
+  /** 実行時に列定義を差し替える（Vue の `:columns` 変更等）。`headers` 省略時は columns から再導出。
+   *  object モードは元レコード(`_src`)から新 columns で再展開、配列モードは各行を新 COLS に詰める。
+   *  列構造が変わるので整列/セル単位 readOnly はクリア、frozen/選択は範囲内へクランプ。 */
+  setColumns(columns: ColumnDef[], headers?: (string | { label?: string })[]): void;
+  /** グリッド全体の読み取り専用を実行時に切替（Vue の `:readonly` 等）。 */
+  setReadOnly(flag: boolean): void;
   /**
    * 背景で"育てる"追記（progressive）。data 末尾へ rows を足し、可視窓＋スペーサだけ再描画する。
    * buildTable 全再描画をせず、スクロール位置・アクティブセル・フォーカス・選択・編集中のエディタと値を保ち、履歴にも積まない。
@@ -382,6 +398,12 @@ export declare class TssGrid {
   setValue(r: number, cOrKey: number | string, val: any, force?: boolean): void;
   /** 履歴に積まず・検証も通さず直接書き込み（計算列など派生値用。readOnly 貫通）。 */
   setValueRaw(r: number, cOrKey: number | string, val: any): void;
+  /** 複数セルをまとめて書き込み、1 undo にする。`c` は列 index か data キー。値コピー→再計算等の batch 書き込みに。 */
+  setCells(cells: { r: number; c: number | string; value: any }[]): void;
+  /** アクティブセルを編集モードにする（低レベル）。`value` 指定でその値から開始、`caretEnd` でキャレット末尾。読取専用は無視。 */
+  toEdit(value?: any, caretEnd?: boolean): void;
+  /** アクティブセルを左上に、2次元配列を貼り付け（はみ出しは pasteOverflow ポリシー・1 undo）。 */
+  pasteGrid(grid: any[][]): void;
 
   // ---- 並べ替え / フィルタ -------------------------------------------------
   /** 列で並べ替え（c は index か data キー）。 */
@@ -418,6 +440,10 @@ export declare class TssGrid {
   getSelectedColumns(): number[];
   /** 選択中の行インデックス（Ctrl+行ヘッダクリックの飛び飛び選択に対応・昇順）。行選択モードでなければ `[]`。 */
   getSelectedRows(): number[];
+  /** 現在の選択範囲（矩形＋active/extent）を取得。 */
+  getSelection(): { r0: number; c0: number; r1: number; c1: number; active: { r: number; c: number }; extent: { r: number; c: number } };
+  /** 現在の選択矩形 `{r0,c0,r1,c1}`（active↔extent の正規化）。 */
+  rectRange(): { r0: number; c0: number; r1: number; c1: number };
   /** 飛び飛びの複数列をまとめて削除（高index側から。右クリック「N 列を削除」の実体）。 */
   deleteColsSet(cols: number[]): void;
   /** 飛び飛びの複数行をまとめて削除（高index側から。右クリック「N 行を削除」の実体）。 */
@@ -443,6 +469,12 @@ export declare class TssGrid {
   toggleColumn(c: number): void;
   isColumnHidden(c: number): boolean;
   getHiddenColumns(): number[];
+  /** 列 c の定義（columns[c]）を取得（列の introspection 用）。 */
+  colCfg(c: number): ColumnDef;
+  /** 列 c の型（'text'|'dropdown'|'checkbox'|'date'|'time'|'number'）。 */
+  colType(c: number): string;
+  /** checkbox 列を全 ON/OFF（readOnly 行はスキップ・1 undo）。 */
+  setColumnChecked(c: number, flag: boolean): void;
   setColWidth(c: number, px: number): void;
   autoSizeColumn(c: number): void;
   autoSizeAllColumns(): void;

@@ -63,14 +63,7 @@
       // 見出し: 明示 headers > columns の title/data 由来 > 既定 A,B,C
       // 見出しの決定: 明示 title（'' 含む）を最優先で尊重。checkbox 列は「ヘッダ＝全選択チェック」なので
       // title 未設定でも data 名（'checked' 等）を出さない（空）。それ以外は title 未設定なら data 名→無ければ列ラベル。
-      this.headers = opts.headers || (this.columns.length
-        ? this.columns.map((c, i) => {
-            if (!c) return undefined;                            // 列定義なし＝従来どおり（空表示）
-            if (c.title != null) return c.title;                 // 明示 title（'' で見出し無し）を尊重
-            if (c.type === 'checkbox') return '';                // checkbox は data 名を見出しに出さない
-            return c.data || TssGrid._colLabel(i);               // 従来: title 未設定は data 名 → 無ければ列ラベル
-          })
-        : ['A', 'B', 'C']);
+      this.headers = this._deriveHeaders(opts.headers);
       this.COLS = this.headers.length;
       // データ取り込み: 配列(string[][]) と オブジェクト配列(object[]) を自動判別。
       // オブジェクト時は columns[c].data をキーに 2次元へ展開し、元オブジェクトは _src に保持（非表示フィールド維持）。
@@ -374,6 +367,39 @@
       return out;
     }
     setData(rows) { this._align.clear(); this._cellRO.clear(); this._unsortedData = null; this._allRows = this._allSrc = this._meta = this._filterFn = null; this.dataComplete = true; this._pendingCount = 0; if (this.history) this.history.clear(); this._ingest(rows); this._padToMin(); this.buildTable(); const ic = this._resolveInitialCell(); this.setActive(ic[0], ic[1]); this._ensureSpare(); }
+    // 見出し導出（constructor / setColumns で共用）: 明示 headers > columns の title/data 由来 > A,B,C。
+    _deriveHeaders(headersOpt) {
+      if (headersOpt) return headersOpt.slice();
+      if (!this.columns.length) return ['A', 'B', 'C'];
+      return this.columns.map((c, i) => {
+        if (!c) return undefined;
+        if (c.title != null) return c.title;
+        if (c.type === 'checkbox') return '';                 // checkbox は data 名を見出しに出さない
+        return c.data || TssGrid._colLabel(i);
+      });
+    }
+    // 実行時に列定義を差し替える（Vue の :columns 変更等）。headers 省略時は columns から再導出。
+    // データは object モードなら _src から新 columns で再展開、配列モードは各行を新 COLS に合わせて詰める。
+    // 列構造が変わるので per-cell 状態（整列/セル readOnly）はクリア、frozen/選択は範囲内へクランプ。
+    setColumns(columns, headers) {
+      this.columns = columns || [];
+      this.headers = this._deriveHeaders(headers);
+      this.COLS = this.headers.length;
+      if (this._src) {
+        this.data = this.data.map((row, r) => row === TssGrid.PENDING ? row : this._objToRow(this._src[r] || {}));
+      } else {
+        this.data = this.data.map(row => { const a = (Array.isArray(row) ? row : []).slice(0, this.COLS); while (a.length < this.COLS) a.push(''); return a; });
+      }
+      this._align.clear(); this._cellRO.clear();              // 旧列 index を指す状態は破棄
+      if (this.frozenCols > this.COLS) this.frozenCols = this.COLS;
+      this.active = { r: this.clampR(this.active.r), c: this.clampC(this.active.c) };
+      this.extent = { r: this.active.r, c: this.active.c };
+      this.buildTable(); this.setActive(this.active.r, this.active.c);
+    }
+    // グリッド全体の読み取り専用を実行時に切替（Vue の :readonly 等）。
+    setReadOnly(flag) { this.readOnly = !!flag; this.buildTable(); this.setActive(this.active.r, this.active.c); }
+    // 現在の選択範囲を取得（矩形＋active/extent）。rectRange の公開版。
+    getSelection() { const g = this.rectRange(); return { r0: g.r0, c0: g.c0, r1: g.r1, c1: g.c1, active: { ...this.active }, extent: { ...this.extent } }; }
     // 背景で"育てる"追記（progressive）: data 末尾へ rows を足し ROWS を更新、可視窓＋上下スペーサだけ再描画する。
     // buildTable 全再描画をしない＝スクロール位置・アクティブセル・フォーカス・選択範囲・編集中のエディタと値を保つ。
     // history には積まない（背景成長は undo 対象外）。既存の setData/insertRows 経路は不変＝完全 opt-in。
@@ -516,6 +542,19 @@
       const before = this.snapSel(), changes = [];
       this.setCell(r, ci, this._cellStr(val), changes);
       this.pushCmd(changes, before, this.snapSel(), 'edit', !!force);
+    }
+    // 複数セルをまとめて書き込み、1 undo にする。cells = [{ r, c, value }]（c は index か data キー）。
+    // 「値コピー→再計算」等の batch 書き込み向け＝raw な setCell/pushCmd を外から触らずに済む公開プリミティブ。
+    setCells(cells) {
+      if (!Array.isArray(cells) || !cells.length) return;
+      const before = this.snapSel(), changes = [];
+      for (const it of cells) {
+        if (!it) continue;
+        const ci = this._resolveCol(it.c);
+        if (ci < 0 || it.r < 0 || it.r >= this.ROWS) continue;
+        this.setCell(it.r, ci, this._cellStr(it.value), changes);
+      }
+      if (changes.length) this.pushCmd(changes, before, this.snapSel(), 'edit');
     }
     // 履歴に積まず・検証も通さず値を直接セット（readOnly も貫通）。表示書式は描画時に適用。
     // 計算列など「入力から導く派生値」向け。undo/redo では入力セルが履歴復元され、onAfterChange で

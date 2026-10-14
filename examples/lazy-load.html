@@ -17,6 +17,8 @@
   .count b { color: #1573c0; }
   .log { font: 12px/1.5 "Consolas", monospace; background:#0b1020; color:#9fe; padding:8px 12px; border-radius:6px; width:300px; height:320px; overflow:auto; white-space:pre-wrap; }
   .log .hit { color:#6f9; } .log .skip { color:#789; }
+  /* 列に無い src.retired で行を色付け（退職者を赤く）。遅延ロードでも src が届く＝rowClass が効く */
+  .tssgrid tr.row-retired > td { background: #fdecea; }
 </style>
 </head>
 <body>
@@ -25,6 +27,7 @@
 <div class="note">
 <b>10 万件</b>を<b>一度に取らず、スクロールで見える範囲だけ</b>サーバから取得する型（AG Grid の Infinite Row Model 相当）。ページ送りと違い<b>1本の長いスクロール</b>で、スクロール位置に応じて必要なブロックだけ fetch します。<code>virtual:true</code> 前提。
 <br>流れは3手：<b>①<code>setRowCount(総件数)</code></b> で高さを確保（未取得行は「読込中」表示）→ <b>②<code>onViewportChange(start,end)</code></b> で「今この範囲が要る」通知を受け → <b>③<code>fillRows(start, 取得した行)</code></b> で流し込む。右のログに<b>実際に fetch したブロックだけ</b>が出ます（取得済みはスキップ）。
+<br><b>赤い行＝退職者</b>。<code>retired</code> は<b>列に出していない</b>項目で、<code>rowClass: (r, row, src) =&gt; src.retired ? …</code> と <b><code>src</code>（元レコード）</b>から見て色付けしています。<b>遅延ロード（<code>fillRows</code> でオブジェクトが届く）でも <code>src</code> が渡る</b>ので、列に無い状態での行色分けが効きます（v0.1.25 で修正）。
 </div>
 
 <div class="count" id="count">—</div>
@@ -50,7 +53,7 @@
       const start = b * BLOCK, rows = [];
       for (let i = 0; i < BLOCK && start + i < TOTAL; i++) {
         const n = start + i;
-        rows.push({ id: String(n + 1).padStart(6, '0'), name: NAMES[n % 6] + (n + 1), dept: DEPTS[n % 4], val: (n * 37) % 1000 });
+        rows.push({ id: String(n + 1).padStart(6, '0'), name: NAMES[n % 6] + (n + 1), dept: DEPTS[n % 4], val: (n * 37) % 1000, retired: n % 7 === 0 });  // retired は列に出さない（src でだけ見る）
       }
       resolve(rows);
     }, 260));
@@ -69,6 +72,8 @@
     headers: ['ID', '氏名', '部署', '値'],
     columns: [{ data: 'id' }, { data: 'name' }, { data: 'dept' }, { data: 'val', type: 'number' }],
     data: [],
+    // ★ 列に無い項目（retired）を src から見て行に色付け。遅延ロード（fillRows でオブジェクトが来る）でも src が届く。
+    rowClass: (r, row, src) => (src && src.retired) ? 'row-retired' : '',
     // ② 「今この範囲が見えている」通知 → 足りないブロックだけ取得
     onViewportChange(start, end) { ensure(start, end); },
   });
