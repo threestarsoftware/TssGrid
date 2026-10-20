@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — セル内ハイパーリンク（tss-hyperlink・安全URL）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-hyperlink.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12px; overflow: auto; max-width: 760px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: セル内ハイパーリンク <span class="pill">tss-hyperlink</span></h1>
+
+<div class="note">
+値を<b>クリックで開くリンク</b>にする format ヘルパ。値の形式は <b>「表示テキスト｜URL」</b>（区切りは <code>|</code>）または <b>URL 単体</b>。<code>columns[c].html:true</code> ＋ <code>format: TssHyperlink()</code> で使います。
+<br>★<b>URL は利用者データになり得る＝XSS を最初から潰す</b>設計：<b>http/https/mailto/tel のみ許可</b>（<code>javascript:</code>・<code>data:</code> 等は<b>リンクにせず素のテキスト</b>に落とす）、スキーム無しは <code>https://</code> 補完、表示テキスト・href は必ず HTML エスケープ、<code>target=_blank</code> には <code>rel="noopener noreferrer"</code>。
+</div>
+
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み</h2>
+<pre id="code"></pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-hyperlink.js"></script>
+<script>
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'links', width: 620,
+    headers: ['取引先', 'リンク'],
+    columns: [
+      { data: 'name' },
+      // リンク列: 値は "テキスト|URL" / URL 単体 / スキーム無し。安全化は TssHyperlink が担う。
+      { data: 'url', title: 'リンク', html: true, readOnly: true, format: TssHyperlink() },
+    ],
+    data: [
+      { name: '三星商事', url: 'GitHub|https://github.com/threestarsoftware/TssGrid' },
+      { name: '三星製作所', url: 'https://tssgrid.threestarsoftware.co.jp' },
+      { name: '星光物流', url: 'example.co.jp/orders' },                 // スキーム無し → https:// 補完
+      { name: '問合せ窓口', url: 'メール|mailto:info@example.co.jp' },    // mailto も可
+      { name: '⚠ 攻撃例', url: 'クリック|javascript:alert(document.cookie)' },  // ← リンクにならず素のテキスト表示（安全）
+    ],
+  });
+
+  document.getElementById('code').textContent =
+    "<script src=\"plugins/tss-hyperlink.js\"></scr" + "ipt>\n" +
+    "columns: [\n" +
+    "  { data:'url', html:true, readOnly:true, format: TssHyperlink() },\n" +
+    "]\n" +
+    "// 値: 'GitHub|https://github.com' / 'https://example.com' / 'example.com' / 'メール|mailto:a@b.jp'\n" +
+    "// 安全: http/https/mailto/tel のみリンク化。javascript:/data: 等は素のテキストに落ちる（XSS 無効化）。";
+</script>
+</body>
+</html>

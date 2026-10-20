@@ -3,6 +3,15 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.28] - 2026-10-20
+
+### 追加（プラグイン）
+- **`tss-hyperlink`（セル内ハイパーリンク・安全URL）を追加** — 値を**クリックで開くリンク**にする `format` ヘルパ。値は「表示テキスト｜URL」または URL 単体。`columns[c].html:true` ＋ `format: TssHyperlink()` で使う。**URL は利用者データになり得る＝XSS を最初から潰す設計**：`http`/`https`/`mailto`/`tel` のみ許可（`javascript:`/`data:`/`vbscript:` 等は**リンクにせず素のテキスト**に落とす）、スキーム無しは `https://` 補完、表示テキスト・`href` は必ずエスケープ、`target=_blank` に `rel="noopener noreferrer"`。`TssHyperlink.safeUrl(u)` 単体でも利用可。例 `examples/hyperlink.html`（攻撃例含む）。
+- **`tss-cascade` に「その他」自由入力を追加** — 多段（フライアウト）プルダウンの葉に `other:true` を付けると、選んだとき**入力欄に切替**＝自由入力できる（IME 合成ガード・確定/戻る付き）。**`codeField` 指定時**は、値セル＝普通の葉は「大 / 中 / 小」のパス・その他は打った文字／`codeField` セル＝その葉（その他ノード）の `value`。**「その他」が枝ごとにあっても（有給▸その他／午前休▸その他）コードで親が区別できる**（勤怠区分など）。`codeField` 省略時は従来どおり葉の `value` を値セルに保存＝**後方互換**。`separator`/`otherPlaceholder` オプション追加。例 `examples/cascade-other.html`。
+
+### ドキュメント
+- **sparkline の `fill` オプションを明記**（`fill` 指定＝面グラフ／無し＝折れ線）。新規実装ではなく既存オプションの周知（`examples/sparkline.html` は既に使用）。
+
 ## [0.1.27] - 2026-10-14
 
 ### セキュリティ修正

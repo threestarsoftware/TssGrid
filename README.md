@@ -729,6 +729,24 @@ columns: [
   formula: (row) => ['m4','m5','m6','m7','m8','m9'].map(k=>row[k]).filter(v=>v!=='').join(',') }
 ```
 - `type`('line'/'bar') / `width` / `height` / `color` / `strokeWidth` / `fill`(折れ線下の塗り) / `min`・`max`(既定は自動)。
+- **`fill` を指定すると折れ線の下が塗られて「面グラフ（area）」**になります（＝推移＋量感）。`fill` 無し＝ただの線（line）。別プラグイン不要で line/area を使い分け。
+
+### 同梱プラグイン: セル内ハイパーリンク（tss-hyperlink・安全URL）
+
+`plugins/tss-hyperlink.js`＝ セルの値を**クリックで開くリンク**に（format ヘルパ）。値は **「表示テキスト｜URL」** か **URL 単体**。`columns[c].html:true` ＋ `format: TssHyperlink()` で使います。動く例: [`examples/hyperlink.html`](https://tssgrid.threestarsoftware.co.jp/examples/hyperlink.html)。
+
+```html
+<link rel="stylesheet" href="plugins/tss-hyperlink.css">
+<script src="plugins/tss-hyperlink.js"></script>
+```
+```js
+columns: [
+  { data:'url', html:true, readOnly:true, format: TssHyperlink() },
+];
+// 値: 'GitHub|https://github.com' / 'https://example.com' / 'example.com' / 'メール|mailto:a@b.jp'
+```
+- **★安全URL**: `http`/`https`/`mailto`/`tel` のみリンク化。**`javascript:`・`data:` 等は素のテキストに落とす**（XSS 無効化）。スキーム無しは `https://` 補完、表示テキスト・href は HTML エスケープ、`target=_blank` に `rel="noopener noreferrer"` を付与。
+- `separator`(既定 `'|'`) / `target`(既定 `'_blank'`) / `className`(既定 `'tss-link'`)。`TssHyperlink.safeUrl(u)` で URL 安全化だけ単体利用も可（許可外は `null`）。
 - 数値しか SVG に入れない＝安全。`formula`/`html-cells` と同じ仕組みで、**有料グリッドの "セル内グラフ" を無料で**。
 
 ### 同梱プラグイン: セル内 横棒グラフ（bar・データバー）

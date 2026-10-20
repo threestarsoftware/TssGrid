@@ -13,3 +13,17 @@
 .tg-cascade .tg-casc-item.active { background: var(--tg-accent, #1573c0); color: #fff; }
 .tg-cascade .tg-casc-label { flex: 1; }
 .tg-cascade .tg-casc-arrow { font-size: 10px; opacity: .7; margin-left: 6px; }
+.tg-cascade .tg-casc-other { font-style: italic; opacity: .95; }
+/* 「その他」モードの入力欄（codeField モードで自由入力） */
+.tg-cascade.tg-casc-inputpop { overflow: visible; }
+.tg-cascade .tg-casc-inputwrap { padding: 4px; min-width: 180px; }
+.tg-cascade .tg-casc-input {
+  width: 100%; box-sizing: border-box; padding: 5px 8px; font: inherit;
+  border: 1px solid #c4ccd6; border-radius: 5px; outline: none;
+}
+.tg-cascade .tg-casc-input:focus { border-color: var(--tg-accent, #1573c0); }
+.tg-cascade .tg-casc-actions { display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end; }
+.tg-cascade .tg-casc-actions button {
+  padding: 3px 12px; font: inherit; cursor: pointer; border-radius: 5px; border: 1px solid #c4ccd6; background: #f5f7fa;
+}
+.tg-cascade .tg-casc-actions .tg-casc-ok { background: var(--tg-accent, #1573c0); color: #fff; border-color: transparent; }

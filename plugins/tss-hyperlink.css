@@ -1,0 +1,3 @@
+/* TssHyperlink — セル内リンク（plugins/tss-hyperlink.js）。色は --tg-accent を流用。外部CSSで上書き可。 */
+.tssgrid .tg-table td .tss-link { color: var(--tg-accent, #1573c0); text-decoration: underline; cursor: pointer; }
+.tssgrid .tg-table td .tss-link:hover { text-decoration: none; }

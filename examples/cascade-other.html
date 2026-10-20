@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 多段プルダウン＋「その他」自由入力（枝ごとのコード）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-cascade.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 820px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 820px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 多段プルダウン＋「その他」自由入力 <span class="pill">tss-cascade プラグイン</span></h1>
+
+<div class="note">
+勤怠の区分を <b>休暇種別 ▸ 理由区分</b> の多段で選びます。各枝の末尾に <b>「その他…」</b> があり、選ぶと<b>入力欄に切替</b>＝自由入力できます。
+<br>★ポイント＝<b>「その他」は枝ごとにある</b>（有給▸その他／午前休▸その他）。打った文字だけだと「通院」が<b>どの休暇の理由か分からなくなる</b>ので、
+<code>codeField</code> に<b>その枝の「その他」ノードの value</b>（<code>paid:other</code> / <code>am_half:other</code>）を書き戻します。
+<br>・<b>理由</b>列＝普通の葉はパス「有給 / 私用」／その他は打った文字「通院」　・<b>区分コード</b>列＝葉（その他ノード）の value。
+<br>操作：クリックで展開／<b>↑↓</b>移動・<b>→/Enter</b>下位へ・<b>←</b>戻る・葉で確定／「その他…」で<b>Enter</b>＝入力欄へ・<b>Esc</b>でメニューに戻る。
+</div>
+
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み</h2>
+<pre id="code"></pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-cascade.js"></script>
+<script>
+  // 休暇種別 ▸ 理由区分。各枝に other:true の「その他」を置き、value に枝ごとのコードを持たせる。
+  const OPTS = [
+    { label: '有給', children: [
+      { label: '私用',   value: 'paid:personal' },
+      { label: '通院',   value: 'paid:medical' },
+      { label: 'その他', other: true, value: 'paid:other' },
+    ] },
+    { label: '午前休', children: [
+      { label: '私用',   value: 'am_half:personal' },
+      { label: 'その他', other: true, value: 'am_half:other' },
+    ] },
+    { label: '午後休', children: [
+      { label: '私用',   value: 'pm_half:personal' },
+      { label: 'その他', other: true, value: 'pm_half:other' },
+    ] },
+    { label: '欠勤', children: [
+      { label: '病欠',   value: 'absent:sick' },
+      { label: 'その他', other: true, value: 'absent:other' },
+    ] },
+  ];
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'attn', width: 560,
+    headers: ['日付', '区分コード', '理由（多段＋その他）'],
+    columns: [
+      { data: 'date' },
+      // 区分コード: その他なら paid:other 等が自動で入る（普通の葉は葉の value）。
+      { data: 'categoryCode', width: 150, readOnly: true },
+      // ★多段＋その他: codeField に区分コードを書き戻す。値セル(理由)はパス or 打った文字。
+      { data: 'leaveReason', width: 220, editor: TssCascade({ options: OPTS, codeField: 'categoryCode' }) },
+    ],
+    data: [
+      { date: '10/01', categoryCode: 'paid:personal',  leaveReason: '有給 / 私用' },   // 普通の葉
+      { date: '10/02', categoryCode: 'paid:other',     leaveReason: '通院の付添い' },  // その他で入力済み
+      { date: '10/03', categoryCode: 'am_half:other',  leaveReason: '役所手続き' },
+      { date: '10/04', categoryCode: '',               leaveReason: '' },               // 未選択（クリックで選ぶ）
+    ],
+  });
+  window.grid = grid;
+
+  document.getElementById('code').textContent =
+    "const OPTS = [\n" +
+    "  { label:'有給', children:[\n" +
+    "    { label:'私用', value:'paid:personal' },\n" +
+    "    { label:'その他', other:true, value:'paid:other' },   // ← 枝ごとのコード\n" +
+    "  ] },\n" +
+    "  { label:'午前休', children:[ …, { label:'その他', other:true, value:'am_half:other' } ] },\n" +
+    "]\n\n" +
+    "columns: [\n" +
+    "  { data:'categoryCode', readOnly:true },                 // コード列（hidden:true でも可）\n" +
+    "  { data:'leaveReason',\n" +
+    "    editor: TssCascade({ options: OPTS, codeField:'categoryCode' }) },\n" +
+    "]\n" +
+    "// 「有給 ▸ その他」で『通院』入力 → leaveReason='通院' / categoryCode='paid:other'\n" +
+    "// 普通の葉『有給 ▸ 私用』       → leaveReason='有給 / 私用' / categoryCode='paid:personal'";
+</script>
+</body>
+</html>
