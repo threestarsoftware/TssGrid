@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — カレンダー範囲選択（tss-calendar range・休暇申請）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-calendar.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 820px; }
+  .note b { color: #1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 820px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: カレンダー範囲選択 <span class="pill">tss-calendar range</span></h1>
+
+<div class="note">
+休暇申請の<b>期間</b>。範囲が使える行には上部に<b>「範囲で選ぶ」トグル</b>が出ます：<b>OFF＝1クリックで単日</b>（値は ISO <code>2026-10-20</code>／休暇はほとんど1日なのでこれが既定）・<b>ON＝2クリックで開始→終了</b>（開始より前なら入替・同日2回は単日・間の色・ツールチップ＝平日日数）。
+<br>★<b>行ごとに範囲ON/OFF</b>：`range:(ctx)=>…` が <code>false</code> の行（半休）は<b>トグルを出さず単日のみ</b>。初期状態は <code>rangeDefault</code>（関数で行ごと可）、ただし<b>セル値が既に範囲なら ON で開く</b>。文言は <code>rangeToggleLabel</code>。
+<br>ON の確定値は既定 <code>2026/10/13～2026/10/16</code>（同日は ISO <code>2026-10-13</code>）。<b>範囲列は <code>type:'date'</code> を付けない素の列</b>にします（範囲文字列を日付パーサに通さないため）。
+</div>
+
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>差し込み</h2>
+<pre id="code"></pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-calendar.js"></script>
+<script>
+  const holidays = { '2026-10-12': 'スポーツの日' };   // 利用側の休日マップ（範囲の平日計算にも使う）
+
+  // 平日（土日・休日を除く）日数。休日スキップは利用側で、の実演。
+  function weekdays(startISO, endISO) {
+    const d = new Date(startISO), end = new Date(endISO); let n = 0;
+    for (; d <= end; d.setDate(d.getDate() + 1)) {
+      const dow = d.getDay(), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      if (dow !== 0 && dow !== 6 && !holidays[k]) n++;
+    }
+    return n;
+  }
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'leave', width: 560,
+    headers: ['種別', '期間', '備考'],
+    columns: [
+      { data: 'kind', width: 120, type: 'dropdown', options: ['全休', '午前半休', '午後半休'] },
+      // ★半休の行はトグルを出さず単日のみ（range が false）。既定OFF＝1クリック単日。type:'date' は付けない（範囲は文字列）。
+      {
+        data: 'period', width: 260, editor: TssCalendar({
+          holidays,
+          range: (ctx) => ctx.grid.getData()[ctx.r][0] === '全休',   // 全休の行だけ「範囲で選ぶ」トグルを出す
+          rangeToggleLabel: '連続した期間で選ぶ',                       // トグルの文言（任意）
+          // rangeDefault: (ctx) => …  // 初期ONにしたい行があれば（既定OFF／既存値が範囲なら自動ON）
+          rangeTooltip: (s, e) => s === e ? s.replace(/-/g, '/') : s.replace(/-/g, '/') + '～' + e.replace(/-/g, '/') + '（平日' + weekdays(s, e) + '日）',
+        }),
+      },
+      { data: 'note', width: 160 },
+    ],
+    data: [
+      { kind: '全休', period: '2026/10/13～2026/10/16', note: '帰省' },
+      { kind: '午前半休', period: '2026/10/20', note: '通院' },
+      { kind: '全休', period: '', note: '' },
+    ],
+  });
+  window.grid = grid;
+
+  document.getElementById('code').textContent =
+    "columns: [\n" +
+    "  { data:'kind', type:'dropdown', options:['全休','午前半休','午後半休'] },\n" +
+    "  { data:'period',               // ← type:'date' は付けない（範囲は文字列）\n" +
+    "    editor: TssCalendar({\n" +
+    "      holidays,\n" +
+    "      range: (ctx) => ctx.grid.getData()[ctx.r][0] === '全休',   // この行で範囲を使えるか＝トグルを出すか\n" +
+    "      rangeToggleLabel: '連続した期間で選ぶ',                     // トグルの文言（任意）\n" +
+    "      rangeDefault: false,         // トグル初期OFF（既定・既存値が範囲なら自動ON）/ (ctx)=>bool も可\n" +
+    "      rangeTooltip: (s,e) => …＋'（平日'+weekdays(s,e)+'日）',    // ON時の文面を足す口\n" +
+    "    }) },\n" +
+    "]\n" +
+    "// トグルOFF: 1クリックで単日（ISO '2026-10-20'）/ ON: 2クリックで開始→終了（逆順入替・同日2回で単日）\n" +
+    "// ON確定値: '2026/10/13～2026/10/16'（同日 '2026-10-13'）。休日スキップは利用側。";
+</script>
+</body>
+</html>
