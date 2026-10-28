@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.30] - 2026-10-28
+
+### 追加（プラグイン）
+- **`tss-comment`（セルの注釈・Excel のコメント/メモ風）を追加** — コメントのあるセルは**右上に赤い三角**、**ホバーで吹き出し**、**右クリック or Shift+F2 で挿入・編集・削除**（編集中 Ctrl+Enter 保存／Esc 取消）。**他プラグインと干渉しない設計**＝セルのフック（`cellClass`/`cellStyle`/`editor`/`format`）を一切奪わず、コメント済みの `<td>` に自前でクラスを足すだけ（再描画追従は `MutationObserver`）。条件付き書式・heatmap・cascade/calendar 等と**同じセルで共存**できる。キーは `rowId(row)`（既定は行index／`row.detailId` 等を返せば**ソート/フィルタ/再読込に追従**）＋列 `data` キーで持ち、r/c ではズレない。永続化は持たず `onCommentChange({id,dataKey,text,action})` で通知するだけ（保存はホストへ委譲）。`contextMenu` に `cmt.menuItems()` を混ぜる／`readOnly` で閲覧専用。例 `examples/comment.html`。
+
 ## [0.1.29] - 2026-10-25
 
 ### 追加（プラグイン）

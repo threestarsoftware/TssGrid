@@ -59,7 +59,7 @@ import '@threestarsoftware/tssgrid/tssgrid.css';
 **プラグインの型（TypeScript）**: エディタ系プラグインは **`.d.ts` 同梱で `import` するだけで型が効きます**（`.js` 付きで import）:
 ```ts
 import TssCombo from '@threestarsoftware/tssgrid/plugins/tss-combo.js';   // ← 型が効く
-// 対応: tss-combo / tss-autocomplete / tss-cascade / tss-calendar / tss-datetime / tss-time
+// 対応: tss-combo / tss-autocomplete / tss-cascade / tss-calendar / tss-datetime / tss-time / tss-comment
 columns: [{ data: 'pay', editor: TssCombo({ options: [{ code: '01', label: '現金' }], other: { code: '99', label: 'その他' }, codeField: 'payCode' }) }];
 ```
 それ以外のプラグイン（`usePlugin` 系・`format` ヘルパ系）は型定義がまだ無いので、必要なら5行のアンビエント宣言で補えます（`editor.open/close` を持つ戻り値は `EditorDef`）:
@@ -544,6 +544,30 @@ new TssGrid(el, { columns: [{ type: 'time', editor: t }] });
 ```
 - `opts`: `step`(分刻み, 既定1) / `hour12`(AM/PM 表示, 既定false) / `icon`(既定 `'🕐'`) / `openOnClick`(既定true) / `className`。
 - 🕐 を**シングルクリックで開閉**、**現在**/**決定**ボタン、キーボード（Enter 決定 / Esc 取消）、外側クリックで採用、フィルで下へコピー。見た目は `--time-*` 変数と `tss-time-*` クラスで自由に。
+
+### 同梱プラグイン: セルのコメント（tss-comment・Excel のメモ風）
+
+`plugins/tss-comment.js`＝ セルに注釈を付ける。コメントのあるセルは**右上に赤い三角**、**ホバーで吹き出し**、**右クリック or Shift+F2 で挿入・編集・削除**。動く例: [`examples/comment.html`](https://tssgrid.threestarsoftware.co.jp/examples/comment.html)。
+
+**★他プラグインと干渉しません**：セルのフック（`cellClass`/`cellStyle`/`editor`/`format`）を一切奪わず、コメント済みの `<td>` に自前でクラスを足すだけ（再描画追従は `MutationObserver`）。条件付き書式・heatmap・cascade/calendar と**同じセルで共存**できます。
+
+```html
+<link rel="stylesheet" href="plugins/tss-comment.css">
+<script src="plugins/tss-comment.js"></script>
+```
+```js
+const menu = [];                                   // contextMenu は参照渡し（下で項目を足す）
+const grid = new TssGrid(el, { data, columns, contextMenu: menu });
+const cmt = TssComment(grid, {
+  rowId: (row) => row.id,                          // 安定キー（ソート/フィルタ/再読込に追従）。既定は行index
+  comments: [{ id: 101, dataKey: 'score', text: '要確認' }],   // 初期（保存済み）
+  onCommentChange: ({ id, dataKey, text, action }) => save(id, dataKey, text, action),  // 永続化はホストへ
+});
+menu.push(...cmt.menuItems());                     // 右クリックに「挿入/編集・削除」を追加
+```
+- キーは **`rowId(row)` ＋ 列 `data` キー**で持つ（r/c では持たない＝ソート/フィルタ/行削除でズレない）。永続化は持たず `onCommentChange` で通知するだけ（保存はホストが担当）。
+- `opts`: `rowId` / `comments` / `onCommentChange` / `canComment(r,c)` / `readOnly`(閲覧専用) / `labels` / `className`。API: `set/get/remove/open/getAll/menuItems/refresh/destroy`。
+- グリッドを作り直すホストは、作り直すたびに `TssComment(grid, { comments: cmt.getAll(), … })` で貼り直す。見た目は `--cmt-*` 変数と `tg-comment-*` クラスで自由に。
 
 ### 同梱プラグイン: 派生列（formula / computed column）
 

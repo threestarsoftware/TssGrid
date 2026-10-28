@@ -1,6 +1,6 @@
 {
   "name": "@threestarsoftware/tssgrid",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "description": "軽量・ノービルド・日本語IME堅牢な編集グリッド（vanilla JS / 依存なし / MIT）。Excel ライクな入力画面を <script> タグ1本で。",
   "license": "MIT",
   "author": "ThreeStarSoftware (https://www.threestarsoftware.co.jp/)",
@@ -62,6 +62,10 @@
     "./plugins/tss-hyperlink.js": {
       "types": "./plugins/tss-hyperlink.d.ts",
       "default": "./plugins/tss-hyperlink.js"
+    },
+    "./plugins/tss-comment.js": {
+      "types": "./plugins/tss-comment.d.ts",
+      "default": "./plugins/tss-comment.js"
     },
     "./plugins/*": "./plugins/*",
     "./package.json": "./package.json"

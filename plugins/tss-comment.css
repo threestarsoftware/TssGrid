@@ -1,0 +1,47 @@
+/* TssComment — セル注釈（マーカー＋吹き出し＋編集）。業務側は下の CSS 変数で色/角を調整。
+   例: .tssgrid { --cmt-mark:#e8590c; } / 吹き出し: .tg-comment-bubble { --cmt-bubble-bg:#fff; } */
+
+/* ▼ マーカー（セル右上の小さな三角＝コメント有り）。セルフックを使わず td に付けるだけ＝他の装飾と共存。 */
+.tssgrid .tg-table td.tg-comment-mark { position: relative; }   /* ::after の土台（コメント済みセルだけに付与） */
+.tssgrid .tg-table td.tg-comment-mark::after {
+  content: ''; position: absolute; top: 0; right: 0; width: 0; height: 0;
+  border-style: solid; border-width: 0 6px 6px 0;
+  border-color: transparent var(--cmt-mark, #e03131) transparent transparent;
+  pointer-events: none;   /* クリックはセルに通す（編集/選択の邪魔をしない） */
+}
+
+/* ▼ ホバーの吹き出し（読み取り表示）。Excel のメモ風＝淡色の付箋。 */
+.tg-comment-bubble {
+  --cmt-bubble-bg: #fffbe6; --cmt-bubble-border: #e0c200; --cmt-bubble-fg: #333;
+  position: fixed; z-index: 10001; max-width: 280px;
+  background: var(--cmt-bubble-bg); color: var(--cmt-bubble-fg);
+  border: 1px solid var(--cmt-bubble-border); border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .18);
+  padding: 6px 9px; font: 12px/1.5 "Segoe UI", "Meiryo", sans-serif;
+  white-space: pre-wrap; word-break: break-word; pointer-events: none;   /* 表示専用＝マウスを吸わない */
+}
+
+/* ▼ 編集ポップアップ（挿入/編集）。 */
+.tg-comment-editor {
+  --cmt-bg: #fff; --cmt-border: #c3ccd6; --cmt-accent: #2aa0d8;
+  position: fixed; z-index: 10002;
+  background: var(--cmt-bg); border: 1px solid var(--cmt-border); border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .2); padding: 8px;
+  font: 13px "Segoe UI", "Meiryo", sans-serif;
+}
+.tg-comment-editor .tg-comment-ta {
+  display: block; width: 240px; min-height: 64px; resize: vertical; box-sizing: border-box;
+  font: inherit; color: #222; padding: 6px 8px;
+  border: 1px solid var(--cmt-border); border-radius: 6px; outline: none;
+}
+.tg-comment-editor .tg-comment-ta:focus { border-color: var(--cmt-accent); box-shadow: 0 0 0 2px rgba(42, 160, 216, .25); }
+.tg-comment-btns { display: flex; justify-content: flex-end; gap: 6px; margin-top: 7px; }
+.tg-comment-btn {
+  font: inherit; cursor: pointer; padding: 4px 12px;
+  border: 1px solid var(--cmt-border); border-radius: 6px; background: #f5f7fa; color: #222;
+}
+.tg-comment-btn:hover { background: #eef4ff; }
+.tg-comment-btn[data-act="save"] { background: var(--cmt-accent); border-color: var(--cmt-accent); color: #fff; }
+.tg-comment-btn[data-act="save"]:hover { filter: brightness(1.05); }
+.tg-comment-btn.danger { color: #c0392b; }
+.tg-comment-btn.danger:hover { background: #fdecea; }

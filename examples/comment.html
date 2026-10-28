@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — セルのコメント（tss-comment・Excel のメモ風）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-comment.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 22px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 860px; }
+  .note b { color: #1573c0; } code { background: #eef2f6; padding: 0 4px; border-radius: 3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  /* ★業務側の条件付き書式（cellClass）＝コメントと同じセルに共存できることの実証 */
+  .tssgrid .tg-table td.cell-bad { background: #fde8e8; color: #c0392b; font-weight: 600; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 860px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: セルのコメント <span class="pill">tss-comment</span></h1>
+
+<div class="note">
+Excel の「コメント/メモ」風。<b>コメントのあるセルは右上に赤い三角</b>、<b>ホバーで吹き出し</b>、<b>右クリック or Shift+F2 で挿入・編集・削除</b>（編集中は Ctrl+Enter で保存／Esc で取消）。
+<br>★<b>他プラグインと干渉しません</b>：セルのフック（<code>cellClass</code>/<code>cellStyle</code>/<code>editor</code>/<code>format</code>）を一切奪わず、自前で <code>&lt;td&gt;</code> にクラスを足すだけ。この表では<b>スコア60未満を赤くする条件付き書式（cellClass）</b>も同時に動いていて、<b>赤いセルにもコメント（三角）が両立</b>します。
+<br>キーは <code>rowId</code>（ここでは <code>row.id</code>）＋列キーで持つので、<b>並べ替えてもコメントは同じデータ行に追従</b>します。保存は <code>onCommentChange</code> で通知するだけ（下のログに出します）。
+</div>
+
+<p>
+  <button id="sortBtn" type="button">スコアで並べ替え（コメントが追従するか確認）</button>
+  <button id="addBtn" type="button">アクティブセルにコメント（Shift+F2 と同じ）</button>
+</p>
+
+<div class="tssgrid-host"><div id="grid"></div></div>
+
+<h2>onCommentChange ログ（保存はホストが担当）</h2>
+<pre id="log">（まだありません）</pre>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-comment.js"></script>
+<script>
+  const data = [
+    { id: 101, name: '山田 太郎', dept: '営業1課', score: 82 },
+    { id: 102, name: '佐藤 花子', dept: '営業2課', score: 48 },
+    { id: 103, name: '鈴木 一郎', dept: '開発', score: 91 },
+    { id: 104, name: '田中 美咲', dept: '開発', score: 55 },
+    { id: 105, name: '高橋 健', dept: '総務', score: 70 },
+  ];
+
+  // contextMenu は配列参照をそのまま渡し、コメント・プラグイン生成後に項目を push する
+  // （本体は右クリック時に配列を読むので、後から足した項目も出る）。
+  const menu = [];
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    width: 560,
+    data,
+    columns: [
+      { data: 'name', title: '氏名', width: 130 },
+      { data: 'dept', title: '部署', width: 120, type: 'dropdown', options: ['営業1課', '営業2課', '開発', '総務'] },
+      {
+        data: 'score', title: 'スコア', type: 'number', width: 90, align: 'right',
+        // ★条件付き書式（cellClass）＝コメントと同じセルで共存することの実証
+        cellClass: (val) => (Number(val) < 60 ? 'cell-bad' : ''),
+      },
+    ],
+    contextMenu: menu,
+  });
+  window.grid = grid;
+
+  const logEl = document.getElementById('log');
+  const lines = [];
+
+  // ★コメント・プラグイン。rowId で安定キー・onCommentChange で永続化を委譲。
+  const comment = TssComment(grid, {
+    rowId: (row) => row.id,
+    comments: [
+      { id: 101, dataKey: 'score', text: '上期MVP候補。来期は目標上振れ想定。' },
+      { id: 102, dataKey: 'score', text: '要フォロー：研修の受講を調整中。' },
+      { id: 103, dataKey: 'name', text: 'リーダー候補。1on1メモあり。' },
+    ],
+    onCommentChange: ({ id, dataKey, text, action }) => {
+      lines.unshift(`${new Date().toLocaleTimeString()}  ${action.toUpperCase()}  id=${id} / ${dataKey}  "${text}"`);
+      logEl.textContent = lines.slice(0, 12).join('\n');
+    },
+  });
+  window.comment = comment;
+
+  // 右クリックに「コメントを挿入/編集・削除」を足す（セル右クリック時のみ出る）。
+  menu.push(...comment.menuItems());
+
+  document.getElementById('sortBtn').addEventListener('click', () => {
+    grid.sortByCols([{ col: 'score', dir: 'asc' }]);   // 再描画に observer が追従＝マーカーは自動で貼り直し
+  });
+  document.getElementById('addBtn').addEventListener('click', () => {
+    const a = grid.active || { r: 0, c: 0 };
+    comment.open(a.r, a.c);
+  });
+</script>
+</body>
+</html>
