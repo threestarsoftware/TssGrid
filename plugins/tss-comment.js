@@ -47,7 +47,8 @@
 
     var host = grid.root || (grid.table.closest && grid.table.closest('.tssgrid')) || grid.table;
     var store = new Map();   // key(id\0dataKey) -> text
-    var bubble = null, editor = null, edCell = null, outside = null, hideT = 0, rafId = 0, dead = false;
+    var bubble = null, bubbleTd = null, editor = null, edCell = null, outside = null, hideT = 0, rafId = 0, dead = false;
+    var lastTouch = false;   // 直前の入力がタッチか。スマホはホバーが無い＝合成 mouseover に頼らず tap で出す
 
     // 初期コメント（保存済み）を取り込む
     (opts.comments || []).forEach(function (cm) {
@@ -103,9 +104,11 @@
       bubble.textContent = text;
       document.body.appendChild(bubble);
       place(bubble, td);
+      bubbleTd = td;
     }
-    function hideBubble() { if (bubble) { bubble.remove(); bubble = null; } }
+    function hideBubble() { if (bubble) { bubble.remove(); bubble = null; } bubbleTd = null; }
     function onOver(e) {
+      if (lastTouch) return;   // タッチはホバーに頼らず onTap で出す（合成 mouseover の誤発火を避ける）
       var td = e.target.closest && e.target.closest('td.tg-comment-mark');
       if (!td || !grid.table.contains(td)) return;
       if (hideT) { clearTimeout(hideT); hideT = 0; }
@@ -114,10 +117,23 @@
       if (text != null) showBubble(td, text);
     }
     function onOut(e) {
+      if (lastTouch) return;
       var td = e.target.closest && e.target.closest('td.tg-comment-mark');
       if (!td) return;
       if (e.relatedTarget && td.contains(e.relatedTarget)) return;   // セル内の移動は無視
       hideT = setTimeout(hideBubble, 60);
+    }
+    // 入力種別の記録。マウス＝hover、タッチ＝tap に振り分ける（pointerdown が click の前に走る）。
+    function onPointerDown(e) { if (e.pointerType) lastTouch = (e.pointerType === 'touch'); }
+    function onTouchStart() { lastTouch = true; }   // PointerEvent 非対応ブラウザの保険
+    // タッチ時のみ: コメント済みセルのタップで吹き出しをトグル（同セル再タップ・コメント外タップで閉じる）。
+    function onTap(e) {
+      if (!lastTouch) return;   // マウスのクリックは無視＝desktop は hover のまま
+      var td = e.target.closest && e.target.closest('td.tg-comment-mark');
+      if (!td || !grid.table.contains(td)) { hideBubble(); return; }
+      if (bubble && bubbleTd === td) { hideBubble(); return; }
+      var r = +td.getAttribute('data-r'), c = +td.getAttribute('data-c'), text = getText(r, c);
+      if (text != null) showBubble(td, text);
     }
 
     // ── 編集ポップアップ ───────────────────────────────────
@@ -198,6 +214,9 @@
 
     grid.table.addEventListener('mouseover', onOver);
     grid.table.addEventListener('mouseout', onOut);
+    grid.table.addEventListener('pointerdown', onPointerDown, true);
+    grid.table.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+    grid.table.addEventListener('click', onTap);
     host.addEventListener('keydown', onKey, true);
     scheduleDecorate();
 
@@ -241,6 +260,9 @@
         try { mo.disconnect(); } catch (e) { /* noop */ }
         grid.table && grid.table.removeEventListener('mouseover', onOver);
         grid.table && grid.table.removeEventListener('mouseout', onOut);
+        grid.table && grid.table.removeEventListener('pointerdown', onPointerDown, true);
+        grid.table && grid.table.removeEventListener('touchstart', onTouchStart, true);
+        grid.table && grid.table.removeEventListener('click', onTap);
         host.removeEventListener('keydown', onKey, true);
         if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; }
         hideBubble(); closeEditor();

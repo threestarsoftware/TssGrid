@@ -547,7 +547,7 @@ new TssGrid(el, { columns: [{ type: 'time', editor: t }] });
 
 ### 同梱プラグイン: セルのコメント（tss-comment・Excel のメモ風）
 
-`plugins/tss-comment.js`＝ セルに注釈を付ける。コメントのあるセルは**右上に赤い三角**、**ホバーで吹き出し**、**右クリック or Shift+F2 で挿入・編集・削除**。動く例: [`examples/comment.html`](https://tssgrid.threestarsoftware.co.jp/examples/comment.html)。
+`plugins/tss-comment.js`＝ セルに注釈を付ける。コメントのあるセルは**右上に赤い三角**、**PC はホバー・スマホはタップで吹き出し**、**右クリック or Shift+F2 で挿入・編集・削除**。動く例: [`examples/comment.html`](https://tssgrid.threestarsoftware.co.jp/examples/comment.html)。
 
 **★他プラグインと干渉しません**：セルのフック（`cellClass`/`cellStyle`/`editor`/`format`）を一切奪わず、コメント済みの `<td>` に自前でクラスを足すだけ（再描画追従は `MutationObserver`）。条件付き書式・heatmap・cascade/calendar と**同じセルで共存**できます。
 

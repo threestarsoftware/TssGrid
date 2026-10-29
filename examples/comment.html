@@ -21,7 +21,7 @@
 <h1>TssGrid 例: セルのコメント <span class="pill">tss-comment</span></h1>
 
 <div class="note">
-Excel の「コメント/メモ」風。<b>コメントのあるセルは右上に赤い三角</b>、<b>ホバーで吹き出し</b>、<b>右クリック or Shift+F2 で挿入・編集・削除</b>（編集中は Ctrl+Enter で保存／Esc で取消）。
+Excel の「コメント/メモ」風。<b>コメントのあるセルは右上に赤い三角</b>、<b>PC はホバー・スマホはタップで吹き出し</b>、<b>右クリック or Shift+F2 で挿入・編集・削除</b>（編集中は Ctrl+Enter で保存／Esc で取消）。
 <br>★<b>他プラグインと干渉しません</b>：セルのフック（<code>cellClass</code>/<code>cellStyle</code>/<code>editor</code>/<code>format</code>）を一切奪わず、自前で <code>&lt;td&gt;</code> にクラスを足すだけ。この表では<b>スコア60未満を赤くする条件付き書式（cellClass）</b>も同時に動いていて、<b>赤いセルにもコメント（三角）が両立</b>します。
 <br>キーは <code>rowId</code>（ここでは <code>row.id</code>）＋列キーで持つので、<b>並べ替えてもコメントは同じデータ行に追従</b>します。保存は <code>onCommentChange</code> で通知するだけ（下のログに出します）。
 </div>
