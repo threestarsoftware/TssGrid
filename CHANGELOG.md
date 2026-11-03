@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.32] - 2026-11-03
+
+### 改善（プラグイン）
+- **`tss-cascade`（多段プルダウン）にセル右端の目印 `▾` を追加** — 他のポップアップ型エディタ（`tss-combo`/`tss-autocomplete` は `▾`、`tss-calendar` は `📅`）は EditorDef の `icon` を既定で返していたが、`tss-cascade` だけ返しておらず**選ぶ列だと見た目で分からなかった**。`icon`（既定 `'▾'`／`''` で消す）を追加（`tss-combo` と同じ形）。印を押しても従来どおり多段メニューが開く（`openOnClick`）。描画はコア共通経路（`ed.icon`→`data-ico`＋`tg-haspicker`）＝**コア無改変**。型 `tss-cascade.d.ts` に `icon?: string`。
+
 ## [0.1.31] - 2026-10-29
 
 ### 改善（プラグイン）

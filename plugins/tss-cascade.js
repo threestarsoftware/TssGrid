@@ -39,6 +39,7 @@
  *    separator   : 値セルに入れるパスの区切り（既定 ' / '）。pathFormat と合わせると良い。
  *    otherPlaceholder : 「その他」入力欄のプレースホルダ（既定 '自由入力'）。
  *    openOnClick : 既定 true（プルダウン同様シングルクリックで開く）。
+ *    icon        : セル右の目印（既定 '▾'／'' で消す）。
  *    className   : ポップアップに付ける任意クラス。
  *  静的:
  *    TssCascade.pathFormat(options, { separator }) => (value)=>string   // 列 format 用（モード1の表示）
@@ -194,6 +195,7 @@
 
     return {
       openOnClick: opts.openOnClick !== false,
+      icon: opts.icon != null ? opts.icon : '▾',
       open: function (ctx) {
         ctxRef = ctx; done = false;
         openPanel(roots, 0, ctx.td.getBoundingClientRect());

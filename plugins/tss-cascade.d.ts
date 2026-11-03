@@ -25,6 +25,8 @@ declare namespace TssCascade {
     otherPlaceholder?: string;
     /** シングルクリックで開く（既定 true）。 */
     openOnClick?: boolean;
+    /** セル右の目印（既定 '▾'／'' で消す）。 */
+    icon?: string;
     /** ポップアップに付ける任意クラス。 */
     className?: string;
   }
