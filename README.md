@@ -771,6 +771,7 @@ columns: [
 ```
 - **★安全URL**: `http`/`https`/`mailto`/`tel` のみリンク化。**`javascript:`・`data:` 等は素のテキストに落とす**（XSS 無効化）。スキーム無しは `https://` 補完、表示テキスト・href は HTML エスケープ、`target=_blank` に `rel="noopener noreferrer"` を付与。
 - `separator`(既定 `'|'`) / `target`(既定 `'_blank'`) / `className`(既定 `'tss-link'`)。`TssHyperlink.safeUrl(u)` で URL 安全化だけ単体利用も可（許可外は `null`）。
+- **モードB（値＝文字だけ・URL はシステムが付与）**: `url` オプション（文字列 or `(value,ctx,row)=>string`）を渡すと値は表示テキストだけになり、**入力・コピー・編集も文字だけ**（Tabulator の `link` フォーマッタ同様）。安全な URL を返せば `<a>`、`null`/`''`/不正なら `<span>`（href 無し＝**SPA クリックをホストが拾う**用）、`false` で素テキスト。`className` は関数化（行ごとに出し分け）、`attrs`(`data-*`/`aria-*`/`title`/`id`/`role` のみ・値はエスケープ・`null` は出さない)で `data-id` 等を安全付与。`label` で表示差し替え。サイト内相対パス（`/x`・`./`・`../`・`#`・`?`）は許可、`//host` は拒否。例: `format: TssHyperlink({ url:(v,{r},row)=>'/members/'+row.id })`。
 - 数値しか SVG に入れない＝安全。`formula`/`html-cells` と同じ仕組みで、**有料グリッドの "セル内グラフ" を無料で**。
 
 ### 同梱プラグイン: セル内 横棒グラフ（bar・データバー）
@@ -976,6 +977,7 @@ new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
 | `rowHeaders` / `colHeaders` | `boolean` | `true` | 行番号列 / ヘッダ行の表示。`false` で隠す |
 | `hiddenColumns` | `number[]` | `[]` | 初期で隠す列インデックス。実行時は `hideColumn`/`showColumn`/`toggleColumn`（→ [列の表示/非表示](#列の表示非表示)） |
 | `wordWrap` | `boolean` | `false` | セル内で折り返し（行高は内容に合わせ伸びる）。`columns[c].wordWrap` で列単位も可 |
+| `ellipsis` | `boolean` | `false` | 溢れた文字を **… で省略**し、溢れたセルは**ホバーで全文（`title`）**。`columns[c].ellipsis` で列単位も可。見え方だけ＝値・コピー・編集は全文のまま。`wordWrap` と同時なら折り返しが優先 |
 | `placeholder` | `string` | — | 空セルに薄いヒント文字（`getData` には入らない）。`columns[c].placeholder` で列単位も可 |
 | `className` | `string` | — | コンテナ(`.tssgrid`)に付ける任意クラス（テーマ付け） |
 | `fillHandle` | `boolean \| {direction,autoInsertRow}` | `true` | **`false`でフィル完全OFF**（ハンドルを出さない＝ドラッグでの消去/上書きなし。フィルの起点はハンドルのみなので fill 自体が無効に）。`{direction:'vertical'\|'horizontal'\|'both', autoInsertRow:true}`で詳細指定（下へドラッグで行追加）。設定/表示専用グリッドで誤フィルを防ぐのに有効 |

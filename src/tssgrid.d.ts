@@ -89,6 +89,8 @@ export interface ColumnDef {
   html?: boolean;
   /** 列単位の折り返し。 */
   wordWrap?: boolean;
+  /** 列単位の … 省略（溢れた文字を省略記号で切る／ホバーで全文を title 表示）。値・コピー・編集は不変＝見え方だけ。折り返し(wordWrap)と同時なら折り返しが優先。 */
+  ellipsis?: boolean;
   /** 複数行(改行)入力を有効化。編集は隠し textarea（IME 直打ち対応）、表示は改行保持(pre-wrap)。行高は自動で伸びないので rowHeights 等で確保する。 */
   multiline?: boolean;
   /** 空セルの薄いヒント文字。 */
@@ -171,6 +173,8 @@ export interface TssGridOptions {
   colHeaders?: boolean;
   hiddenColumns?: number[];
   wordWrap?: boolean;
+  /** グリッド全体の … 省略（溢れた文字を省略記号で切る／ホバーで全文を title 表示）。列単位は columns[c].ellipsis。見え方だけ＝値・コピー・編集は不変。 */
+  ellipsis?: boolean;
   /** multiline 列の Enter 挙動。'commit'(既定・Excel風): Enter=確定 / Alt+Enter=改行。'newline'(メモ帳風): Enter=改行 / Ctrl+Enter=確定。 */
   multilineEnter?: 'commit' | 'newline';
   /** multiline セル右上の「複数行」ヒント表示（既定 true）。色は CSS 変数 --tg-ml-mark。false で非表示。 */

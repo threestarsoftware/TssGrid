@@ -28,6 +28,14 @@
 <h2>差し込み</h2>
 <pre id="code"></pre>
 
+<h2>モードB：値は「文字だけ」・URL/遷移はシステムが付与 <span class="pill">url オプション</span></h2>
+<div class="note">
+値に URL を埋めず、<code>url</code>（文字列 or <code>(value,ctx,row)=&gt;string</code>）でシステム側が URL を付けます。<b>入力・コピー・編集は文字だけ</b>（<code>html:true</code> でも、編集に入れば「生の値＝文字」が出る）。
+<br>安全な URL を返せば <code>&lt;a&gt;</code>、<code>null</code> なら <code>&lt;span&gt;</code>（href 無し＝<b>クリックはホストが拾って SPA 遷移</b>／下のログに表示）、<code>false</code> で素テキスト。本文は自動エスケープ、<code>attrs</code> で <code>data-id</code> 等を安全付与、<code>className</code> は<b>行ごとに出し分け</b>可（未保存行はリンクにしない）。<b>サイト内相対パス（<code>/members/9</code>）はそのまま</b>・<code>//host</code> は拒否。
+</div>
+<div class="tssgrid-host"><div id="grid2"></div></div>
+<p id="log2" style="font-size:13px; color:#1a3a6b;">（名前をクリックするとここに出ます）</p>
+
 <script src="../src/tssgrid.js"></script>
 <script src="../plugins/tss-hyperlink.js"></script>
 <script>
@@ -55,6 +63,35 @@
     "]\n" +
     "// 値: 'GitHub|https://github.com' / 'https://example.com' / 'example.com' / 'メール|mailto:a@b.jp'\n" +
     "// 安全: http/https/mailto/tel のみリンク化。javascript:/data: 等は素のテキストに落ちる（XSS 無効化）。";
+
+  // ── モードB（値＝名前の文字だけ・URL/遷移はシステムが付与） ──
+  const members = [
+    { id: 101, name: '佐藤 一郎' },
+    { id: 102, name: '鈴木 花子' },
+    { id: null, name: '（新規・未保存）' },   // id 無し＝リンクにしない
+  ];
+  const g2 = new TssGrid(document.getElementById('grid2'), {
+    name: 'links2', width: 620,
+    headers: ['名前（SPAクリック・編集可）', 'プロフィール（URL生成・読取）'],
+    columns: [
+      // href 無し span＝SPA クリック（ホストが data-id を拾って遷移）。編集可＝入れると「生の名前」が出る。
+      { data: 'name', html: true, format: TssHyperlink({
+          url: () => null,
+          className: (v, { r }) => members[r].id == null ? '' : 'tss-link',   // 未保存行はリンクにしない
+          attrs: (v, { r }) => ({ 'data-id': members[r].id }),                // null は出ない
+        }) },
+      // 本物リンク（サイト内相対パスを id から生成・値は名前の文字だけ）
+      { data: 'name', title: 'プロフィール', html: true, readOnly: true, format: TssHyperlink({
+          url: (v, { r }) => members[r].id == null ? false : '/members/' + members[r].id,
+        }) },
+    ],
+    data: members.map((m) => ({ name: m.name })),
+  });
+  // ホスト側がクリックを拾って SPA 遷移（ここではログ表示）
+  g2.wrap.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-id]');
+    if (el) document.getElementById('log2').textContent = 'SPA遷移: /members/' + el.getAttribute('data-id') + ' へ（ホストが処理）';
+  });
 </script>
 </body>
 </html>

@@ -97,6 +97,8 @@
 .tssgrid .tg-table td.tg-placeholder { color: var(--tg-placeholder-fg); }
 /* セル内折り返し: グリッド全体(.tg-wordwrap) or 列単位(td.tg-wrap-cell)。行高は中身に合わせて伸びる */
 .tssgrid.tg-wordwrap .tg-table td, .tssgrid .tg-table td.tg-wrap-cell { white-space: normal; word-break: break-word; }
+/* 溢れた文字を … で省略: グリッド全体(.tg-ellipsis) or 列単位(td.tg-ellip-cell)。既定は overflow:hidden で切るだけ＝…は出ない。ホバーで全文を title 表示（JS）。折り返し(wordWrap)が同時指定なら折り返しが優先（white-space:normal で text-overflow 無効） */
+.tssgrid.tg-ellipsis .tg-table td, .tssgrid .tg-table td.tg-ellip-cell { text-overflow: ellipsis; }
 /* 読み取り専用セル: 淡色＋既定カーソル（編集不可・全変更経路で拒否） */
 .tssgrid .tg-table td.tg-readonly { background: var(--tg-readonly-bg); color: var(--tg-readonly-fg); cursor: default; }
 .tssgrid .tg-table td.tg-readonly.sel { background: #e7edf5; }

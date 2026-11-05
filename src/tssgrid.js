@@ -214,6 +214,8 @@
       this.stretchH = opts.stretchH || 'none';
       // セル内折り返し（既定 nowrap）。grid 全体 or columns[c].wordWrap。
       this.wordWrap = !!opts.wordWrap;
+      // 溢れた文字を … で省略（既定は切るだけ）。grid 全体 or columns[c].ellipsis。ホバーで全文を title 表示（見え方だけ・値/コピー/編集は不変）。
+      this.ellipsis = !!opts.ellipsis;
       // 複数行(改行)編集の Enter 挙動: 'commit'(既定・Excel風: Enter=確定 / Alt+Enter=改行) | 'newline'(メモ帳風: Enter=改行 / Ctrl+Enter=確定)。列は columns[c].multiline:true で有効化。
       this.multilineEnter = opts.multilineEnter === 'newline' ? 'newline' : 'commit';
       // multiline セル右上の「複数行」ヒント（既定 ON）。色は CSS 変数 --tg-ml-mark で。false で消す。
@@ -858,6 +860,7 @@
       this.root = q('.tssgrid');
       if (this.className) this.root.className += ' ' + this.className;  // 任意クラス（テーマ付け）
       if (this.wordWrap) this.root.classList.add('tg-wordwrap');        // グリッド全体の折り返し
+      if (this.ellipsis) this.root.classList.add('tg-ellipsis');        // グリッド全体の … 省略
       if (!this.multilineMark) this.root.classList.add('tg-no-ml-mark'); // multiline の右上ヒントを消す
       if (!this.cursor) this.root.classList.add('tg-no-cursor');        // 表示専用（選択枠なし＋セルカーソル既定）
       if (this.width) {
@@ -1195,6 +1198,8 @@
     _editText(r, c) {
       if (this._nativeInputType(c)) return this.data[r][c];
       if (this.colType(c) === 'number') return this.data[r][c];
+      // html:true は format の出力が markup（<a>/<span> 等）＝編集対象は生の値。整形後を入れるとタグを編集して崩れる。
+      if (this.colCfg(c).html) return this.data[r][c];
       return this._displayValue(r, c);
     }
     // td の中身を型に応じて描画。data は確定済み前提。空セルは placeholder（あれば）を表示。
@@ -1485,6 +1490,7 @@
         if (this.colType(c) === 'number') cls.push('tg-num');  // 数値は右寄せ
         if (this._isReadOnly(r, c)) cls.push('tg-readonly');  // 読み取り専用（淡色＋カーソル既定）
         if (this.colCfg(c).wordWrap) cls.push('tg-wrap-cell');  // 列単位の折り返し
+        if (this.colCfg(c).ellipsis) cls.push('tg-ellip-cell');  // 列単位の … 省略
         if (this.colCfg(c).multiline) cls.push('tg-multiline-cell');  // 複数行（改行保持＝pre-wrap）
         if (this.data[r][c] === '' && this._placeholder(c) != null) cls.push('tg-placeholder');  // 空セルのヒント
         const al = this._cellAlign(r, c);   // 整列（列既定＋セル上書き）
@@ -3164,6 +3170,15 @@
         this.setActive(+td.dataset.r, +td.dataset.c); this._beginEdit(this.active.r, this.active.c);
       });
       this.fillhandle.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); this.filling = { src: this.rectRange() }; this._fillRow = null; });
+      // 溢れて … で切れたセルは、ホバー時に全文を title（ネイティブツールチップ）で出す。
+      // 対象セルだけを初回ホバーで1回測るso軽い（redraw で td が作り直され _ellChk も消える）。ellipsis 未使用なら即 return＝ゼロコスト。
+      this.table.addEventListener('mouseover', (e) => {
+        const td = e.target.closest && e.target.closest('td');
+        if (!td || td._ellChk) return;
+        if (!this.ellipsis && !td.classList.contains('tg-ellip-cell')) return;
+        td._ellChk = 1;
+        if (td.scrollWidth > td.clientWidth + 1 && !td.hasAttribute('title')) td.title = td.textContent;
+      });
       // 右クリックメニュー（行/列の挿入・削除）
       this.table.addEventListener('contextmenu', (e) => this._onContextMenu(e));
       this.menuEl.addEventListener('mousedown', (e) => {
