@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TssGrid 例 — 2択トグル（toggle プラグイン）</title>
+<title>TssGrid 例 — 択一トグル／ラジオ（2択以上・toggle プラグイン）</title>
 <link rel="stylesheet" href="../src/tssgrid.css">
 <link rel="stylesheet" href="../plugins/tss-toggle.css">
 <style>
@@ -21,14 +21,19 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>2択トグル <span class="pill">toggle プラグイン</span></h1>
+  <h1>択一トグル／ラジオ <span class="pill">toggle プラグイン</span></h1>
   <div class="note" style="margin-top:8px">
-  ラジオの2択を<b>並んだセグメント（有効｜無効）</b>で表示し、<b>クリックで切替</b>（<code>plugins/tss-toggle.js</code>＋<code>.css</code>）。チェックボックスより<b>2つのラベルが見える</b>のが利点。アクティブセルで <b>Space</b> でも反対側へトグル。<br>
-  値は <code>dropdown</code> と同じく <b>value を保存</b>（<code>['公開','非公開']</code> や <code>{value:'1',label:'公開'}</code>）。<b>Undo 対応</b>・他値の打ち込みは検証で拒否。
+  択一（<b>2つ以上</b>）を<b>並んだセグメント（有効｜無効／未回答｜出席｜欠席）</b>で表示し、<b>クリックで切替</b>（<code>plugins/tss-toggle.js</code>＋<code>.css</code>）。ラジオボタンの「<b>全選択肢が常に見える・1クリックで確定</b>」をセル内で実現。アクティブセルで <b>Space</b> で次の値へ循環。<br>
+  値は <code>dropdown</code> と同じく <b>value を保存</b>（<code>['未回答','出席','欠席']</code> や <code>{value:'1',label:'公開'}</code>）。<b>Undo 対応</b>・他値の打ち込みは検証で拒否。短いラベルなら <code>dropdown</code> と同程度の幅で収まり、タップ数は 2→1 に。
   </div>
 
   <div class="panel">
-    <div class="lbl">記事管理（公開状態・コメント許可・対象をクリックで切替）</div>
+    <div class="lbl">出欠（3択・初期値は未回答／クリックで出席・欠席を選択）</div>
+    <div class="tg"><div id="att"></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="lbl">記事管理（2択・公開状態・コメント許可・対象をクリックで切替）</div>
     <div class="tg"><div id="grid"></div></div>
   </div>
 </div>
@@ -36,6 +41,24 @@
 <script src="../src/tssgrid.js"></script>
 <script src="../plugins/tss-toggle.js"></script>
 <script>
+  // 出欠（3択・単一選択）。未回答→出席/欠席。戻せる（未回答へも）。
+  const att = new TssGrid(document.getElementById('att'), {
+    name: 'attendance', width: 420, rowHeight: 28, rowHeaders: false,
+    columns: [
+      { data: 'name', title: '氏名', width: 160 },
+      { data: 'ans',  title: '出欠', width: 230 },
+    ],
+    plugins: [TssToggle.plugin({
+      columns: { ans: ['未回答', '出席', '欠席'] },   // ← 3択（空の選択肢は無し）
+    })],
+    data: [
+      { name: '佐藤 一郎', ans: '未回答' },
+      { name: '鈴木 花子', ans: '出席' },
+      { name: '高橋 次郎', ans: '欠席' },
+      { name: '田中 三枝', ans: '未回答' },
+    ],
+  });
+
   const grid = new TssGrid(document.getElementById('grid'), {
     name: 'articles', width: 660, rowHeight: 28, rowHeaders: false,
     columns: [

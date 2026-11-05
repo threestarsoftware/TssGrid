@@ -1,23 +1,25 @@
-/*! TssToggle — 2択セグメント・トグル（有効|無効・公開|非公開・男|女 …）。
+/*! TssToggle — 2択以上（N択）のセグメント・トグル／ラジオ（有効|無効・未回答|出席|欠席 …）。
  *
- *  ラジオの2択を「並んだピル（セグメント）」で表示し、クリックでどちらかに切替。値は dropdown と同じく
+ *  択一（2つ以上）を「並んだピル（セグメント）」で表示し、クリックで切替。値は dropdown と同じく
  *  選んだ option の value を保存（getData も value）。html:true+format で描画、クリックは委譲で拾う。
+ *  ラジオボタンの「全選択肢が常に見える・1クリックで確定」をセル内で実現する用途（出欠・優先度 高/中/低 等）。
  *
  *  使い方:
  *    plugins: [ TssToggle.plugin({ columns: {
- *      status: ['有効', '無効'],                                   // 文字列2つ（value=label）
+ *      status: ['有効', '無効'],                                   // 文字列（value=label）。2つ以上でOK
+ *      att:    ['未回答', '出席', '欠席'],                          // 3択以上も可
  *      pub:    [{value:'1',label:'公開'},{value:'0',label:'非公開'}] // value/label 分離も可
  *    } }) ]
  *    // 列定義側で直接: { data:'status', html:true, format: TssToggle.format(['有効','無効']) } ＋ plugins:[TssToggle.plugin()]
  *
- *  opts(plugin): columns（{dataキー: 2要素配列}） / accent（選択側の色・CSS変数 --tg-toggle-accent でも）。
+ *  opts(plugin): columns（{dataキー: 2要素以上の配列}） / accent（選択側の色・CSS変数 --tg-toggle-accent でも）。
  *  挙動: クリックでその側に確定（setValue＝検証/Undo を通る）。アクティブセルで Space は反対側へトグル。
  *        他値を打ち込めないよう、対象列に「2値のみ許可」の validator を自動付与。
  */
 (function (root) {
   'use strict';
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function normOpts(arr) { return (arr || []).slice(0, 2).map(function (o) { return (o && typeof o === 'object') ? { value: String(o.value), label: String(o.label) } : { value: String(o), label: String(o) }; }); }
+  function normOpts(arr) { return (arr || []).map(function (o) { return (o && typeof o === 'object') ? { value: String(o.value), label: String(o.label) } : { value: String(o), label: String(o) }; }); }
 
   function makeFormat(options) {
     var opts = normOpts(options);
@@ -45,7 +47,7 @@
         cfg.html = true;
         if (typeof cfg.format !== 'function') cfg.format = makeFormat(o);
         var vals = o.map(function (x) { return x.value; });
-        if (typeof cfg.validator !== 'function') cfg.validator = function (v) { return v === '' || vals.indexOf(v) >= 0; };   // 2値以外を弾く
+        if (typeof cfg.validator !== 'function') cfg.validator = function (v) { return v === '' || vals.indexOf(v) >= 0; };   // 許可値以外を弾く
         byCol[ci] = vals;
       });
       // それ自体は無効でも format 直指定の列をクリックで拾えるよう、format 由来の列も拾う
@@ -68,7 +70,7 @@
         if (!vals || !editable(r, c) || grid.mode === 'edit') return;
         e.preventDefault();
         var cur = grid.getValue(r, c), i = vals.indexOf(String(cur));
-        grid.setValue(r, c, vals[(i + 1) % vals.length]);     // 反対側へトグル
+        grid.setValue(r, c, vals[(i + 1) % vals.length]);     // 次の値へ循環（2択なら反対側）
       }
       grid.wrap.addEventListener('click', onClick);
       grid.editor.addEventListener('keydown', onKey);

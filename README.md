@@ -817,9 +817,9 @@ new TssGrid(el, { columns, data, onAfterChange: () => { chart.data = toChartData
 ```
 - **おすすめ（いずれも `<script>`/CDN で no-build）**: **Chart.js**（MIT・定番・バランス◎）/ **ApexCharts**（MIT・モダンで映え）/ **Apache ECharts**（Apache-2.0・多機能）/ **uPlot**（MIT・超軽量）。Highcharts/AG Charts は商用有料なので MIT 方針なら避ける。
 
-### 同梱プラグイン: 2択トグル（toggle・有効｜無効）
+### 同梱プラグイン: 択一トグル／ラジオ（toggle・2択以上）
 
-`plugins/tss-toggle.js`＋`.css`＝ ラジオの2択を**並んだセグメント（有効｜無効）**で表示、クリックで切替。チェックボックスより**2ラベルが見える**。値は dropdown 同様 **value を保存**。動く例: [`examples/toggle.html`](https://tssgrid.threestarsoftware.co.jp/examples/toggle.html)。
+`plugins/tss-toggle.js`＋`.css`＝ 択一（**2つ以上**）を**並んだセグメント（有効｜無効／未回答｜出席｜欠席）**で表示、クリックで切替。ラジオボタンの「**全選択肢が常に見える・1クリックで確定**」をセル内で実現。値は dropdown 同様 **value を保存**。動く例: [`examples/toggle.html`](https://tssgrid.threestarsoftware.co.jp/examples/toggle.html)。
 
 ```html
 <link rel="stylesheet" href="plugins/tss-toggle.css">
@@ -827,12 +827,13 @@ new TssGrid(el, { columns, data, onAfterChange: () => { chart.data = toChartData
 ```
 ```js
 plugins: [ TssToggle.plugin({ columns: {
-  status: ['有効', '無効'],                                      // 文字列2つ（value=label）
+  status: ['有効', '無効'],                                      // 文字列（value=label）。2つ以上でOK
+  ans:    ['未回答', '出席', '欠席'],                             // 3択以上も可
   pub:    [{ value:'1', label:'公開' }, { value:'0', label:'非公開' }],  // value/label 分離
 } }) ]
 ```
-- クリックでその側に確定（`setValue`＝**検証・Undo を通る**）。アクティブセルで **Space** で反対側へトグル。2値以外の打ち込みは自動 validator で拒否。
-- 単純な ON/OFF 1個なら組込 `type:'checkbox'`、3択以上は `type:'dropdown'`。見た目は `--tg-toggle-accent` 等で。
+- クリックでその値に確定（`setValue`＝**検証・Undo を通る**）。アクティブセルで **Space** で次の値へ循環（2択なら反対側）。許可値以外の打ち込みは自動 validator で拒否。
+- 単純な ON/OFF 1個なら組込 `type:'checkbox'`。**短いラベルの少数択一**（出欠・高/中/低 等）に向き、短ければ dropdown と同程度の幅で収まる。**選択肢が多い／ラベルが長い／列幅が狭い**なら `type:'dropdown'` が省スペース。見た目は `--tg-toggle-accent` 等で。
 
 ### 同梱プラグイン: セル結合（merge・横/縦/矩形）
 
