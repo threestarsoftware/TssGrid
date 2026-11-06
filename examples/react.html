@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — React 公式アダプタ（@threestarsoftware/tssgrid/react）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } .pill { display:inline-block; background:#eef4ff; color:#2456b0; border-radius:10px; padding:1px 8px; font-size:12px; }
+  .note { background:#f5f7fa; border:1px solid #dde3ea; border-radius:6px; padding:12px 16px; font-size:13px; max-width:760px; }
+  .note b { color:#1573c0; } code { background:#eef2f6; padding:0 4px; border-radius:3px; }
+  button { margin:8px 6px 0 0; padding:5px 12px; border:1px solid #cbd2dc; border-radius:5px; background:#fff; cursor:pointer; }
+  #log { font-size:12.5px; color:#1a3a6b; margin-top:8px; }
+  pre { background:#0b1020; color:#cfe; padding:12px 14px; border-radius:8px; font-size:12px; overflow:auto; max-width:760px; }
+</style>
+</head>
+<body>
+<h1>TssGrid × React <span class="pill">@threestarsoftware/tssgrid/react</span></h1>
+<div class="note">
+薄い公式アダプタ。グリッドは<b>アンコントロールド</b>（マウントで生成・アンマウントで <code>destroy()</code>）、<b>cell は React で描かない</b>（高速）。値は <b>ref 経由の命令API</b>（grid 本体）＋ <code>onAfterChange</code>。<br>
+このページは CDN の React（UMD）＋アダプタを <code>&lt;script&gt;</code> で読む<b>ノービルド</b>デモ。実アプリでは <code>import { TssGridReact } from '@threestarsoftware/tssgrid/react'</code>。
+</div>
+
+<div id="app"></div>
+
+<h3 style="font-size:14px">差し込み（抜粋）</h3>
+<pre>import { useRef } from 'react';
+import { TssGridReact } from '@threestarsoftware/tssgrid/react';
+import '@threestarsoftware/tssgrid/tssgrid.css';
+
+const ref = useRef(null);
+&lt;TssGridReact columns={cols} data={rows}
+  onAfterChange={(ch, src) =&gt; console.log('changed', ch, src)} ref={ref} /&gt;
+// 命令API: ref.current.sortBy('age','desc') / ref.current.getRows()</pre>
+
+<!-- React UMD（グローバル React / ReactDOM）→ TssGrid 本体 → アダプタ（グローバル TssGridReact） -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="../src/tssgrid.js"></script>
+<script src="../react/index.js"></script>
+<script>
+  var h = React.createElement;
+  var cols = [
+    { data: 'name', title: '氏名', width: 160 },
+    { data: 'dept', title: '部署', width: 120, type: 'dropdown', options: ['営業', '開発', '総務'] },
+    { data: 'age', title: '年齢', width: 90, type: 'number' },
+  ];
+  var rows = [
+    { name: '佐藤 一郎', dept: '営業', age: '45' },
+    { name: '鈴木 花子', dept: '開発', age: '38' },
+    { name: '高橋 次郎', dept: '総務', age: '52' },
+  ];
+
+  function App() {
+    var ref = React.useRef(null);
+    var logState = React.useState('(編集すると変更がここに出ます)');
+    var log = logState[0], setLog = logState[1];
+    return h('div', null,
+      h(TssGridReact, {
+        ref: ref, columns: cols, data: rows, width: 400, rowHeaders: false,
+        onAfterChange: function (ch, src) { setLog('onAfterChange: ' + JSON.stringify(ch) + ' (' + src + ')'); },
+      }),
+      h('div', null,
+        h('button', { onClick: function () { ref.current && ref.current.sortBy('age', 'desc'); } }, '年齢で降順ソート（命令API）'),
+        h('button', { onClick: function () { setLog('getRows: ' + JSON.stringify(ref.current ? ref.current.getRows() : null)); } }, 'getRows() を表示')
+      ),
+      h('div', { id: 'log' }, log)
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('app')).render(h(App));
+</script>
+</body>
+</html>

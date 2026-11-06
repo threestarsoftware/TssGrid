@@ -1,6 +1,6 @@
 {
   "name": "@threestarsoftware/tssgrid",
-  "version": "0.1.36",
+  "version": "0.1.37",
   "description": "軽量・ノービルド・日本語IME堅牢な編集グリッド（vanilla JS / 依存なし / MIT）。Excel ライクな入力画面を <script> タグ1本で。",
   "license": "MIT",
   "author": "ThreeStarSoftware (https://www.threestarsoftware.co.jp/)",
@@ -67,8 +67,28 @@
       "types": "./plugins/tss-comment.d.ts",
       "default": "./plugins/tss-comment.js"
     },
+    "./react": {
+      "types": "./react/index.d.ts",
+      "default": "./react/index.js"
+    },
+    "./vue": {
+      "types": "./vue/index.d.ts",
+      "default": "./vue/index.js"
+    },
     "./plugins/*": "./plugins/*",
     "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "vue": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
   },
   "unpkg": "src/tssgrid.js",
   "jsdelivr": "src/tssgrid.js",
@@ -83,6 +103,8 @@
     "src/tssgrid.css",
     "src/tssgrid.d.ts",
     "plugins/",
+    "react/",
+    "vue/",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"

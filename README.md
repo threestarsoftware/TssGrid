@@ -78,9 +78,39 @@ const { TssGrid, HistoryManager } = require('@threestarsoftware/tssgrid');
 
 ## フレームワークで使う（React / Vue / Angular）
 
-専用ラッパーは**作りません**。vanilla on DOM なので CRA/Vite/Next/Webpack/Angular/Nuxt でそのまま動きます。コツは **マウント時に生成し、アンマウント時に `grid.destroy()`** するだけ（リスナ・ResizeObserver・DOM を後始末。idempotent）。
+**React / Vue には薄い公式アダプタ**（`@threestarsoftware/tssgrid/react`・`/vue`）があります。コアは無依存のまま＝`react`・`vue` は **peerDependency（任意）**、アダプタは `React.createElement` / `Vue.h` で手書き＝**ノービルド**。グリッドは「アンコントロールド」（マウントで生成・アンマウントで `destroy()`・**cell は React/Vue で描かない**＝高速）、値は **ref で公開した grid 本体（命令API）** ＋ `onAfterChange` 等のコールバック、`data` プロップは「差し替え」用（参照が変わった時だけ `setData`）。動く例: [`examples/react.html`](https://tssgrid.threestarsoftware.co.jp/examples/react.html) / [`examples/vue.html`](https://tssgrid.threestarsoftware.co.jp/examples/vue.html)。
 
-**React**:
+**React（公式アダプタ）**:
+```jsx
+import { useRef } from 'react';
+import { TssGridReact } from '@threestarsoftware/tssgrid/react';
+import '@threestarsoftware/tssgrid/tssgrid.css';
+
+function Grid({ columns, data }) {
+  const ref = useRef(null);   // ref.current = grid 本体（命令API）
+  return <TssGridReact columns={columns} data={data}
+    onAfterChange={(ch, src) => console.log(ch, src)} ref={ref} />;
+  // 例: ref.current.sortBy('age','desc') / ref.current.getRows()
+}
+```
+
+**Vue 3（公式アダプタ）**:
+```vue
+<script setup>
+import { ref } from 'vue';
+import { TssGridVue } from '@threestarsoftware/tssgrid/vue';
+import '@threestarsoftware/tssgrid/tssgrid.css';
+const g = ref(null);   // g.value.grid() = grid 本体
+</script>
+<template>
+  <TssGridVue :columns="columns" :data="data"
+    :options="{ onAfterChange: (ch, src) => console.log(ch, src) }" ref="g" />
+</template>
+```
+
+アダプタを使わず**依存ゼロで直接**使うこともできます（vanilla on DOM。CRA/Vite/Next/Webpack/Angular/Nuxt でそのまま。コツは **マウント時に生成し、アンマウント時に `grid.destroy()`**）。
+
+**React（直接）**:
 ```jsx
 import { useEffect, useRef } from 'react';
 import { TssGrid } from '@threestarsoftware/tssgrid';

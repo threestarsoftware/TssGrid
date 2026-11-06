@@ -3,6 +3,15 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.37] - 2026-11-06
+
+### 追加（公式フレームワークアダプタ）
+- **React / Vue 3 の薄い公式アダプタを追加**（`@threestarsoftware/tssgrid/react`・`@threestarsoftware/tssgrid/vue`）。競合（`ag-grid-react` / `@handsontable/react`）と同じ「コアはフレームワーク非依存のまま・薄いコンポーネントがライフサイクルと props を橋渡し」の形。**コアは無依存を維持**＝`react` / `vue` は **peerDependency（任意・`peerDependenciesMeta.optional`）**、アダプタは `React.createElement` / `Vue.h` で手書き＝**ビルド不要（UMD）**。
+  - グリッドは**アンコントロールド**：マウントで生成・アンマウントで `destroy()`、**cell を React/Vue で描かない**（高速）。値は **ref で公開した grid 本体（命令API）** ＋ `onAfterChange` 等のコールバック。`data` プロップは参照が変わった時だけ `setData`（毎レンダー新配列を渡すとリセット＝頻繁な更新は命令APIで）。
+  - React: `<TssGridReact columns={..} data={..} onAfterChange={..} ref={ref} />`、`ref.current` が grid 本体。StrictMode 二重マウント安全（`destroy` 冪等）、SSR/Next 安全（構築は `useEffect`＝クライアント専用）。
+  - Vue: `<TssGridVue :columns :data :options="{ onAfterChange }" ref="g" />`、`g.grid()` が grid 本体。
+  - `columns/data/plugins/options` と全 `on*` コールバックをそのまま透過。型（`.d.ts`）付き。例 `examples/react.html` / `examples/vue.html`（CDN UMD のノービルドデモ）。
+
 ## [0.1.36] - 2026-11-06
 
 inline ピッカー3兄弟（**tss-time / tss-calendar / tss-datetime**）に共通して潜んでいた「ポップアップの `<select>` が使えない／確定がピッカー内部の値を書き戻す／編集中の表示が食い違う」を一掃。土台としてコアに2つの affordance を追加。
