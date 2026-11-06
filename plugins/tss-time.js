@@ -15,7 +15,7 @@
     opts = opts || {};
     var step = Math.max(1, opts.step || 1);
     var hour12 = !!opts.hour12;
-    var pop = null, ref = null, done = false, outside = null;
+    var pop = null, ref = null, done = false, outside = null, ictx = null;   // ictx: inline の ctx（共有 input が真実）
     var inline = opts.inline !== false;   // true=共有 input に乗る（直打ち可・矢印は本体に返す）／false=従来のフォーカス奪取型
 
     function opt(val, label, sel) { return '<option value="' + val + '"' + (sel ? ' selected' : '') + '>' + label + '</option>'; }
@@ -45,10 +45,24 @@
       if (hour12 && aS) { var ap = aS.value; h = ap === 'PM' ? (h === 12 ? 12 : h + 12) : (h === 12 ? 0 : h); }
       return pad(h) + ':' + pad(m);
     }
+    // 共有 input に見せる文字列。hour12 は 12h 表示形（"6:30 PM"＝列のセル表示と一致・parser も受ける）、
+    // それ以外は 24h（= 保存値 = 表示）。これで編集中に 24h がちらっと出る食い違いを無くす。
+    function readDisplay() {
+      var hS = pop.querySelector('.tss-time-h'), mS = pop.querySelector('.tss-time-m'), aS = pop.querySelector('.tss-time-ap');
+      if (!hS || hS.value === '' || mS.value === '') return readValue();
+      if (hour12 && aS) return (+hS.value) + ':' + pad(+mS.value) + ' ' + aS.value;
+      return readValue();
+    }
     function setNow() {
       var d = new Date(), m = Math.round(d.getMinutes() / step) * step; if (m >= 60) m = 60 - step;
       render({ h: d.getHours(), m: m });
+      mirrorToInput();   // inline: 現在ボタンの結果も共有 input へ
     }
+    // inline のとき、select の内容を共有 input に流し込む（確定はしない）。これで「打つ」と「選ぶ」が input に集約。
+    // 選び終えたらフォーカスを共有 input に戻す＝以降の「外クリックで確定」等が本体の既定どおり効く。
+    function mirrorToInput() { if (ictx && ictx.inline && ictx.input) { if (ictx.setValue) { var v = readDisplay(); if (v !== '') ictx.input.value = v; } try { ictx.input.focus(); } catch (e) {} } }
+    // 確定: inline は共有 input（打鍵 or ミラー済み）を真実として確定／非 inline は select を真実に。
+    function commitFinal() { if (ictx && ictx.inline && ictx.input) commit(ictx.input.value); else commit(readValue()); }
     function place(anchor) {
       var r = anchor.getBoundingClientRect();
       pop.style.left = Math.max(2, Math.min(r.left, window.innerWidth - pop.offsetWidth - 6)) + 'px';
@@ -58,34 +72,35 @@
     }
     function onClick(e) {
       if (e.target.classList.contains('tss-time-now')) { setNow(); return; }
-      if (e.target.classList.contains('tss-time-ok')) { commit(readValue()); }
+      if (e.target.classList.contains('tss-time-ok')) { commitFinal(); }
     }
     function onKey(e) {
       if (e.key === 'Escape') { e.preventDefault(); cancel(); }
-      else if (e.key === 'Enter') { e.preventDefault(); commit(readValue()); }
+      else if (e.key === 'Enter') { e.preventDefault(); commitFinal(); }
     }
-    function show(anchor, value, onPick, onCancel) {
+    function show(anchor, value, onPick, onCancel, ctx) {
       teardown();   // 既に開いていれば先に片付ける（open-while-open の取り残し防止・tss-calendar と同方針）
-      done = false;
+      done = false; ictx = ctx || null;
       pop = document.createElement('div'); pop.className = 'tss-time' + (opts.className ? ' ' + opts.className : ''); pop.tabIndex = -1;
       document.body.appendChild(pop);
       pop.addEventListener('mousedown', function (e) { if (e.target.tagName !== 'SELECT') e.preventDefault(); });
       pop.addEventListener('click', onClick);
       pop.addEventListener('keydown', onKey);
+      pop.addEventListener('change', function (e) { if (e.target.tagName === 'SELECT') mirrorToInput(); });   // inline: select を選んだら共有 input に反映（打鍵と集約）
       render(parseHM(value)); place(anchor);
       ref = { pick: onPick, cancel: onCancel };
-      if (inline) return;   // inline は外側クリック/フォーカスを本体が持つ＝共有 input から奪わない（打ち続けられる）
+      if (inline) { if (ictx && ictx.inline && ictx.setPopup) ictx.setPopup(pop); return; }   // inline: ポップアップを本体に登録＝select へフォーカスが移っても編集を閉じない。外側クリック/フォーカスは本体が持つ（打ち続けられる）
       // 外側クリックは「確定」（時/分を選んで離す＝採用）。未変更なら同値 commit＝実質no-op。アンカーは除外（再クリックはグリッドがトグル）
       outside = function (e) { if (pop && !pop.contains(e.target) && !(anchor && anchor.contains && anchor.contains(e.target))) commit(readValue()); };
       setTimeout(function () { document.addEventListener('mousedown', outside, true); }, 0);
       pop.focus();
     }
-    function teardown() { if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } }
+    function teardown() { if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } ictx = null; }
     function commit(v) { if (done) return; done = true; var f = ref.pick; teardown(); f(v); }
     function cancel() { if (done) return; done = true; var f = ref.cancel; teardown(); if (f) f(); }
 
     return {
-      open: function (ctx) { show(ctx.td, ctx.value, function (v) { ctx.commit(v); }, function () { ctx.cancel(); }); },
+      open: function (ctx) { show(ctx.td, ctx.value, function (v) { ctx.commit(v); }, function () { ctx.cancel(); }, ctx); },
       close: function () { teardown(); },
       icon: opts.icon != null ? opts.icon : '🕐',
       openOnClick: opts.openOnClick !== false,

@@ -38,8 +38,16 @@
     var yrLo = opts.yearMin || (minD ? minD.getFullYear() : ty - 12);
     var yrHi = opts.yearMax || (maxD ? maxD.getFullYear() : ty + 12);
 
-    var pop = null, view = null, selD = null, selH = null, selM = null, ref = null, done = false, outside = null;
+    var pop = null, view = null, selD = null, selH = null, selM = null, ref = null, done = false, outside = null, ictx = null;
     var inline = opts.inline !== false;   // true=共有 input に乗る（直打ち可・矢印は本体に返す）／false=従来のフォーカス奪取型
+    // inline: ピッカー操作の結果を共有 input に「表示形」で反映＋フォーカスを input に戻す。
+    // これで select へ移っても閉じず（②）、編集中の表示も一致（④）、クリックアウト確定も壊れない。
+    function syncInput() {
+      if (!(ictx && ictx.inline && ictx.input)) return;
+      var v = value();
+      ictx.input.value = v === '' ? '' : TssDatetime.format(v, { weekLabels: weekLabels });
+      try { ictx.input.focus(); } catch (e) {}
+    }
 
     function dDisabled(d) { if (minD && d < minD) return true; if (maxD && d > maxD) return true; return false; }
 
@@ -123,10 +131,10 @@
     function onClick(e) {
       var t = e.target;
       var nav = t.getAttribute && t.getAttribute('data-nav');
-      if (nav) { view = new Date(view.getFullYear(), view.getMonth() + (+nav), 1); render(); return; }
+      if (nav) { view = new Date(view.getFullYear(), view.getMonth() + (+nav), 1); render(); syncInput(); return; }
       var dd = t.getAttribute && t.getAttribute('data-d');
-      if (dd) { readTime(); var d = parseISOd(dd); if (!dDisabled(d)) { selD = d; render(); } return; }   // 日付選択しても閉じない（時刻も決めるため）
-      if (t.classList.contains('tss-dt-now')) { var now = new Date(); selD = now; selH = now.getHours(); selM = Math.round(now.getMinutes() / step) * step; if (selM >= 60) selM = 60 - step; view = new Date(now.getFullYear(), now.getMonth(), 1); render(); return; }
+      if (dd) { readTime(); var d = parseISOd(dd); if (!dDisabled(d)) { selD = d; render(); syncInput(); } return; }   // 日付選択しても閉じない（時刻も決めるため）
+      if (t.classList.contains('tss-dt-now')) { var now = new Date(); selD = now; selH = now.getHours(); selM = Math.round(now.getMinutes() / step) * step; if (selM >= 60) selM = 60 - step; view = new Date(now.getFullYear(), now.getMonth(), 1); render(); syncInput(); return; }
       if (t.classList.contains('tss-dt-clear')) { commit(''); return; }
       if (t.classList.contains('tss-dt-ok')) { commit(value()); return; }
     }
@@ -135,14 +143,15 @@
       if (t.classList.contains('tss-cal-sel-yr')) { view = new Date(+t.value, view.getMonth(), 1); render(); }
       else if (t.classList.contains('tss-cal-sel-mon')) { view = new Date(view.getFullYear(), +t.value, 1); render(); }
       else if (t.classList.contains('tss-time-h') || t.classList.contains('tss-time-m') || t.classList.contains('tss-time-ap')) { readTime(); var ro = pop.querySelector('.tss-dt-readout'); if (ro) ro.innerHTML = readoutHTML(); }
+      syncInput();   // 年/月/時/分/AM-PM いずれの変更も共有 input（表示形）へ反映＋input へフォーカスを戻す
     }
     function onKey(e) {
       if (e.key === 'Escape') { e.preventDefault(); cancel(); }
       else if (e.key === 'Enter') { e.preventDefault(); commit(value()); }
     }
-    function show(anchor, val, onPick, onCancel) {
+    function show(anchor, val, onPick, onCancel, ctx) {
       teardown();   // 既に開いていれば先に片付ける（open-while-open の取り残し防止・tss-calendar と同方針）
-      done = false;
+      done = false; ictx = ctx || null;
       var p = parseDT(val), tp = p ? null : parseTimeOnly(val);   // 日付付き or 時刻のみ
       selD = p ? p.d : null;
       selH = p ? p.h : (tp ? tp.h : null);
@@ -156,21 +165,36 @@
       pop.addEventListener('keydown', onKey);
       render(); place(anchor);
       ref = { pick: onPick, cancel: onCancel };
-      if (inline) return;   // inline は外側クリック/フォーカスを本体が持つ＝共有 input から奪わない（打ち続けられる）
+      // ★ ポップアップを本体に登録＝年/月/時/分の <select> へフォーカスが移っても編集を閉じない（②）。
+      if (inline) { if (ictx && ictx.inline && ictx.setPopup) ictx.setPopup(pop); return; }   // inline は外側クリック/フォーカスを本体が持つ（打ち続けられる）
       outside = function (e) { if (pop && !pop.contains(e.target) && !(anchor && anchor.contains && anchor.contains(e.target))) commit(value()); };   // 外側クリックは確定（time と同方針）
       setTimeout(function () { document.addEventListener('mousedown', outside, true); }, 0);
       pop.focus();
     }
-    function teardown() { if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } }
+    function teardown() { if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } ictx = null; }
     function commit(v) { if (done) return; done = true; var f = ref.pick; teardown(); f(v); }
     function cancel() { if (done) return; done = true; var f = ref.cancel; teardown(); if (f) f(); }
 
     return {
-      open: function (ctx) { show(ctx.td, ctx.value, function (v) { ctx.commit(v); }, function () { ctx.cancel(); }); },
+      open: function (ctx) {
+        // 列に parse が無ければ付与＝表示形↔保存形の round-trip（打鍵追従・blur/Enter 確定）を成立させる。
+        if (ctx.grid && typeof ctx.c === 'number') { var cc = ctx.grid.colCfg(ctx.c); if (cc && typeof cc.parse !== 'function') cc.parse = TssDatetime.parse; }
+        show(ctx.td, ctx.value, function (v) { ctx.commit(v); }, function () { ctx.cancel(); }, ctx);
+      },
       close: function () { teardown(); },
       icon: opts.icon != null ? opts.icon : '📅',
       openOnClick: opts.openOnClick !== false,
       inline: inline,   // true=共有 input に乗る＝日時をそのまま直打ちできる（矢印/Enter/Esc は本体の既定）
+      // inline のみ: 打った内容にピッカーが追従（ctx.parseCell＝セルの確定と同じ読み方。上で付けた parse を使う）。
+      onInput: inline ? function (v, ctx) {
+        if (!pop) return;
+        var iso = null; try { iso = ctx.parseCell ? ctx.parseCell(v) : v; } catch (e) { iso = null; }
+        var p = parseDT(iso), tp = p ? null : parseTimeOnly(iso);
+        if (!p && !tp) return;   // 打ちかけ/不正はピッカーを動かさない
+        if (p) { selD = p.d; if (p.h != null) selH = p.h; if (p.mi != null) selM = p.mi; view = new Date(p.d.getFullYear(), p.d.getMonth(), 1); }
+        else { selH = tp.h; selM = tp.m; }
+        render();
+      } : undefined,
       openAt: function (anchorEl, val, onPick) { show(anchorEl, val, function (v) { onPick(v); }, null); },
     };
   }
@@ -183,6 +207,23 @@
     var d = p.d, wd = (o && o.weekday === false) ? '' : '(' + (o && o.weekLabels || WD)[d.getDay()] + ')';
     var t = (p.h != null) ? ' ' + pad(p.h) + ':' + pad(p.mi == null ? 0 : p.mi) : '';
     return d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + wd + t;
+  };
+
+  // 表示形 → 保存形。format の逆。'YYYY/MM/DD(曜) HH:MM'・'YYYY-MM-DDTHH:MM'・'YYYY/MM/DD'・'HH:MM' を受け、
+  // 'YYYY-MM-DDTHH:MM'（または 'YYYY-MM-DD' / 'HH:MM'）へ正規化。これを列 parse に付けると、打鍵追従も
+  // 確定（blur/Enter/決定）の round-trip も成立する（inline で editor が入力/表示を握るのに必須）。解釈不可は素通し。
+  TssDatetime.parse = function (v) {
+    var s = String(v == null ? '' : v).trim();
+    if (s === '') return '';
+    var m = /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:\s*\([^)]*\))?(?:[ T]+(\d{1,2}):(\d{2}))?/.exec(s);
+    if (m) {
+      var iso = m[1] + '-' + pad(+m[2]) + '-' + pad(+m[3]);
+      if (m[4] != null) iso += 'T' + pad(+m[4]) + ':' + pad(+m[5]);
+      return iso;
+    }
+    var t = /^(\d{1,2}):(\d{2})$/.exec(s);
+    if (t) return pad(+t[1]) + ':' + pad(+t[2]);
+    return s;
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = TssDatetime;

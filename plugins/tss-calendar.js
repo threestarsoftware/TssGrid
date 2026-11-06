@@ -34,7 +34,7 @@
     var ty = new Date().getFullYear();
     var yrLo = opts.yearMin || (minD ? minD.getFullYear() : ty - 12);
     var yrHi = opts.yearMax || (maxD ? maxD.getFullYear() : ty + 12);
-    var pop = null, view = null, sel = null, focus = null, ref = null, done = false, outside = null;
+    var pop = null, view = null, sel = null, focus = null, ref = null, done = false, outside = null, ictx = null;
     var inline = opts.inline !== false;   // true=共有 input に乗る（直打ち可・矢印は本体に返す）／false=従来のフォーカス奪取型
 
     // ── 範囲選択（range）: 連続した日を1回の編集で選ぶ（休暇申請の開始〜終了 等）───────────
@@ -134,6 +134,8 @@
       var t = e.target;
       if (t.classList && t.classList.contains('tss-cal-sel-yr')) { view = new Date(+t.value, view.getMonth(), 1); render(); }
       else if (t.classList && t.classList.contains('tss-cal-sel-mon')) { view = new Date(view.getFullYear(), +t.value, 1); render(); }
+      // 年/月を選んだ後は共有 input にフォーカスを戻す（select は render で作り直され、残すと焦点が宙に浮く）。
+      if (ictx && ictx.inline && ictx.input) { try { ictx.input.focus(); } catch (err) {} }
     }
     function onKey(e) {
       if (e.target && e.target.tagName === 'SELECT') return;   // 年/月プルダウン操作中は日移動しない
@@ -161,9 +163,9 @@
       try { rc.td.title = rangeTipOf(aIso, bIso); } catch (e) { /* noop */ }
     }
     function clearTip() { if (rc && rc.td) { try { rc.td.title = ''; } catch (e) { /* noop */ } } }
-    function show(anchor, value, onPick, onCancel, rangeCfg) {
+    function show(anchor, value, onPick, onCancel, rangeCfg, ctx) {
       teardown();   // 既に開いていれば先に片付ける（前の pop 除去＋outside リスナ解除・open-while-open の取り残し防止）
-      done = false; rc = rangeCfg || null; rangeStart = null; hoverEnd = null;
+      done = false; rc = rangeCfg || null; rangeStart = null; hoverEnd = null; ictx = ctx || null;
       rangeActive = rc ? (isRangeValue(value) || !!rc.def) : false;   // 既存値が範囲 or rangeDefault なら ON で開く
       sel = parseISO(value);
       // range の既存値（'YYYY/MM/DD～…' 等）は parseISO では取れない＝先頭日を緩く読んで月を合わせる。
@@ -181,13 +183,14 @@
       ref = { pick: onPick, cancel: onCancel };
       // inline は「外側クリック/フォーカス」を本体（_commitActive / blur）が持つ＝二重に閉じない・共有 input から
       // フォーカスを奪わない（＝打ち続けられる）。矢印/Enter/Esc も本体の既定に返す（onKey は pop 未フォーカスなので発火しない）。
-      if (inline) return;
+      // ★ ポップアップを本体に登録＝年/月の <select> へフォーカスが移っても編集を閉じない（②）。
+      if (inline) { if (ictx && ictx.inline && ictx.setPopup) ictx.setPopup(pop); return; }
       // 外側クリックで閉じる。ただしアンカー（開いた元セル）は除外＝再クリックはグリッド側でトグル処理させる
       outside = function (e) { if (pop && !pop.contains(e.target) && !(anchor && anchor.contains && anchor.contains(e.target))) cancel(); };
       setTimeout(function () { document.addEventListener('mousedown', outside, true); }, 0);
       pop.focus();
     }
-    function teardown() { clearTip(); if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } }
+    function teardown() { clearTip(); if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } ictx = null; }
     function pick(d) {
       if (done) return;
       if (rc && rangeActive) {   // トグル ON＝2クリック範囲
@@ -206,7 +209,7 @@
         var rangeMode = typeof rangeOpt === 'function' ? !!rangeOpt(ctx) : !!rangeOpt;   // この行で範囲を使えるか（半休行は false＝トグル無し）
         var def = typeof rangeDefault === 'function' ? !!rangeDefault(ctx) : !!rangeDefault;  // トグル初期ON/OFF（行ごと可）
         var cfg = rangeMode ? { td: ctx.td, def: def } : null;
-        show(ctx.td, ctx.value, function (v) { ctx.commit(v); }, function () { ctx.cancel(); }, cfg);
+        show(ctx.td, ctx.value, function (v) { ctx.commit(v); }, function () { ctx.cancel(); }, cfg, ctx);
       },
       close: function () { teardown(); },
       icon: opts.icon != null ? opts.icon : '📅',     // セル右端に表示する合図（opts.icon:'' で消せる）

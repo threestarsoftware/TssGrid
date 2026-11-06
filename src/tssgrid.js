@@ -159,7 +159,7 @@
       this._headerSel = null;   // 'col'/'row'/'all'=列/行/全選択モード（結合に拡張せず実列/行にクランプ＝Excel流）。null=通常セル選択
       this._selCols = new Set(); // 飛び飛びの列選択（Ctrl+ヘッダクリック）。_headerSel==='col' の時だけ有効。連続選択は矩形と一致
       this._selRows = new Set(); // 飛び飛びの行選択（Ctrl+行ヘッダクリック）。_headerSel==='row' の時だけ有効
-      this._inlineEd = null; this._inlineCtx = null;   // inline エディタ（editor.inline=true）: 共有 input に乗るエディタの現在値
+      this._inlineEd = null; this._inlineCtx = null; this._inlineEl = null;   // inline エディタ（editor.inline=true）: 共有 input に乗るエディタ。_inlineEl=補助ポップアップ参照
       this.disjointSelect = opts.disjointSelect !== false;   // Ctrl+ヘッダで行/列を飛び飛び複数選択（false で無効＝Ctrl+クリックは単一選択に戻る）
       // リサイズ（列幅・行高）
       // 列幅 colW[c]=px（未指定は既定）。指定方法は3通り、優先度＝実行時リサイズ/明示colW > columns[c].width > 既定:
@@ -1158,7 +1158,9 @@
     // ネイティブ入力(date/time ピッカー)を使う列か。使わない=テキスト入力。
     _nativeInputType(c) {
       const cfg = this.colCfg(c), t = cfg.type;
-      if ((t === 'date' || t === 'time') && cfg.picker !== false && !cfg.format && typeof cfg.parse !== 'function' && !cfg.hour12) return t;
+      // カスタム editor を付けた列は、そのエディタが入力/表示を握る＝ネイティブ picker を重ねない
+      // （重ねるとブラウザのロケールで AM/PM 等が出て、セル表示と食い違う）。picker:false を書き忘れても破綻しない。
+      if ((t === 'date' || t === 'time') && cfg.picker !== false && !cfg.format && typeof cfg.parse !== 'function' && !cfg.hour12 && !cfg.editor) return t;
       return null;
     }
     _usesTextEditor(c) {
@@ -2003,12 +2005,15 @@
         setValue(v) { grid.editor.value = grid._cellStr(v); },  // 候補で置き換える用（確定はしない）
         commit(v) { if (v != null) grid.editor.value = grid._cellStr(v); grid.commit(); grid.toNav(); grid.updateSelectionUI(); },
         cancel() { grid.setActive(r, c); },                     // 元値に戻して nav（Esc 相当）
+        // inline 補助ポップアップ（<select> 等 focus を奪う要素を含む）を登録＝その中へフォーカスが移っても編集を閉じない。
+        setPopup(el) { grid._inlineEl = el || null; },
       };
       this._inlineEd = ed; this._inlineCtx = ctx;
       try { ed.open(ctx); } catch (_) { this._inlineEd = null; this._inlineCtx = null; }
     }
     _closeInlineEditor() {
       const ed = this._inlineEd;
+      this._inlineEl = null;   // 登録された補助ポップアップ参照を解除
       if (!ed) return;
       this._inlineEd = null; this._inlineCtx = null;
       if (ed.close) { try { ed.close(); } catch (_) {} }
@@ -3095,8 +3100,11 @@
           else if (t === 'date' || t === 'time') this.toEdit(this.data[this.active.r][c], true);  // ネイティブピッカー
           // checkbox は文字入力を無視（Space / クリックでトグル）
         });
-        ed.addEventListener('blur', () => {
+        ed.addEventListener('blur', (e) => {
           if (this._customEditor) return;   // カスタムエディタが奪ったフォーカスでの blur は無視
+          // inline エディタの補助ポップアップ（<select> 等）へフォーカスが移った blur は編集継続（閉じない）。
+          const to = (e && e.relatedTarget) || document.activeElement;
+          if (this._inlineEl && to && this._inlineEl.contains(to)) return;
           if (this.mode === 'edit' && (!this.select || this.select.style.display === 'none')) { this.commit(); this.toNav(); this.updateSelectionUI(); }
         });
       });

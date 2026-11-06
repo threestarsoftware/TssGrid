@@ -562,6 +562,8 @@ new TssGrid(el, { columns: [{ type: 'time', editor: t }] });
 ```
 - `opts`: `step`(分刻み, 既定1) / `hour12`(AM/PM 表示, 既定false) / `icon`(既定 `'🕐'`) / `openOnClick`(既定true) / `className`。
 - 🕐 を**シングルクリックで開閉**、**現在**/**決定**ボタン、キーボード（Enter 決定 / Esc 取消）、外側クリックで採用、フィルで下へコピー。見た目は `--time-*` 変数と `tss-time-*` クラスで自由に。
+- カスタム `editor` を付けた列は**ネイティブ `<input type="time">` を重ねません**（`picker:false` を書かなくてもOK）。`hour12` 列は編集中も **12h 表示**で一貫（保存は 24h）。
+- **日付＋時刻**は姉妹プラグイン `tss-datetime`（`editor: TssDatetime({ step: 5 }), format: TssDatetime.format`）。保存値は `'YYYY-MM-DDTHH:MM'`、表示は曜日つき。表示形→保存形の逆変換 **`TssDatetime.parse`**（列に `parse` 未指定なら自動付与）で、打鍵追従も確定の round-trip も成立。年/月/時/分のプルダウンは inline でもそのまま選べます。
 
 ### 同梱プラグイン: セルのコメント（tss-comment・Excel のメモ風）
 
