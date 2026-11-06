@@ -109,6 +109,14 @@
 /* invalidMode:'keep' で検証 NG のセル: 値は残して赤く警告（色は変数で調整可） */
 .tssgrid .tg-table td.tg-invalid { color: var(--tg-invalid-fg); background: var(--tg-invalid-bg); }
 .tssgrid .tg-table td.tg-invalid.sel { background: #ffd0d6; }
+/* 不正入力を弾いて巻き戻した時の合図（短い赤パルス）。flashInvalid:false で無効。 */
+.tssgrid .tg-table td.tg-reject { animation: tg-reject-flash .5s ease; }
+@keyframes tg-reject-flash {
+  0%   { background: var(--tg-invalid-bg); box-shadow: inset 0 0 0 2px var(--tg-invalid-fg); }
+  70%  { background: var(--tg-invalid-bg); box-shadow: inset 0 0 0 2px var(--tg-invalid-fg); }
+  100% { background: transparent; box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) { .tssgrid .tg-table td.tg-reject { animation-duration: .01s; } }
 .tssgrid .tg-table th.rowhead { background: var(--tg-rowhead-bg); width: 40px; text-align: center; color: var(--tg-rowhead-fg); position: sticky; left: 0; z-index: 2; }
 .tssgrid .tg-table thead th.corner { z-index: 7; }   /* 左上の角は最前面（top+left 固定） */
 /* 列固定: 左から frozenCols 列を sticky で固定（left は JS が設定）。z は 選択オーバーレイ(3)より下に */

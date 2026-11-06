@@ -113,6 +113,7 @@
       //     parse/format を付けるか picker:false にするとテキスト入力（並び順を自分で決められる）。
       //     data: オブジェクト配列で渡す時の**バインド先キー**（例 {data:'品番'}）。getRows/getValue(r,'品番') で使う。
       this.onInvalid = opts.onInvalid || null; // (rejections, source) 検証で弾かれた時
+      this.flashInvalid = opts.flashInvalid;   // 既定 undefined=点滅ON（不正で巻き戻した時にセルを短く赤く）。false で無効
       // 読み取り専用: グリッド全体（opts.readOnly）/ 列単位（columns[c].readOnly）。編集と全変更経路を拒否。
       this.readOnly = !!opts.readOnly;
       this.onReadOnly = opts.onReadOnly || null; // (blocked, source) 読み取り専用セルへの変更を弾いた時
@@ -2348,6 +2349,7 @@
         }
         for (let i = changes.length - 1; i >= 0; i--) if (changes[i].neu === changes[i].old) changes.splice(i, 1);
         if (rejections.length && this.onInvalid) { try { this.onInvalid(rejections, source); } catch (_) {} }
+        if (rejections.length) this._flashInvalid(rejections);   // 不正で巻き戻した／赤くしたセルを短く点滅して「知らせる」
         if (!changes.length) { this.renderDump(); this.focusAndSelect(selBefore); return; }
       }
       // onBeforeChange: 検証 / 整形 / 取消。値は既に適用済みなので、取消は old へ巻き戻す。
@@ -2378,6 +2380,20 @@
       });
       if (this.onAfterChange) { try { this.onAfterChange(this._pubChanges(changes, source), source); } catch (_) {} }
       this._syncHeaderCheckboxes();   // ヘッダ全選択チェックの見た目を同期
+    }
+    // 不正で巻き戻した（または赤くした）セルを短く点滅して利用者に知らせる。確定後のレンダ確定を待って付与。
+    _flashInvalid(cells) {
+      if (this.flashInvalid === false || !cells || !cells.length) return;
+      const grid = this;
+      setTimeout(function () {
+        cells.forEach(function (rc) {
+          const td = grid.cellEl(rc.r, rc.c);
+          if (!td) return;
+          td.classList.remove('tg-reject'); void td.offsetWidth;   // 連続でも毎回アニメを再発火
+          td.classList.add('tg-reject');
+          setTimeout(function () { try { td.classList.remove('tg-reject'); } catch (e) {} }, 550);
+        });
+      }, 0);
     }
     commit() {
       const wasEditing = this.mode === 'edit';
@@ -3315,6 +3331,10 @@
       if (t === 'checkbox') { this._toggleCheckbox(r, c); return; }
       if (t === 'dropdown') { this._openSelect(); return; }
       this.toEdit(this._editText(r, c), true);
+      // selectOnEdit: クリック/F2 の編集開始で中身を全選択＝打てば丸ごと置き換わる（時刻/日付ピッカー等）。
+      // 列の selectOnEdit を最優先、無ければエディタ申告（editor.selectOnEdit）に従う。
+      const _se = this.colCfg(c).selectOnEdit;
+      if ((_se != null ? _se : (_ed && _ed.selectOnEdit)) && this.editor.select) { try { this.editor.select(); } catch (_) {} }
     }
     // カスタムエディタ口（base-editor 相当）。columns[c].editor = オブジェクト or ()=>オブジェクト。
     // 契約: editor.open({ grid, r, c, value, td, commit(value), cancel() }) / 任意で editor.close()。

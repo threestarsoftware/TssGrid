@@ -214,6 +214,7 @@
       close: function () { teardown(); },
       icon: opts.icon != null ? opts.icon : '📅',     // セル右端に表示する合図（opts.icon:'' で消せる）
       openOnClick: opts.openOnClick !== false,        // シングルクリックで開く（既定 ON）
+      selectOnEdit: true,                             // クリック/F2 の編集開始で中身を全選択＝打てば丸ごと置き換わる
       inline: inline,                                 // true=共有 input に乗る（_usesTextEditor が見る）
       // inline のみ: 打った内容にカレンダーが追従（列の parse があれば表示形→保存値に変換して解釈）。
       // 矢印/Enter/Esc は本体に返す＝onKeyDown は持たない（キー派は打つ・マウス派はクリック）。

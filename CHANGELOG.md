@@ -3,6 +3,12 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.38] - 2026-11-06
+
+### 追加
+- **`selectOnEdit`（編集開始で中身を全選択＝打てば丸ごと置き換わる）**。クリック/F2 で編集を始めた時に共有 input を `select()`。**時刻/日付ピッカー（tss-time / tss-calendar / tss-datetime）は既定 ON**（値が入ったセルをクリックしてそのまま打てば置換）。列単位 `columns[c].selectOnEdit: true|false` でも指定でき、任意の列や個別の上書きに使える。
+- **`flashInvalid`（不正値を弾いて巻き戻した時にセルを短く点滅して知らせる・コア／既定 ON）**。確定時の検証で弾かれた（＝元の値へ巻き戻した）セルに短い赤パルス（`.tg-reject` 0.5s、`prefers-reduced-motion` 配慮）。従来 "revert" は無言で戻っていた穴を埋める（他グリッド同様「弾いたら知らせる」）。既存の `onInvalid(rejections, source)` コールバックはそのまま発火。`flashInvalid: false` で無効化。
+
 ## [0.1.37] - 2026-11-06
 
 ### 追加（公式フレームワークアダプタ）

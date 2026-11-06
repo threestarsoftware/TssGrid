@@ -104,6 +104,7 @@
       close: function () { teardown(); },
       icon: opts.icon != null ? opts.icon : '🕐',
       openOnClick: opts.openOnClick !== false,
+      selectOnEdit: true,   // クリック/F2 の編集開始で中身を全選択＝打てば丸ごと置き換わる
       inline: inline,   // true=共有 input に乗る＝時刻をそのまま直打ちできる（矢印/Enter/Esc は本体の既定）
       openAt: function (anchorEl, value, onPick) { show(anchorEl, value, function (v) { onPick(v); }, null); },
     };

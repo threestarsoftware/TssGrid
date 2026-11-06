@@ -1029,6 +1029,7 @@ new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
 | `hiddenColumns` | `number[]` | `[]` | 初期で隠す列インデックス。実行時は `hideColumn`/`showColumn`/`toggleColumn`（→ [列の表示/非表示](#列の表示非表示)） |
 | `wordWrap` | `boolean` | `false` | セル内で折り返し（行高は内容に合わせ伸びる）。`columns[c].wordWrap` で列単位も可 |
 | `ellipsis` | `boolean` | `false` | 溢れた文字を **… で省略**し、溢れたセルは**ホバーで全文（`title`）**。`columns[c].ellipsis` で列単位も可。見え方だけ＝値・コピー・編集は全文のまま。`wordWrap` と同時なら折り返しが優先 |
+| `columns[c].selectOnEdit` | `boolean` | — | クリック/F2 の**編集開始で中身を全選択**（打てば丸ごと置換）。**時刻/日付ピッカーは既定 ON**。列に明示すれば任意の列で有効/無効にできる（列指定がエディタ既定より優先） |
 | `placeholder` | `string` | — | 空セルに薄いヒント文字（`getData` には入らない）。`columns[c].placeholder` で列単位も可 |
 | `className` | `string` | — | コンテナ(`.tssgrid`)に付ける任意クラス（テーマ付け） |
 | `fillHandle` | `boolean \| {direction,autoInsertRow}` | `true` | **`false`でフィル完全OFF**（ハンドルを出さない＝ドラッグでの消去/上書きなし。フィルの起点はハンドルのみなので fill 自体が無効に）。`{direction:'vertical'\|'horizontal'\|'both', autoInsertRow:true}`で詳細指定（下へドラッグで行追加）。設定/表示専用グリッドで誤フィルを防ぐのに有効 |
@@ -1045,6 +1046,7 @@ new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
 | `columns[c].readOnly` | `boolean \| (value,{r,c})=>boolean` | — | **列単位**の読み取り専用。関数を渡すとセル単位で判定（→ [読み取り専用](#読み取り専用readonly)） |
 | `onChange` | `(grid)=>void` | — | データ変更時に呼ばれる（後方互換） |
 | `onInvalid` | `(rejections, source)=>void` | — | 列ルールで弾かれた時。`rejections = [{ r, c, value, message }]` |
+| `flashInvalid` | `boolean` | `true` | 不正値を弾いて**巻き戻した時にセルを短く赤く点滅**して知らせる（`.tg-reject`・`prefers-reduced-motion` 配慮）。`onInvalid` は別途そのまま発火。`false` で無効 |
 | `onReadOnly` | `(blocked, source)=>void` | — | 読み取り専用セルへの変更を弾いた時。`blocked = [{ r, c, value }]` |
 | `contextMenu` | `boolean \| Array \| {items}` | `true` | 右クリックメニュー。`true`=既定項目 / `false`=無効 / **配列**=項目を構成（組込キー＋カスタム項目）（→ [右クリックメニュー](#右クリックメニュー行列の挿入削除)） |
 | `allowInsertRows` / `allowDeleteRows` | `boolean` | `true` | 行の挿入 / 削除の可否（メニュー項目の表示も連動） |
