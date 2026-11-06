@@ -1,0 +1,21 @@
+/* TssSort — ヘッダの並べ替えUI（plugins/tss-sort.js）。▲▼ は小さな三角を縦2段。色は --tg-accent を流用。
+   既定は薄いグレー（常時表示＝出入りのピコピコ無し）、点灯中の向きだけアクセント色。漏斗(filter)の右に並ぶ。 */
+.tssgrid .tg-table thead th .tg-sort-ind {
+  display: inline-flex; flex-direction: column; justify-content: center; gap: 2px;
+  margin-left: 5px; vertical-align: middle; line-height: 0; user-select: none; cursor: pointer;
+}
+.tssgrid .tg-table thead th .tg-sort-ind .tg-sort-up,
+.tssgrid .tg-table thead th .tg-sort-ind .tg-sort-dn {
+  width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
+}
+.tssgrid .tg-table thead th .tg-sort-ind .tg-sort-up { border-bottom: 5px solid var(--tg-sort-dim, #9aa6b4); }
+.tssgrid .tg-table thead th .tg-sort-ind .tg-sort-dn { border-top: 5px solid var(--tg-sort-dim, #9aa6b4); }
+.tssgrid .tg-table thead th .tg-sort-ind:hover .tg-sort-up { border-bottom-color: #cdd6e2; }
+.tssgrid .tg-table thead th .tg-sort-ind:hover .tg-sort-dn { border-top-color: #cdd6e2; }
+/* 点灯：確定した向きだけアクセント色、反対側は薄く落とす */
+.tssgrid .tg-table thead th .tg-sort-ind.asc .tg-sort-up { border-bottom-color: var(--tg-sort-accent, var(--tg-accent, #2f6fed)); }
+.tssgrid .tg-table thead th .tg-sort-ind.desc .tg-sort-dn { border-top-color: var(--tg-sort-accent, var(--tg-accent, #2f6fed)); }
+.tssgrid .tg-table thead th .tg-sort-ind.asc .tg-sort-dn,
+.tssgrid .tg-table thead th .tg-sort-ind.desc .tg-sort-up { opacity: .35; }
+/* 本体クリックでも並べ替える既定モードでは見出し全体にカーソルを出す（iconOnly は ▲▼ だけ） */
+.tssgrid:not(.tg-sort-icononly) .tg-table thead th.tg-sortable { cursor: pointer; }

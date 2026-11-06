@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 見出しクリックで並べ替え（tss-sort プラグイン）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-sort.css">
+<link rel="stylesheet" href="../plugins/tss-filter.css">
+<style>
+  body { font-family: "Meiryo UI", "Meiryo", "Segoe UI", sans-serif; margin: 0; background: #eef1f5; color: #1f2733; }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 22px 20px 60px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; } h2 { font-size: 14px; margin: 22px 0 6px; color:#334155; }
+  .pill { display:inline-block; background:#1573c0; color:#fff; border-radius:10px; padding:1px 9px; font-size:12px; vertical-align:2px; }
+  .note { background:#fff; border:1px solid #dde3ea; border-radius:8px; padding:11px 15px; font-size:12.5px; max-width:720px; color:#445; line-height:1.7; }
+  .note b{ color:#1573c0; } code{ background:#eef2f6; padding:0 4px; border-radius:3px; }
+  .panel { background:#fff; border:1px solid #e2e7ee; border-radius:10px; padding:14px 16px; margin-top:12px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .lbl { font-size:12px; color:#64748b; margin:0 0 6px; font-weight:600; }
+  .tg .tssgrid { --tg-accent:#1573c0; --tg-header-bg:#334155; --tg-header-fg:#f1f5f9; --tg-font-size:12.5px; }
+  #state { font-size:12px; color:#1a3a6b; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>見出しクリックで並べ替え <span class="pill">tss-sort プラグイン</span></h1>
+  <div class="note" style="margin-top:8px">
+  見出しを押すたび <b>昇順 ▲ → 降順 ▼ → 元の順</b> を循環（<code>plugins/tss-sort.js</code>＋<code>.css</code>）。中身はコアの <code>sortBy</code> / <code>clearSort</code>。<b>列選択は今までどおり</b>効き、<b>空行（minSpareRows）は常に最下部</b>。<code>columns</code> で対象列を限定、<code>initial</code> で初期の並び、<code>iconOnly</code> で「▲▼ の所だけ」。<b>tss-filter と併用</b>しても ▲▼ と漏斗は並ぶだけでぶつかりません。
+  </div>
+
+  <div class="panel">
+    <div class="lbl">勤怠変更履歴（登録日時で並べ替え・初期は降順／フィルタも併用）</div>
+    <div class="tg"><div id="grid"></div></div>
+    <div id="state">初期: 登録日時 ▼（降順）</div>
+  </div>
+
+  <div class="panel">
+    <div class="lbl">iconOnly: true（本体クリックは純粋に列選択、▲▼ の所だけ並べ替え）</div>
+    <div class="tg"><div id="grid2"></div></div>
+  </div>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-sort.js"></script>
+<script src="../plugins/tss-filter.js"></script>
+<script>
+  const rows = [
+    { at: '2026-11-01 09:12', who: '佐藤', field: '出勤', before: '09:00', after: '09:05' },
+    { at: '2026-11-03 18:40', who: '鈴木', field: '退勤', before: '18:00', after: '18:30' },
+    { at: '2026-11-02 08:55', who: '高橋', field: '出勤', before: '09:00', after: '08:50' },
+    { at: '2026-11-05 12:01', who: '佐藤', field: '休憩', before: '60', after: '45' },
+    { at: '2026-11-04 17:22', who: '田中', field: '退勤', before: '18:00', after: '17:30' },
+  ];
+  const cols = [
+    { data: 'at',     title: '登録日時', width: 150 },
+    { data: 'who',    title: '対象者',   width: 90 },
+    { data: 'field',  title: '項目',     width: 90 },
+    { data: 'before', title: '変更前',   width: 90 },
+    { data: 'after',  title: '変更後',   width: 90 },
+  ];
+
+  const grid = new TssGrid(document.getElementById('grid'), {
+    name: 'kintai-log', width: 560, rowHeaders: false, minSpareRows: 1,
+    columns: cols, data: rows.map(r => ({ ...r })),
+    plugins: [
+      TssSort.plugin({ initial: { col: 'at', dir: 'desc' } }),   // 登録日時で初期降順
+      TssFilter.plugin({ columns: ['who', 'field'] }),           // 対象者・項目にフィルタ（▲▼ と共存）
+    ],
+  });
+  const stateEl = document.getElementById('state');
+  const refresh = () => { const s = grid.getPlugin('sort').getState(); stateEl.textContent = s ? ('現在: ' + s.col + ' ' + (s.dir === 'asc' ? '▲ 昇順' : '▼ 降順')) : '現在: 並べ替えなし（入力順）'; };
+  grid.wrap.addEventListener('click', () => setTimeout(refresh, 0));
+  refresh();
+
+  // iconOnly モード
+  const g2 = new TssGrid(document.getElementById('grid2'), {
+    name: 'kintai-log2', width: 560, rowHeaders: false,
+    columns: cols, data: rows.map(r => ({ ...r })),
+    plugins: [TssSort.plugin({ iconOnly: true, columns: ['at', 'who'] })],
+  });
+</script>
+</body>
+</html>

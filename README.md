@@ -382,6 +382,24 @@ grid.getPlugin('filter').clearAll();            // 全条件クリア
 ```
 - 値候補は**マスタ全行から集計**（絞り込み中でも全値が出る）。フィルタ済み列に印。値は HTML エスケープ。
 
+### 同梱プラグイン: 見出しクリックで並べ替え（sort UI）
+
+`plugins/tss-sort.js`＋`.css`＝ 各見出しに **▲▼** を出し、押すたび **昇順 ▲ → 降順 ▼ → 元の順** を1列で循環。中身はコアの **`sortBy` / `clearSort` を呼ぶだけ**。**列選択は今までどおり**効き、**空行（`minSpareRows`）は常に最下部**。`tss-filter` と併用しても ▲▼（ソート）と漏斗（フィルタ）は**並ぶだけでぶつからない**。動く例: [`examples/sort-plugin.html`](https://tssgrid.threestarsoftware.co.jp/examples/sort-plugin.html)。
+
+```html
+<link rel="stylesheet" href="plugins/tss-sort.css">
+<script src="plugins/tss-sort.js"></script>
+```
+```js
+plugins: [ TssSort.plugin() ]                                  // 全リーフ列に ▲▼
+plugins: [ TssSort.plugin({ columns:['createdAt', 'workDate'] }) ]  // 対象列を限定
+plugins: [ TssSort.plugin({ initial:{ col:'createdAt', dir:'desc' } }) ]  // 初期の並び
+plugins: [ TssSort.plugin({ iconOnly:true }) ]                 // ▲▼ の所だけ（本体クリックは純粋に選択）
+grid.getPlugin('sort').getState();   // { col, dir } または null
+grid.getPlugin('sort').clear();      // 入力順へ戻す
+```
+- 単一列ソート（多段は `grid.sortByCols(specs)` を直接）。`onHeaderClick` / `onHeaderRender` フックを**連鎖**して使う（既存指定を保ちつつ上乗せ）。`sortBy`→再描画→`onHeaderRender` 再実行で ▲▼ の点灯も自動更新。
+
 ### 同梱プラグイン: 共有マスタ（複数グリッドで1データ）
 
 `plugins/tss-shared.js`＝ **1つのマスタ（同じ行データ）を複数グリッドで共有**。左右を**別フィルタ/別ソート**で表示でき、**片方の編集がもう片方の同じ行へ即反映**（行参照を共有）。A系/B系を並べて突き合わせ編集する用途。動く例: [`examples/shared-master.html`](https://tssgrid.threestarsoftware.co.jp/examples/shared-master.html)。

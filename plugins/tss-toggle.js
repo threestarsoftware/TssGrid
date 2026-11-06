@@ -55,7 +55,8 @@
         if (byCol[c]) return byCol[c];
         return null;   // 設定外の列は対象外
       }
-      function editable(r, c) { var cfg = grid.columns[c]; return !grid.readOnly && !(cfg && cfg.readOnly === true); }
+      // 本体と同じ判定＝grid.readOnly / 関数readOnly / セル単位RO / 結合の従属 すべて尊重（cfg.readOnly===true だけ見ていた不具合を修正）。
+      function editable(r, c) { return grid._isReadOnly ? !grid._isReadOnly(r, c) : (!grid.readOnly && !(grid.columns[c] && grid.columns[c].readOnly === true)); }
 
       function onClick(e) {
         var seg = e.target.closest && e.target.closest('.tg-seg[data-tg-v]'); if (!seg) return;

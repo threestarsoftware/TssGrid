@@ -3,6 +3,14 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.35] - 2026-11-06
+
+### 追加（プラグイン）
+- **`tss-sort`（見出しクリックで並べ替えUI）を追加**。`tss-filter` と同じ形のプラグインで、各リーフ見出しに **▲▼** を出し、押すたび **昇順 ▲ → 降順 ▼ → 元の順（`clearSort`）** を1列で循環。中身はコアの `sortBy` / `clearSort` を呼ぶだけ（多段は従来どおり `sortByCols` を直接）。`onHeaderClick` / `onHeaderRender` を**連鎖**（既存指定を保ちつつ上乗せ）。`columns`（対象列限定・既定=全リーフ列）／`initial:{col,dir}`（初期の並び）／`iconOnly`（▲▼ の所だけで並べ替え・本体クリックは純粋に列選択）。**本体クリックの列選択は従来どおり**活き、**空行（`minSpareRows`）はコア仕様どおり常に最下部**。`tss-filter` と併用しても ▲▼（ソート）と漏斗（フィルタ）は並ぶだけで**ぶつからない**。API: `getPlugin('sort').getState()`／`.sortBy(col,dir)`／`.clear()`。例 `examples/sort-plugin.html`。従来の手組み例（`examples/sort.html`・`multisort.html`・`sort-filter.html`）はそのまま有効。
+
+### 修正（プラグイン）
+- **`tss-toggle` が関数の `readOnly` を見ていなかった不具合を修正**。列の `readOnly` が関数（`(val,{r})=>boolean`）だと、読取専用のセルでもセグメントを押せて値が変わってしまっていた（`cfg.readOnly === true` だけを見ていたため）。本体と同じ **`_isReadOnly(r, c)`** で判定するようにし、**関数 `readOnly`・セル単位RO・結合の従属・`grid.readOnly`** をすべて尊重。jimu で「直せないときはプラグインを付けない」でしのいでいた回避が不要に。
+
 ## [0.1.34] - 2026-11-05
 
 ### 改善（プラグイン）
