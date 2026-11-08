@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.39] - 2026-11-08
+
+### 修正
+- **TssAutocomplete の候補ボックスがページスクロールでズレる不具合**。ポップアップは `getBoundingClientRect()`（ビューポート基準）の座標で位置決めしているのに CSS が `position: absolute`（＝ページ基準で解釈）だったため、下へスクロールするほど候補ボックスが上へずれていた。`position: fixed` に修正（他ピッカー tss-calendar / tss-time / tss-datetime / tss-combo / tss-cascade は元から `fixed`＝これで同挙動に揃う）。CSS 1行のみ・JS 変更なし。利用側で `.tss-ac { position: fixed }` を上書きしていた場合、その回避策は不要。
+
 ## [0.1.38] - 2026-11-06
 
 ### 追加

@@ -1,6 +1,6 @@
 /* TssAutocomplete — 候補サジェスト ポップアップ。見た目は変数とクラスで自由に。 */
 .tss-ac {
-  position: absolute; z-index: 9999; background: #fff;
+  position: fixed; z-index: 9999; background: #fff;
   border: 1px solid var(--ac-border, #c3ccd6); border-radius: 6px;
   box-shadow: 0 6px 24px rgba(20, 40, 80, .18); padding: 4px;
   font: inherit; box-sizing: border-box;
