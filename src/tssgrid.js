@@ -3068,8 +3068,24 @@
       this.extent = e; this.updateSelectionUI(); this._fireSelection();
     }
 
+    // display:none 中にビルドされた表はヘッダ高(_theadH)・ネスト段/固定行の sticky-top が 0 のまま固まる
+    // （offsetHeight が 0 を返すため）。表示されて実寸が得られた時（ResizeObserver→_reflow）に測り直し、
+    // 値が変わった時だけ依存レイアウトを貼り直して自己修復する。レスポンシブなヘッダ高変化にも効く。
+    _remeasureHead() {
+      if (!this.colHeaders || !this.table) return false;
+      const thd = this.table.querySelector('thead');
+      const h = thd ? thd.offsetHeight : 0;
+      if (h === this._theadH) return false;                 // 変化なし（まだ非表示＝0のまま等）＝無駄な再適用をしない
+      this._theadH = h;
+      this.wrap.style.setProperty('--tg-thead-h', h + 'px');   // scrollIntoView の scroll-margin-top を実寸へ
+      this._applyHeaderSticky();                            // ネストヘッダの段積み（tr.offsetHeight 依存）
+      this._applyFrozenRows();                              // 固定行の sticky-top はヘッダ高に依存
+      return true;
+    }
+
     // スクロール / リサイズでセル位置が動いた時、エディタと選択枠を貼り直す
     _reflow() {
+      this._remeasureHead();   // display:none 中ビルドでヘッダ高が0固着→表示時に測り直して自己修復
       if (this.stretchH !== 'none') this._applyStretch();   // 枠幅が変わったら余白を再配分
       this._buildGeomCache();   // 幅/枠が変わったので実測幾何を取り直す（リサイズ/ResizeObserver/window resize）
       if (this.virtual) this._renderWindow(this._vWindow(), false);   // 枠高が変われば窓行数も変わる＝窓を同期
