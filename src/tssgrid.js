@@ -2959,9 +2959,19 @@
       const before = this.snapSel(), changes = [], sel = this.rectRange();
       const visAll = this._visCols();
       let after;
-      if (g.length === 1 && g[0].length === 1 && !(sel.r0 === sel.r1 && sel.c0 === sel.c1)) {
-        const v = g[0][0];
-        for (let r = sel.r0; r <= sel.r1; r++) for (let c = sel.c0; c <= sel.c1; c++) if (!this._isHidden(c)) this.setCell(r, c, v, changes);
+      // 選択範囲への「敷き詰め」: コピー元ブロック(H×W)を、それより大きい選択（各辺がブロックの整数倍）へ繰り返して埋める。
+      // Excel/Sheets と同じ。1×1 コピー→範囲塗り（全セルへ同値）はこの特例。1×N を複数行、N×1 を複数列へも繰り返す。
+      const singleCell = (sel.r0 === sel.r1 && sel.c0 === sel.c1);
+      const tileH = g.length; let tileW = 0; for (let i = 0; i < g.length; i++) tileW = Math.max(tileW, g[i].length);
+      const selCols = visAll.filter(c => c >= sel.c0 && c <= sel.c1);   // 選択内の可視列（隠し列はスキップ）
+      const selH = sel.r1 - sel.r0 + 1, selW = selCols.length;
+      const canTile = !singleCell && tileH > 0 && tileW > 0 && selW > 0 &&
+        selH % tileH === 0 && selW % tileW === 0 && selH >= tileH && selW >= tileW;
+      if (canTile) {
+        for (let r = sel.r0; r <= sel.r1; r++) {
+          const srcRow = g[(r - sel.r0) % tileH];
+          for (let k = 0; k < selCols.length; k++) { const sv = srcRow[k % tileW]; this.setCell(r, selCols[k], sv != null ? sv : '', changes); }
+        }
         after = { active: { r: sel.r0, c: sel.c0 }, extent: { r: sel.r1, c: sel.c1 } };
       } else {
         // アクティブ列が隠し列だと（例: selectRow は active.c=0 を置く＝先頭列が hiddenColumns の時）以下の indexOf が -1 になり、
