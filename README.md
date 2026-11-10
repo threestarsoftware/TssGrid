@@ -1029,6 +1029,7 @@ new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
 | `hiddenColumns` | `number[]` | `[]` | 初期で隠す列インデックス。実行時は `hideColumn`/`showColumn`/`toggleColumn`（→ [列の表示/非表示](#列の表示非表示)） |
 | `wordWrap` | `boolean` | `false` | セル内で折り返し（行高は内容に合わせ伸びる）。`columns[c].wordWrap` で列単位も可 |
 | `ellipsis` | `boolean` | `false` | 溢れた文字を **… で省略**し、溢れたセルは**ホバーで全文（`title`）**。`columns[c].ellipsis` で列単位も可。見え方だけ＝値・コピー・編集は全文のまま。`wordWrap` と同時なら折り返しが優先 |
+| `hidePickerOnReadOnly` | `boolean` | `false` | **読取専用セルのピッカー▾/アイコンを消す**。既定は**表示**（グレーで「押せない」は分かるが、「選ぶ欄」という情報として ▾ は残す）。`columns[c].hidePickerOnReadOnly` で列単位も可。対象はカスタムエディタ列（`editor.icon` ＝ ▾ や 📅 等）。CSS は ▾ 描画より強い詳細度で効くので、本番ビルドの読み込み順でも安定 |
 | `columns[c].selectOnEdit` | `boolean` | — | クリック/F2 の**編集開始で中身を全選択**（打てば丸ごと置換）。**時刻/日付ピッカーは既定 ON**。列に明示すれば任意の列で有効/無効にできる（列指定がエディタ既定より優先） |
 | `placeholder` | `string` | — | 空セルに薄いヒント文字（`getData` には入らない）。`columns[c].placeholder` で列単位も可 |
 | `className` | `string` | — | コンテナ(`.tssgrid`)に付ける任意クラス（テーマ付け） |

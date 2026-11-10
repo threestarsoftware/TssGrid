@@ -217,6 +217,9 @@
       this.wordWrap = !!opts.wordWrap;
       // 溢れた文字を … で省略（既定は切るだけ）。grid 全体 or columns[c].ellipsis。ホバーで全文を title 表示（見え方だけ・値/コピー/編集は不変）。
       this.ellipsis = !!opts.ellipsis;
+      // 読取専用セルのピッカー▾/アイコンを消す。既定は表示（グレーで「押せない」は分かるが「選ぶ欄」の情報は残す）。
+      // grid 全体 or columns[c].hidePickerOnReadOnly（ellipsis と同じ形）。
+      this.hidePickerOnReadOnly = !!opts.hidePickerOnReadOnly;
       // 複数行(改行)編集の Enter 挙動: 'commit'(既定・Excel風: Enter=確定 / Alt+Enter=改行) | 'newline'(メモ帳風: Enter=改行 / Ctrl+Enter=確定)。列は columns[c].multiline:true で有効化。
       this.multilineEnter = opts.multilineEnter === 'newline' ? 'newline' : 'commit';
       // multiline セル右上の「複数行」ヒント（既定 ON）。色は CSS 変数 --tg-ml-mark で。false で消す。
@@ -862,6 +865,7 @@
       if (this.className) this.root.className += ' ' + this.className;  // 任意クラス（テーマ付け）
       if (this.wordWrap) this.root.classList.add('tg-wordwrap');        // グリッド全体の折り返し
       if (this.ellipsis) this.root.classList.add('tg-ellipsis');        // グリッド全体の … 省略
+      if (this.hidePickerOnReadOnly) this.root.classList.add('tg-hide-ro-picker');  // 読取専用セルのピッカー▾を消す（表全体）
       if (!this.multilineMark) this.root.classList.add('tg-no-ml-mark'); // multiline の右上ヒントを消す
       if (!this.cursor) this.root.classList.add('tg-no-cursor');        // 表示専用（選択枠なし＋セルカーソル既定）
       if (this.width) {
@@ -1494,6 +1498,7 @@
         if (this._isReadOnly(r, c)) cls.push('tg-readonly');  // 読み取り専用（淡色＋カーソル既定）
         if (this.colCfg(c).wordWrap) cls.push('tg-wrap-cell');  // 列単位の折り返し
         if (this.colCfg(c).ellipsis) cls.push('tg-ellip-cell');  // 列単位の … 省略
+        if (this.colCfg(c).hidePickerOnReadOnly) cls.push('tg-hide-ro-pick-cell');  // 列単位: 読取専用セルのピッカー▾を消す
         if (this.colCfg(c).multiline) cls.push('tg-multiline-cell');  // 複数行（改行保持＝pre-wrap）
         if (this.data[r][c] === '' && this._placeholder(c) != null) cls.push('tg-placeholder');  // 空セルのヒント
         const al = this._cellAlign(r, c);   // 整列（列既定＋セル上書き）

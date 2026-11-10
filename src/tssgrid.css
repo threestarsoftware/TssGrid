@@ -217,10 +217,15 @@
   content: attr(data-ico); position: absolute; right: 5px; top: 0; bottom: 0;
   display: flex; align-items: center; font-size: 12px; color: #7d8a99; pointer-events: none;
 }
-/* 読取専用はアイコンを出さない。ただし padding（場所）は空けたまま＝中央寄せ列でも文字位置がズレない
-   （アイコンは position:absolute の重ね描画なので、出す/出さないは文字レイアウトに無関係＝ズレは padding 由来）。 */
-.tssgrid .tg-table td.tg-readonly.tg-haspicker { padding-right: 20px; }
-.tssgrid .tg-table td.tg-readonly.tg-haspicker::after { display: none; }
+/* 読取専用セルのカスタムピッカー（editor.icon 列＝tg-haspicker）は、標準では淡色（グレー）のまま ▾/アイコンを
+   「出す」＝「押せない」は色で、「選ぶ欄」という情報は ▾ で残す。消したい時だけ hidePickerOnReadOnly を使う。
+   ※ネイティブ dropdown（type:'dropdown'）の readonly ▾ は上の 107-108 で従来どおり非表示（挙動不変）。
+   ↓オプション: 読取専用セルの ▾/アイコンを消す（表全体 .tg-hide-ro-picker / 列単位 td.tg-hide-ro-pick-cell）。
+   ▾ 描画ルール td.tg-haspicker[data-ico="▾"]::after（詳細度 0,4,2）より強い複合セレクタ（0,5,2）で消す＝
+   CSS の読み込み順に依存せず勝つ（vite でも本番の結合ビルドでも同じに見える）。📅 等 data-ico 全般にも効く。
+   padding は base 側（.tg-haspicker）で確保されるので文字位置はズレない。 */
+.tssgrid.tg-hide-ro-picker .tg-table td.tg-readonly.tg-haspicker::after,
+.tssgrid .tg-table td.tg-readonly.tg-haspicker.tg-hide-ro-pick-cell::after { display: none; }
 /* editor.icon:'▾'（＝プルダウン相当のキャレット）はネイティブ dropdown と同じ SVG シェブロンで統一
    （combo / autocomplete 等・文字グリフの三角ではなく tg-dropdown と揃った見た目に）。絵文字系(📅/🕐)は対象外。 */
 .tssgrid .tg-table td.tg-haspicker[data-ico="▾"] { padding-right: 18px; }
