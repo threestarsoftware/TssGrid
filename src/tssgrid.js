@@ -2964,20 +2964,30 @@
       const before = this.snapSel(), changes = [], sel = this.rectRange();
       const visAll = this._visCols();
       let after;
-      // 選択範囲への「敷き詰め」: コピー元ブロック(H×W)を、それより大きい選択（各辺がブロックの整数倍）へ繰り返して埋める。
-      // Excel/Sheets と同じ。1×1 コピー→範囲塗り（全セルへ同値）はこの特例。1×N を複数行、N×1 を複数列へも繰り返す。
+      // Excel と同じ貼付: コピー元ブロック(H×W)を、選択の縦・横それぞれで判定して繰り返す。
+      //  選択がブロックの整数倍(かつ以上)の辺は その倍数だけ繰り返し、足りない辺は 1 回＝ブロックの形を保って隣へはみ出す。
+      //  例) 1×2[a,b]→縦4×1 は各行[a,b]（隣列へはみ出す）／2×2→縦4×1 は 2×2 を縦に2回／2×2→2列×4行 は従来どおり。
+      //  単一セル選択や どちらの辺も整数倍でない時は repV=repW=1＝下の else（ブロックを1回アンカー貼付＝オートグロー/範囲超過も従来処理）へ。
       const singleCell = (sel.r0 === sel.r1 && sel.c0 === sel.c1);
       const tileH = g.length; let tileW = 0; for (let i = 0; i < g.length; i++) tileW = Math.max(tileW, g[i].length);
       const selCols = visAll.filter(c => c >= sel.c0 && c <= sel.c1);   // 選択内の可視列（隠し列はスキップ）
       const selH = sel.r1 - sel.r0 + 1, selW = selCols.length;
-      const canTile = !singleCell && tileH > 0 && tileW > 0 && selW > 0 &&
-        selH % tileH === 0 && selW % tileW === 0 && selH >= tileH && selW >= tileW;
-      if (canTile) {
-        for (let r = sel.r0; r <= sel.r1; r++) {
-          const srcRow = g[(r - sel.r0) % tileH];
-          for (let k = 0; k < selCols.length; k++) { const sv = srcRow[k % tileW]; this.setCell(r, selCols[k], sv != null ? sv : '', changes); }
+      const repV = (!singleCell && tileH > 0 && selH >= tileH && selH % tileH === 0) ? (selH / tileH) : 1;   // 縦の繰り返し回数
+      const repW = (!singleCell && tileW > 0 && selW >= tileW && selW % tileW === 0) ? (selW / tileW) : 1;   // 横の繰り返し回数
+      if (repV > 1 || repW > 1) {
+        const p0 = visAll.indexOf(this._snapVisCol(sel.c0));   // 選択左上の可視列（はみ出しは可視列をたどって継続）
+        const totalCols = repW * tileW;
+        let lastC = (visAll[p0] != null ? visAll[p0] : sel.c0), lastR = sel.r0;
+        for (let i = 0; i < repV * tileH; i++) {
+          const r = sel.r0 + i; if (r >= this.ROWS) break;   // 下辺は表の末尾でクリップ（オートグローしない）
+          const srcRow = g[i % tileH];
+          for (let j = 0; j < totalCols; j++) {
+            const c = visAll[p0 + j]; if (c == null) break;   // 右端を超えたらクリップ
+            const sv = srcRow[j % tileW]; this.setCell(r, c, sv != null ? sv : '', changes);
+            lastC = c; lastR = r;
+          }
         }
-        after = { active: { r: sel.r0, c: sel.c0 }, extent: { r: sel.r1, c: sel.c1 } };
+        after = { active: { r: sel.r0, c: sel.c0 }, extent: { r: lastR, c: lastC } };
       } else {
         // アクティブ列が隠し列だと（例: selectRow は active.c=0 を置く＝先頭列が hiddenColumns の時）以下の indexOf が -1 になり、
         // 貼り付けが1列ずれて先頭値が落ちる。可視列へスナップしてから起点を取る（setActive と同じ「隠し列に置かない」規則）。
