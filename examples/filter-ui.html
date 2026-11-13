@@ -27,8 +27,13 @@
   <div class="note" style="margin-top:8px">
   各見出しの<b>ロート（漏斗）アイコン</b>をクリック → ポップアップ上部の<b>モード切替</b>で <b>「値を選択」（Excel風チェックリスト）／「部分一致」／「前方一致」</b>を選べます（列ごと独立・<code>plugins/tss-filter.js</code>＋<code>.css</code>）。複数列の条件は <b>AND</b>。中身は<b>コアの非破壊 <code>filter()</code> を呼ぶだけ</b>＝フィルタ中の編集も消えません。値候補は<b>マスタ全行から集計</b>（絞り込み中でも全値が出る）。部分/前方一致は既定で大小無視（<code>caseSensitive</code> で切替）。
   </div>
+  <div class="note" style="margin-top:8px">
+  この表は <code>initial:{ 部署:['営業','開発'] }</code> で<b>最初から「営業・開発」だけに絞って</b>開いています（部署の漏斗が点灯）。<code>setValues(列,[値])</code> で<b>外から条件を差し込め</b>、<code>setValues(列,null)</code> で解除、<code>clearAll()</code> で全解除。渡した値は手で「値を選択」したのと同じ扱い（<b>ポップアップを開けばチェック済</b>・データに無い値は無視）。
+  </div>
 
   <div class="bar">
+    <button id="dev">部署＝開発だけ</button>
+    <button id="undept">部署条件を外す</button>
     <button id="clear">全フィルタ解除</button>
     <span class="stat" id="stat"></span>
   </div>
@@ -54,11 +59,14 @@
     colWidths: [100, 150, 100, 100, 110],
     columns: [{ data: 'id' }, { data: 'name' }, { data: 'dept' }, { data: 'city' }, { data: 'salary', type: 'number', format: { thousands: true } }],
     data,
-    plugins: [TssFilter.plugin()],
+    plugins: [TssFilter.plugin({ initial: { dept: ['営業', '開発'] } })],
     onFilter: ({ count, total, cleared }) => { document.getElementById('stat').textContent = cleared ? `全 ${total} 件` : `${count} / ${total} 件`; },
   });
-  document.getElementById('stat').textContent = `全 ${grid.ROWS} 件`;
-  document.getElementById('clear').onclick = () => grid.getPlugin('filter').clearAll();
+  const fp = grid.getPlugin('filter');
+  document.getElementById('stat').textContent = `${grid.ROWS} / ${grid.getAllRows().length} 件`;
+  document.getElementById('dev').onclick = () => fp.setValues('dept', ['開発']);
+  document.getElementById('undept').onclick = () => fp.setValues('dept', null);
+  document.getElementById('clear').onclick = () => fp.clearAll();
 </script>
 </body>
 </html>

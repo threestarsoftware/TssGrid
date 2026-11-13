@@ -8,9 +8,13 @@
  *  使い方:
  *    const grid = new TssGrid(el, { plugins: [ TssFilter.plugin() ] });   // 全列にフィルタUI
  *    TssFilter.plugin({ columns: ['部署', 2] });                          // 対象列を限定（data キー or index）
+ *    TssFilter.plugin({ columns:['status'], initial:{ status:['承認待ち','取消依頼'] } }); // 最初から絞って開く
+ *    grid.getPlugin('filter').setValues('status', ['承認済み']);          // あとから条件を差し込む／null で解除
  *    grid.getPlugin('filter').clearAll();                                  // 全条件クリア
  *
- *  opts: columns（対象列の配列・省略=全列） / caseSensitive（既定 false・値一致は文字列）。
+ *  opts: columns（対象列の配列・省略=全列） / caseSensitive（既定 false・値一致は文字列） /
+ *        initial（{ 列: [値,...] }・最初から「値を選択」で絞った状態で開く）。
+ *  API: setValues(列, [値,...]|null)（列の「値を選択」条件を差込/解除）。setData 後も active 条件は再適用される。
  *  メモ: 値候補はマスタ全行(_allRows)から集計＝絞り込み中でも全値が出る。grid.filter() は履歴クリア（コア仕様）。
  */
 (function (root) {
@@ -25,11 +29,14 @@
       const active = {};            // colIndex -> Set(許可する値文字列)
       let pop = null, popCol = -1;
 
+      // data キー or index → 列 index（未解決は -1）
+      const resolveCol = k => grid._resolveCol ? grid._resolveCol(k) : (typeof k === 'number' ? k : -1);
+
       // 対象列 index の集合（省略時は全列）
       const targets = (() => {
         if (!opts.columns) return null;   // null = 全列
         const s = new Set();
-        opts.columns.forEach(k => { const ci = grid._resolveCol ? grid._resolveCol(k) : (typeof k === 'number' ? k : -1); if (ci >= 0) s.add(ci); });
+        opts.columns.forEach(k => { const ci = resolveCol(k); if (ci >= 0) s.add(ci); });
         return s;
       })();
       const isTarget = c => !targets || targets.has(c);
@@ -60,6 +67,18 @@
         decorate();
       }
       grid.clearAllFilters = function () { for (const k in active) delete active[k]; apply(); };
+
+      // 外部API: 列の「値を選択」条件を差し込む/外す（data キー or index）。
+      //   values=配列 → その値だけ許可（完全一致・列間AND・手で付けたのと同じ扱い＝漏斗印も点灯）。
+      //   values=null → その列の条件を解除。データに無い値は一致しないだけ（エラーにしない）。
+      function setValues(col, values) {
+        const c = resolveCol(col);
+        if (c < 0) return false;
+        if (values == null) delete active[c];
+        else active[c] = new Set((Array.isArray(values) ? values : [values]).map(String));
+        apply();
+        return true;
+      }
 
       // ---- ヘッダ装飾（buildTable をラップして毎回付け直す） ----
       function decorate() {
@@ -158,18 +177,32 @@
       }
       function onDocDown(e) { if (pop && !pop.contains(e.target) && !(e.target.closest && e.target.closest('.tg-filter-btn'))) closePop(); }
 
+      // setData は _allRows を落としてフィルタを解除する（コア仕様）。
+      // 行を入れ替えても条件は残したいので、直後に現 active を再適用する（jimu は承認/差戻しのたびに読み直す）。
+      const origSetData = grid.setData.bind(grid);
+      grid.setData = function (rows) { origSetData(rows); if (Object.keys(active).some(c => active[c])) apply(); };
+
       grid.table.addEventListener('mousedown', onHeadClick, true);   // sort等より先に拾う（capture）
       document.addEventListener('mousedown', onDocDown);
       decorate();
 
+      // 初期選択（opts.initial: { 列: [値,...] }）＝最初から「値を選択」で絞った状態で開く
+      if (opts.initial) {
+        let any = false;
+        for (const k in opts.initial) { const c = resolveCol(k); if (c >= 0) { active[c] = new Set((opts.initial[k] || []).map(String)); any = true; } }
+        if (any) apply();
+      }
+
       return {
         name: 'filter',
         clearAll: () => grid.clearAllFilters(),
+        setValues: setValues,
         destroy: function () {
           closePop();
           grid.table.removeEventListener('mousedown', onHeadClick, true);
           document.removeEventListener('mousedown', onDocDown);
           grid.buildTable = origBuild;
+          grid.setData = origSetData;
           delete grid.clearAllFilters;
           for (const k in active) delete active[k];
           if (grid.isFiltered && grid.isFiltered()) grid.clearFilter();

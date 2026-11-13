@@ -408,9 +408,13 @@ async function load() {
 ```js
 plugins: [ TssFilter.plugin() ]                 // 全列にフィルタUI
 plugins: [ TssFilter.plugin({ columns:['部署', 2] }) ]   // 対象列を限定
+// 最初から「値を選択」で絞った状態で開く
+plugins: [ TssFilter.plugin({ columns:['status'], initial:{ status:['承認待ち','取消依頼'] } }) ]
+grid.getPlugin('filter').setValues('status', ['承認済み']);  // あとから条件を差込（null で解除）
 grid.getPlugin('filter').clearAll();            // 全条件クリア
 ```
 - 値候補は**マスタ全行から集計**（絞り込み中でも全値が出る）。フィルタ済み列に印。値は HTML エスケープ。
+- `initial` / `setValues(列,[値])` は手で「値を選択」したのと同じ扱い（完全一致・列間 AND・漏斗印も点灯・ポップアップにチェック済）。列は **data キー or index**。データに無い値は無視（エラーにしない）。**`setData` で行を入れ替えても条件は残り新しい行に効く**。`setValues(列, null)` でその列を解除、`clearAll()` で全解除。
 
 ### 同梱プラグイン: 見出しクリックで並べ替え（sort UI）
 
