@@ -169,7 +169,7 @@
         else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitEditor(); }
       });
       outside = function (e) { if (editor && !editor.contains(e.target)) closeEditor(); };
-      setTimeout(function () { document.addEventListener('mousedown', outside, true); }, 0);
+      setTimeout(function () { document.addEventListener('pointerdown', outside, true); }, 0);
     }
     function commitEditor() {
       if (!editor || !edCell) return;
@@ -179,7 +179,7 @@
       if (text) setText(cell.r, cell.c, text); else removeAt(cell.r, cell.c);
     }
     function closeEditor() {
-      if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; }
+      if (outside) { document.removeEventListener('pointerdown', outside, true); outside = null; }
       if (editor) { editor.remove(); editor = null; }
       edCell = null;
     }
@@ -264,7 +264,7 @@
         grid.table && grid.table.removeEventListener('touchstart', onTouchStart, true);
         grid.table && grid.table.removeEventListener('click', onTap);
         host.removeEventListener('keydown', onKey, true);
-        if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; }
+        if (outside) { document.removeEventListener('pointerdown', outside, true); outside = null; }
         hideBubble(); closeEditor();
         if (grid.table) { var m = grid.table.querySelectorAll('td.tg-comment-mark'); for (var i = 0; i < m.length; i++) m[i].classList.remove('tg-comment-mark'); }
       },

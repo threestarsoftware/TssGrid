@@ -1038,6 +1038,9 @@ new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
 | `placeholder` | `string` | — | 空セルに薄いヒント文字（`getData` には入らない）。`columns[c].placeholder` で列単位も可 |
 | `className` | `string` | — | コンテナ(`.tssgrid`)に付ける任意クラス（テーマ付け） |
 | `fillHandle` | `boolean \| {direction,autoInsertRow}` | `true` | **`false`でフィル完全OFF**（ハンドルを出さない＝ドラッグでの消去/上書きなし。フィルの起点はハンドルのみなので fill 自体が無効に）。`{direction:'vertical'\|'horizontal'\|'both', autoInsertRow:true}`で詳細指定（下へドラッグで行追加）。設定/表示専用グリッドで誤フィルを防ぐのに有効 |
+| `touchSelect` | `boolean \| 'both'\|'vertical'\|'horizontal'` | `'both'` | **タッチ端末の範囲選択ハンドル**（選択枠の四辺の丸を指で引いて範囲を広げる）。`'both'`=四辺（天地=縦・左右=横・斜め=矩形）／`'vertical'`=天地だけ（行方向のみ）／`'horizontal'`=左右だけ（列方向のみ）／`false`=出さない。PC（マウス）には出ない。実行時は `setTouchSelect(v)` |
+| `touchPicker` | `'list'\|'native'` | `'list'` | **タッチでのドロップダウンの一覧**。`'list'`=表が出す自前の一覧（指で押しやすい行高・一覧を開いたまま別のセルをタップするとそのまま次が開く・キーボードの出入りで閉じない）／`'native'`=ブラウザ純正のピッカー（`<select>`）。`columns[c].touchPicker` で列単位に上書き可。PC（マウス）は常に純正 |
+| `touchDropdown` | `'tap'\|'secondTap'` | `'tap'` | **タッチでのドロップダウンの開き方**。`'tap'`=タップ1回で開く／`'secondTap'`=1回目は選択だけ（丸ハンドルで範囲選択できる・キーボードも出ない）、同じセルをもう一度タップで開く（スマホ版 Excel 流）。`columns[c].touchDropdown` で列単位に上書き可。PC（マウス）は常にクリック1回で開く |
 | `onBeforeAutofill` / `onAfterAutofill` | `(src,target)=>…` | — | フィル前後。before は `false` で取消。`src`/`target` = `{r0,c0,r1,c1}` |
 | `autoColumnSize` | `boolean \| number` | `false` | 初期化時に列幅を内容に合わせて自動調整（数値=上限px）。`autoSizeColumn`/`autoSizeAllColumns` API・列境界ダブルクリックでも |
 | `columns[c].align` / `valign` | `string` | — | 列既定の整列（→ [整列](#整列--セル単位の読み取り専用実行時)） |

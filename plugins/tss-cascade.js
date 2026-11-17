@@ -76,7 +76,7 @@
     function teardown() {
       panels.forEach(function (p) { if (p.parentNode) p.parentNode.removeChild(p); });
       panels = []; chosen = [];
-      if (onDoc) document.removeEventListener('mousedown', onDoc, true);
+      if (onDoc) document.removeEventListener('pointerdown', onDoc, true);
       if (onKey) document.removeEventListener('keydown', onKey, true);
       onDoc = onKey = null; composing = false;
     }
@@ -201,7 +201,7 @@
         openPanel(roots, 0, ctx.td.getBoundingClientRect());
         onDoc = function (e) { for (var i = 0; i < panels.length; i++) if (panels[i].contains(e.target)) return; doCancel(); };
         onKey = handleKey;
-        document.addEventListener('mousedown', onDoc, true);
+        document.addEventListener('pointerdown', onDoc, true);
         document.addEventListener('keydown', onKey, true);
         var f = panels[0]._items[0]; if (f) { panels[0]._activate(0); f.focus(); }
       },

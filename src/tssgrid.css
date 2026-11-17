@@ -36,6 +36,8 @@
 .tssgrid .tg-wrap {
   position: relative; display: inline-block;
   border: 1px solid var(--tg-wrap-border); overflow: auto; max-height: 60vh; user-select: none;
+  -webkit-user-select: none; -webkit-touch-callout: none;
+  touch-action: manipulation;   /* ダブルタップ拡大を無効化（スクロール/ピンチは可）＝素早い2回タップ（Excel流プルダウン等）を取りこぼさない・タップ遅延も無し */   /* iOS Safari: 長押しで文字選択/コピー吹き出しを出さない（自前の長押しメニューを優先） */
   isolation: isolate;   /* 選択枠等の内部 z-index をこのグリッド内に閉じ込める＝複数グリッドが重なっても他表の上に漏れない */
 }
 /* フォーカスが自分に無い時は選択枠を淡く（キーが効かない事を可視化） */
@@ -141,10 +143,10 @@
 .tssgrid .tg-table td.tg-box { box-shadow: inset 0 0 0 var(--tg-box-width) var(--tg-box-color); }
 
 /* リサイズ用グリップ（ヘッダ内に配置。境界をドラッグして列幅/行高を変更） */
-.tssgrid .tg-colgrip { position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 3; }
-.tssgrid .tg-rowgrip { position: absolute; left: 0; bottom: 0; width: 100%; height: 6px; cursor: row-resize; z-index: 3; }
+.tssgrid .tg-colgrip { position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 3; touch-action: none; }
+.tssgrid .tg-rowgrip { position: absolute; left: 0; bottom: 0; width: 100%; height: 6px; cursor: row-resize; z-index: 3; touch-action: none; }
 /* 行移動の「つまみ」（行ヘッダ内、行番号の左）。ドラッグで行を並べ替え */
-.tssgrid .tg-rowmove { cursor: grab; color: #b3b6c8; margin-right: 2px; font-size: 11px; line-height: 1; user-select: none; vertical-align: 1px; }
+.tssgrid .tg-rowmove { position: relative; z-index: 4; cursor: grab; color: #b3b6c8; margin-right: 2px; font-size: 11px; line-height: 1; user-select: none; vertical-align: 1px; touch-action: none; }   /* z-index: タッチ時に行高grip(z3)の当たり判定へ被らず ⠿ を優先 */
 .tssgrid .tg-rowmove:hover { color: var(--tg-accent); }
 .tssgrid .tg-rowmove:active { cursor: grabbing; }
 .tssgrid .tg-rowmove.tg-mark-after { margin-right: 0; margin-left: 4px; }   /* ⠿ を番号の後ろに置く時の間隔 */
@@ -176,13 +178,21 @@
 .tssgrid .tg-selrange   { position: absolute; border: 2px solid var(--tg-accent); box-sizing: border-box; pointer-events: none; z-index: 3; display: none; }
 .tssgrid .tg-selbox     { position: absolute; border: 1px solid var(--tg-accent); box-sizing: border-box; pointer-events: none; z-index: 3; display: none; }
 .tssgrid .tg-copybox    { position: absolute; border: 2px dashed #13a6c8; box-sizing: border-box; pointer-events: none; z-index: 3; display: none; }
-.tssgrid .tg-fillhandle { position: absolute; width: 8px; height: 8px; background: var(--tg-accent); border: 1px solid #fff; box-sizing: border-box; z-index: 5; display: none; cursor: crosshair; }
+.tssgrid .tg-fillhandle { position: absolute; width: 8px; height: 8px; background: var(--tg-accent); border: 1px solid #fff; box-sizing: border-box; z-index: 5; display: none; cursor: crosshair; touch-action: none; }
+/* タッチ端末: 見た目のサイズはそのまま、当たり判定だけ指サイズへ（::before は本体の寸法を変えない＝配置計算そのまま） */
+@media (pointer: coarse) {
+  .tssgrid .tg-fillhandle::before { content: ''; position: absolute; inset: -14px; }
+  .tssgrid .tg-colgrip::before { content: ''; position: absolute; top: 0; bottom: 0; left: -9px; right: -9px; }   /* 細い6px列境を指で掴めるよう横に拡張 */
+}
 .tssgrid .tg-fillpreview{ position: absolute; border: 2px dashed #888; box-sizing: border-box; pointer-events: none; z-index: 3; display: none; }
+/* 選択ハンドル（タッチ端末のみ・JS が表示/配置）: 選択範囲の天地中央。指で縦に範囲を伸縮。フィル■(四角)と区別するため丸。 */
+.tssgrid .tg-selh { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid var(--tg-accent); box-sizing: border-box; z-index: 6; display: none; cursor: ns-resize; touch-action: none; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.tssgrid .tg-selh-left, .tssgrid .tg-selh-right { cursor: ew-resize; }
 
 /* 唯一の input。nav=透明sink / edit=可視 / invalid=エラー(将来用フック) */
 .tssgrid .tg-editor { position: absolute; box-sizing: border-box; margin: 0; padding: 0 5px; font-size: var(--tg-font-size); font-family: inherit; z-index: 4; outline: none; }
 .tssgrid .tg-editor.nav     { color: transparent; background: transparent; border: none; caret-color: transparent; pointer-events: none; }
-.tssgrid .tg-editor.edit    { color: #222; background: var(--tg-edit-bg); border: 2px solid var(--tg-edit-accent); caret-color: auto; pointer-events: auto; }
+.tssgrid .tg-editor.edit    { color: #222; background: var(--tg-edit-bg); border: 2px solid var(--tg-edit-accent); caret-color: auto; pointer-events: auto; -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }   /* 編集中は文字選択/コピーOK */
 .tssgrid .tg-editor.invalid { border-color: #e23; background: #fff3f4; }
 /* 複数行(改行)エディタ = 隠し textarea。nav=透明sink / edit=可視。列は columns[c].multiline:true */
 .tssgrid .tg-editor-multi { padding: 3px 5px; line-height: 1.35; white-space: pre-wrap; overflow: hidden; resize: none; vertical-align: top; }
@@ -267,6 +277,13 @@
 /* 右クリックメニュー（行/列の挿入・削除）。fixed でカーソル位置に出す（wrap の overflow に切られない） */
 .tssgrid .tg-menu { position: fixed; z-index: 100; background: #fff; border: 1px solid var(--tg-wrap-border); border-radius: var(--tg-radius); box-shadow: 0 4px 16px rgba(0,0,0,.18); padding: 4px 0; min-width: 150px; font-size: var(--tg-font-size); color: #222; user-select: none; }
 .tssgrid .tg-menu .tg-mi { padding: 6px 16px; cursor: pointer; white-space: nowrap; }
+/* タッチのドロップダウン一覧（touchPicker:'list'）。指で押しやすい行高・表のスクロール枠で切れないよう fixed */
+.tssgrid .tg-ddlist { position: fixed; z-index: 100; background: var(--tg-cell-bg); border: 1px solid var(--tg-wrap-border); border-radius: var(--tg-radius); box-shadow: 0 6px 20px rgba(0,0,0,.18); padding: 4px 0; max-height: min(308px, 50vh); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; font-size: calc(var(--tg-font-size) + 2px); color: #222; -webkit-user-select: none; user-select: none; }
+.tssgrid .tg-ddlist .tg-ddl-item { min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 16px; cursor: pointer; white-space: nowrap; }
+.tssgrid .tg-ddlist .tg-ddl-item:active, .tssgrid .tg-ddlist .tg-ddl-item.tg-hi { background: var(--tg-sel-bg); }
+.tssgrid .tg-ddlist .tg-ddl-item.tg-on { color: var(--tg-accent); font-weight: 600; }
+.tssgrid .tg-ddlist .tg-ddl-item.tg-on::after { content: '✓'; margin-left: auto; padding-left: 16px; }
+.tssgrid .tg-ddlist .tg-ddl-empty { color: var(--tg-muted); }
 .tssgrid .tg-menu .tg-mi:hover { background: var(--tg-sel-bg); }
 .tssgrid .tg-menu .tg-mi.tg-danger:hover { background: var(--tg-invalid-bg); color: var(--tg-invalid-fg); }
 .tssgrid .tg-menu .tg-mi.tg-disabled { color: var(--tg-muted); cursor: default; }

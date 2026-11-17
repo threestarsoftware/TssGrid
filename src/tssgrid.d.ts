@@ -57,6 +57,13 @@ export interface ColumnDef {
    *  `(r, row)=>[…]` の row はその行の値配列（`grid.data[r]`）。静的配列は全行共通（後方互換）。 */
   options?: Array<string | { value: string; label?: string }>
     | ((r: number, row: any[]) => Array<string | { value: string; label?: string }>);
+  /** タッチでのドロップダウンの一覧（表全体の `touchPicker` をこの列だけ上書き）。 */
+  touchPicker?: 'list' | 'native';
+  /** タッチでのドロップダウンの開き方（表全体の `touchDropdown` をこの列だけ上書き）。 */
+  touchDropdown?: 'tap' | 'secondTap';
+  /** タッチでのドロップダウンの一覧。`'list'`（既定）=表が出す自前の一覧（指で押しやすい・開いたまま別セルのタップで次が開く・キーボードの出入りで閉じない）／
+   *  `'native'`=ブラウザ純正のピッカー（`<select>`）。`columns[c].touchPicker` で列単位に上書き可。PC（マウス）は常に純正。 */
+  touchPicker?: 'list' | 'native';
   /** 列ごとの初期幅(px)。列定義に同居＝並べ替え/コピペで幅が追従。 */
   width?: number;
   /** false でこの列だけリサイズ禁止。 */
@@ -185,6 +192,13 @@ export interface TssGridOptions {
   className?: string;
   /** false でフィル完全OFF。詳細指定も可。 */
   fillHandle?: boolean | { direction?: 'vertical' | 'horizontal' | 'both'; autoInsertRow?: boolean };
+  /** タッチ端末の範囲選択ハンドル（選択枠の四辺の丸）。既定 'both'＝四辺（天地=縦・左右=横・斜め=矩形）。
+   *  'vertical'=天地の丸だけ（行方向のみ）／'horizontal'=左右の丸だけ（列方向のみ）／false=出さない。PC（マウス）には出ない。 */
+  touchSelect?: boolean | 'both' | 'vertical' | 'horizontal';
+  /** タッチでのドロップダウン（type:'dropdown'）の開き方。既定 'tap'＝タップ1回で開く。
+   *  'secondTap'＝1回目は選択だけ（丸ハンドルで範囲選択できる）・同じセルをもう一度タップで開く（スマホ版 Excel 流）。
+   *  `columns[c].touchDropdown` で列単位に上書き可。PC（マウス）は常にクリック1回で開く。 */
+  touchDropdown?: 'tap' | 'secondTap';
   autoColumnSize?: boolean | number;
   copyPaste?: boolean;
   /** 共有エディタへのブラウザ自動入力（Chrome の「ポイントカード/住所/支払い」等）を強めに抑止する。既定 false。
@@ -378,6 +392,8 @@ export declare class TssGrid {
   setColumns(columns: ColumnDef[], headers?: (string | { label?: string })[]): void;
   /** グリッド全体の読み取り専用を実行時に切替（Vue の `:readonly` 等）。 */
   setReadOnly(flag: boolean): void;
+  /** タッチの範囲選択ハンドルを実行時に切替（`touchSelect` と同じ値）。 */
+  setTouchSelect(v: boolean | 'both' | 'vertical' | 'horizontal'): void;
   /**
    * 背景で"育てる"追記（progressive）。data 末尾へ rows を足し、可視窓＋スペーサだけ再描画する。
    * buildTable 全再描画をせず、スクロール位置・アクティブセル・フォーカス・選択・編集中のエディタと値を保ち、履歴にも積まない。

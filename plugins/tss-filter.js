@@ -183,7 +183,7 @@
       grid.setData = function (rows) { origSetData(rows); if (Object.keys(active).some(c => active[c])) apply(); };
 
       grid.table.addEventListener('mousedown', onHeadClick, true);   // sort等より先に拾う（capture）
-      document.addEventListener('mousedown', onDocDown);
+      document.addEventListener('pointerdown', onDocDown);
       decorate();
 
       // 初期選択（opts.initial: { 列: [値,...] }）＝最初から「値を選択」で絞った状態で開く
@@ -200,7 +200,7 @@
         destroy: function () {
           closePop();
           grid.table.removeEventListener('mousedown', onHeadClick, true);
-          document.removeEventListener('mousedown', onDocDown);
+          document.removeEventListener('pointerdown', onDocDown);
           grid.buildTable = origBuild;
           grid.setData = origSetData;
           delete grid.clearAllFilters;

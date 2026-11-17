@@ -121,12 +121,12 @@
       render(); place(anchor);
       if (!inline) {   // inline は外側クリック/blur を本体（_commitActive / blur）が処理する＝二重に閉じない
         outside = function (e) { if (pop && !pop.contains(e.target) && !(anchor && anchor.contains && anchor.contains(e.target))) { var v = chosenOnOutside(); if (v == null) cancel(); else commit(v); } };
-        setTimeout(function () { document.addEventListener('mousedown', outside, true); }, 0);
+        setTimeout(function () { document.addEventListener('pointerdown', outside, true); }, 0);
         input.focus(); input.setSelectionRange(input.value.length, input.value.length);
       }
     }
     function chosenOnOutside() { if (strict) { var v = input.value; var src = getSource(v, {}) || []; return src.indexOf(v) >= 0 ? v : null; } return input.value; }
-    function teardown() { if (unbindComp) { unbindComp(); unbindComp = null; } if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } items = []; hi = -1; composing = false; }
+    function teardown() { if (unbindComp) { unbindComp(); unbindComp = null; } if (outside) { document.removeEventListener('pointerdown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } items = []; hi = -1; composing = false; }
     function commit(v) { if (done) return; done = true; var f = ref.ctx.commit; teardown(); f(v); }
     function cancel() { if (done) return; done = true; var f = ref.ctx.cancel; teardown(); if (f) f(); }
 

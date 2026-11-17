@@ -234,6 +234,10 @@
       this.fillHandle = _fh !== false;
       this.fillDirection = (_fh && _fh.direction) || 'both';   // 'both'|'vertical'|'horizontal'
       this.fillAutoInsertRow = !!(_fh && _fh.autoInsertRow);   // 下へドラッグで行を自動追加
+      this.touchSelect = TssGrid._normTouchSelect(opts.touchSelect);   // タッチの選択ハンドル: 'both'|'vertical'|'horizontal'|false
+      this.touchDropdown = opts.touchDropdown === 'secondTap' ? 'secondTap' : 'tap';   // タッチでのドロップダウンの開き方（列 columns[c].touchDropdown で上書き可）
+      // タッチでのドロップダウンの一覧: 'list'（既定）＝表が出す自前の一覧（iOS 純正ピッカーの「閉じるタップが飲まれる/タップ直後しか開けない/キーボードの揺れで閉じる」を避ける）／'native'＝<select> の純正ピッカー
+      this.touchPicker = opts.touchPicker === 'native' ? 'native' : 'list';
       this.onBeforeAutofill = opts.onBeforeAutofill || null;   // (src,target)=>false で取消
       this.onAfterAutofill = opts.onAfterAutofill || null;     // (src,target)
       this.copyPaste = opts.copyPaste !== false;     // false でコピー/カット/ペースト無効
@@ -830,6 +834,8 @@
         '<table class="tg-table"></table>' +
         '<div class="tg-selrange"></div><div class="tg-selbox"></div>' +
         '<div class="tg-copybox"></div><div class="tg-fillpreview"></div><div class="tg-fillhandle"></div>' +
+        '<div class="tg-selh tg-selh-top"></div><div class="tg-selh tg-selh-bot"></div>' +
+        '<div class="tg-selh tg-selh-left"></div><div class="tg-selh tg-selh-right"></div>' +
         '<div class="tg-resizeguide"></div>' +
         '<input class="tg-editor nav" type="text" autocomplete="off" spellcheck="false">' +
         '<textarea class="tg-editor tg-editor-multi nav" autocomplete="off" spellcheck="false" style="display:none"></textarea>' +
@@ -840,6 +846,9 @@
       this.wrap = q('.tg-wrap'); this.table = q('.tg-table');
       this.selrange = q('.tg-selrange'); this.selbox = q('.tg-selbox');
       this.copybox = q('.tg-copybox'); this.fillhandle = q('.tg-fillhandle'); this.fillpreview = q('.tg-fillpreview');
+      this.selhTop = q('.tg-selh-top'); this.selhBot = q('.tg-selh-bot');
+      this.selhLeft = q('.tg-selh-left'); this.selhRight = q('.tg-selh-right');
+      this._coarse = (typeof matchMedia !== 'undefined') ? matchMedia('(pointer: coarse)').matches : false;   // タッチ端末でのみ選択ハンドルを出す
       this.resizeGuide = q('.tg-resizeguide');
       this._edInput = q('input.tg-editor'); this._edMulti = q('.tg-editor-multi'); this.editor = this._edInput;
       // ブラウザ/拡張の自動入力（Chrome の「ポイントカード/住所/支払い」等）抑止。
@@ -1946,6 +1955,68 @@
         this.fillhandle.style.display = 'block';
         this._clipOverlay(this.fillhandle, fhL, fhT, c1, r1);   // 固定ペインに潜ったら隠す
       } else this.fillhandle.style.display = 'none';
+      // 選択ハンドル（タッチ端末のみ）: 選択範囲の四辺中央に丸ハンドル。天地=縦／左右=横／斜めに引けば矩形。
+      if (this.selhTop) {
+        // ドロップダウンを開いている間も出す（タップ1回で開く手軽さは保ったまま、丸を引けば範囲選択へ移れる＝フィル■と同じ扱い）
+        if (this._coarse && this.touchSelect && this.cursor && (this.mode === 'nav' || this.select.style.display !== 'none' || (this._customEditor && this._customEditor._tgTouchList))) {
+          const V = this.touchSelect !== 'horizontal', H = this.touchSelect !== 'vertical';   // 天地(縦)／左右(横)を出すか
+          const TL = this._cellRectAuto(r0, c0), BR = this._cellRectAuto(r1, c1);
+          const left = TL.left, right = BR.left + BR.width, top = TL.top, bottom = BR.top + BR.height;
+          const cx = (left + right) / 2, cy = (top + bottom) / 2;
+          // 可視窓＝固定ペイン(ヘッダ行+行番号列)の内側〜ビューポート。中心がこの外＝固定領域に被る/画面外なので隠す。
+          const sTop = this.wrap.scrollTop, sLeft = this.wrap.scrollLeft;
+          const vTop = sTop + (r0 >= this.frozenRows ? this._frozenPaneH() : 0);
+          const vLeft = sLeft + (c0 >= this.frozenCols ? this._frozenPaneW() : 0);
+          const vBottom = sTop + this.wrap.clientHeight, vRight = sLeft + this.wrap.clientWidth;
+          const show = (el, hx, hy) => {
+            if (hx < vLeft - 0.5 || hx > vRight + 0.5 || hy < vTop - 0.5 || hy > vBottom + 0.5) { el.style.display = 'none'; return; }
+            this._placeSelHandle(el, hx, hy);
+          };
+          const hide = el => { el.style.display = 'none'; };
+          if (V) { show(this.selhTop, cx, top); show(this.selhBot, cx, bottom); } else { hide(this.selhTop); hide(this.selhBot); }
+          if (H) { show(this.selhLeft, left, cy); show(this.selhRight, right, cy); } else { hide(this.selhLeft); hide(this.selhRight); }
+        } else {
+          this.selhTop.style.display = 'none'; this.selhBot.style.display = 'none';
+          this.selhLeft.style.display = 'none'; this.selhRight.style.display = 'none';
+        }
+      }
+    }
+    _placeSelHandle(el, cx, cy) {
+      el.style.display = 'block';
+      const sz = el.offsetWidth || 18;
+      el.style.left = (cx - sz / 2) + 'px';
+      el.style.top = (cy - sz / 2) + 'px';
+    }
+    // 選択ハンドルのドラッグ中: 指の「行・列」まで範囲を伸縮＝縦・横・斜め(矩形)すべて可。まっすぐ下なら縦のまま。
+    // 重要: setExtent(scrollIntoView付き)は使わない。横スクロールする幅だと「extentを見せる→内容が指の下で動く→さらに右の列→…」
+    // と自己増幅して全列を飲み込む。_dragMoveAt と同じく _extendTo(スクロールしない)＋端だけ _edgeAutoScroll(上限付き)に揃える。
+    _selMoveAt(clientX, clientY) {
+      if (!this._selDrag) return;
+      const pt = { clientX, clientY };
+      const td = this._tdAtPoint(pt);
+      if (td) { this._stopAutoScroll(); this._selApply(+td.dataset.r, +td.dataset.c); }
+      else this._edgeAutoScroll(pt, 'sel');   // 窓外/端＝上限付き自動スクロールしながらポインタの行/列へ
+    }
+    // 掴んだ辺だけを指へ動かす（天地=行の辺／左右=列の辺）。もう片方の軸は掴んだ時の幅を保持し、
+    // 指がその外へ出た時だけ広げる＝横に広げた後に縦を伸ばしても横幅が消えない（逆も）。斜めに引けば矩形も可。
+    _selApply(pr, pc) {
+      const d = this._selDrag; if (!d || !d.s) return;
+      const s = d.s; pr = this.clampR(pr); pc = this.clampC(pc);
+      let r0, r1, c0, c1;
+      const oneAxis = this.touchSelect === 'vertical' || this.touchSelect === 'horizontal';   // 片方向だけ＝斜めに広げない
+      if (d.which === 'top' || d.which === 'bot') {
+        const fixed = d.which === 'bot' ? s.r0 : s.r1;
+        r0 = Math.min(fixed, pr); r1 = Math.max(fixed, pr);
+        c0 = oneAxis ? s.c0 : Math.min(s.c0, pc); c1 = oneAxis ? s.c1 : Math.max(s.c1, pc);
+      } else {
+        const fixed = d.which === 'right' ? s.c0 : s.c1;
+        c0 = Math.min(fixed, pc); c1 = Math.max(fixed, pc);
+        r0 = oneAxis ? s.r0 : Math.min(s.r0, pr); r1 = oneAxis ? s.r1 : Math.max(s.r1, pr);
+      }
+      const a = { r: r0, c: c0 }, e = { r: r1, c: c1 };
+      if (!this._beforeSel(a, e)) return;
+      this._headerSel = null; this.active = a; this.extent = e;
+      this.updateSelectionUI(); this._fireSelection();
     }
     _isMultiline(c) { return !!this.colCfg(c).multiline; }
     // アクティブ列に応じて this.editor を input↔textarea に張り替える（非アクティブ側は隠す）。
@@ -2062,6 +2133,16 @@
       let r; try { r = this.onBeforeSelectionChange({ range, active: { ...a }, extent: { ...e } }); } catch (_) {}
       return r !== false;
     }
+    // ナビ用（ヘッダ/範囲選択）フォーカス: PC は共有 input にフォーカスして打鍵を拾う。
+    // タッチ端末では input にフォーカスするとソフトキーボードが出てしまうので出さない（むしろ blur で閉じる）。
+    // ※ セルのタップ編集（setActive / toEdit）は別経路で、スマホの文字入力に必要なのでここでは触らない。
+    // タッチの選択ハンドルの ON/OFF・向き。true/未指定='both'（四辺）/ 'vertical'（天地だけ）/ 'horizontal'（左右だけ）/ false（出さない）。
+    static _normTouchSelect(v) { return v === false ? false : (v === 'vertical' || v === 'horizontal') ? v : 'both'; }
+    // タッチでのドロップダウンの開き方: 'tap'＝タップ1回で開く（既定）／'secondTap'＝1回目は選択・同じセルの2回目で開く。列指定が優先。
+    _touchDropdown(c) { const v = this.colCfg(c).touchDropdown; return v === 'secondTap' || v === 'tap' ? v : this.touchDropdown; }
+    _touchPicker(c) { const v = this.colCfg(c).touchPicker; return v === 'native' || v === 'list' ? v : this.touchPicker; }
+    setTouchSelect(v) { this.touchSelect = TssGrid._normTouchSelect(v); if (this.selhTop) this._placeOverlays(); }
+    _navFocus() { if (this._coarse) { try { this.editor.blur(); } catch (_) {} } else this.editor.focus(); }
     setActive(r, c) {
       const a = { r: this.clampR(r), c: this._snapVisCol(this.clampC(c)) };   // 隠し列にはカーソルを置かない
       if (this._merges) { const an = this._anchorOf(a.r, a.c); a.r = an.r; a.c = an.c; }   // 結合内はアンカーへ
@@ -2069,7 +2150,9 @@
       this._headerSel = null;
       this.active = a; this.extent = { ...a };
       if (this.virtual) this._vEnsureVisible(a.r);   // 窓に入れてから placement（窓外なら activeTd=null になるため）
-      this._syncEditorNav(); this.editor.focus(); this.updateSelectionUI();
+      // _noEditorFocus: 指でドロップダウンをタップした時は文字入力欄にフォーカスしない
+      // （iOS は入力欄フォーカスでキーボード分ページを持ち上げ→select へ移ると戻す＝その揺れで一覧が閉じる/離れた位置に残る）
+      this._syncEditorNav(); if (!this._noEditorFocus) this.editor.focus(); this.updateSelectionUI();
       if (!this.virtual) this.activeTd().scrollIntoView({ block: 'nearest', inline: 'nearest' });   // 仮想は _vEnsureVisible が可視化済み
       this._fireSelection();
     }
@@ -2087,7 +2170,7 @@
       if (!this._beforeSel(a, e)) return;
       this._headerSel = null;
       this.active = a; this.extent = e;
-      this._syncEditorNav(); this.editor.focus(); this.updateSelectionUI();
+      this._syncEditorNav(); this._navFocus(); this.updateSelectionUI();
       this._fireSelection();
     }
     focusAndSelect(sel) {
@@ -2214,6 +2297,28 @@
       this.resizing = { type: 'row', r, start: e.clientY, base: this._rowHeight(r), edge };
       if (this.resizeMode !== 'live') this._showGuide('row', edge + this._rowHeight(r));
     }
+    // リサイズ中のポインタ移動（マウス mousemove / タッチ touchmove 共通）。
+    _resizeMoveAt(clientX, clientY) {
+      const rz = this.resizing; if (!rz) return;
+      if (rz.type === 'col') {
+        rz.size = Math.max(this.minColW, rz.base + (clientX - rz.start));
+        if (this.resizeMode === 'live') this.setColWidth(rz.c, rz.size);
+        else this._showGuide('col', rz.edge + rz.size);
+      } else {
+        rz.size = Math.max(this.minRowH, rz.base + (clientY - rz.start));
+        if (this.resizeMode === 'live') this.setRowHeight(rz.r, rz.size);
+        else this._showGuide('row', rz.edge + rz.size);
+      }
+    }
+    // リサイズ確定（マウス mouseup / タッチ touchend 共通）。live でない時は離した寸法で確定。
+    _resizeEnd() {
+      const rz = this.resizing; if (!rz) return;
+      this.resizing = null; this.resizeGuide.style.display = 'none';
+      if (this.resizeMode !== 'live' && rz.size != null) {
+        if (rz.type === 'col') this.setColWidth(rz.c, rz.size); else this.setRowHeight(rz.r, rz.size);
+      }
+      this._reflow();
+    }
     // ---- 行のドラッグ移動（つまみ） ----
     _startRowMove(e) {
       e.preventDefault(); e.stopPropagation();
@@ -2224,6 +2329,25 @@
       if (sel.r1 > sel.r0 && from >= sel.r0 && from <= sel.r1) { r0 = sel.r0; r1 = sel.r1; }  // 範囲選択内を掴んだら範囲ごと
       this.rowMove = { r0, r1, to: from };
       if (typeof document !== 'undefined') document.body.style.cursor = 'grabbing';
+    }
+    // 行移動中のポインタ移動（マウス mousemove / タッチ touchmove 共通）。ドロップ先ガイドを更新。
+    _rowMoveAt(clientX, clientY) {
+      const rm = this.rowMove; if (!rm) return;
+      const el = document.elementFromPoint(clientX, clientY);
+      const tr = el && el.closest ? el.closest('tr[data-r]') : null;
+      let to = rm.to;
+      if (tr) { const r = +tr.dataset.r, b = tr.getBoundingClientRect(); to = (clientY > b.top + b.height / 2) ? r + 1 : r; }
+      rm.to = to;
+      if (to >= rm.r0 && to <= rm.r1 + 1) this.resizeGuide.style.display = 'none';   // 自分の中＝移動無し
+      else this._showRowDropLine(to);
+    }
+    // 行移動の確定（マウス mouseup / タッチ touchend 共通）。
+    _rowMoveEnd() {
+      const rm = this.rowMove; if (!rm) return;
+      this.rowMove = null;
+      if (typeof document !== 'undefined') document.body.style.cursor = '';
+      this.resizeGuide.style.display = 'none';
+      this.moveRows(rm.r0, rm.r1, rm.to);
     }
     // ドロップ位置（行 to の上端）にガイド線を出す。to===ROWS は最下端。
     _showRowDropLine(to) {
@@ -2277,30 +2401,30 @@
       if (this.mode === 'edit') this._commitActive();
       if (th.dataset.c0 != null) {                      // ネストヘッダのグループ → 範囲列を選択
         const c0 = +th.dataset.c0, c1 = Math.min(this.COLS - 1, +th.dataset.c1);
-        this.selectRect(0, c0, this.ROWS - 1, c1); this._colAnchor = c0; this.editor.focus(); this.headerDrag = 'col';
+        this.selectRect(0, c0, this.ROWS - 1, c1); this._colAnchor = c0; this._navFocus(); this.headerDrag = 'col';
         return;
       }
       if (th.dataset.c != null) {                       // 列ヘッダ
         const c = +th.dataset.c;
-        if (this.onHeaderClick) { let r; try { r = this.onHeaderClick(c, e); } catch (_) {} if (r === false) { this.editor.focus(); return; } }   // 外部ソートUI等
+        if (this.onHeaderClick) { let r; try { r = this.onHeaderClick(c, e); } catch (_) {} if (r === false) { this._navFocus(); return; } }   // 外部ソートUI等
         const ctrl = (e.ctrlKey || e.metaKey) && this.disjointSelect;   // disjointSelect:false なら Ctrl は単一選択に落ちる
         if (ctrl && e.shiftKey) this._addColRange(c);   // Ctrl+Shift=範囲を集合に追加
         else if (ctrl) this._toggleCol(c);              // Ctrl=飛び飛びトグル
         else if (e.shiftKey) this._extendCol(c);        // Shift=連続範囲
         else this.selectCol(c);                          // 素=単一
-        this.editor.focus(); this.headerDrag = ctrl ? null : 'col';   // Ctrl中はドラッグ範囲選択を無効（飛び飛びを壊さない）
+        this._navFocus(); this.headerDrag = ctrl ? null : 'col';   // Ctrl中はドラッグ範囲選択を無効（飛び飛びを壊さない）
       } else if (th.dataset.r != null) {                // 行ヘッダ
         const r = +th.dataset.r, ctrl = (e.ctrlKey || e.metaKey) && this.disjointSelect;   // disjointSelect:false なら単一選択に落ちる
         if (ctrl && e.shiftKey) this._addRowRange(r);   // Ctrl+Shift=範囲を集合に追加
         else if (ctrl) this._toggleRow(r);              // Ctrl=飛び飛びトグル
         else if (e.shiftKey) this._extendRow(r);        // Shift=連続範囲
         else this.selectRow(r);                          // 素=単一
-        this.editor.focus();
+        this._navFocus();
         // 'header'モード: 行ヘッダーセル全体が移動ハンドル＝行を選択した上で移動を armする（クリック=選択のまま／ドラッグで移動）。縦結合/フィルタ中・Ctrl中は不可。
         if (this.rowReorderWhole && !e.shiftKey && !ctrl && !this._hasVMerge() && !this._allRows) this._startRowMove(e);
         else this.headerDrag = ctrl ? null : 'row';   // 通常: ドラッグで複数行選択（Ctrl中は無効＝飛び飛びを壊さない）
       } else {                                          // 左上の角 → 全選択
-        this.selectAll(); this.editor.focus();
+        this.selectAll(); this._navFocus();
       }
     }
 
@@ -2688,9 +2812,16 @@
     // ---- 右クリックメニュー ----
     _onContextMenu(e) {
       if (!this.contextMenu) return;   // 無効時はブラウザ既定メニュー
-      const th = e.target.closest('th'), td = e.target.closest('td[data-r]');
-      if (!th && !td) return;
-      e.preventDefault();
+      // タッチの長押しで来た contextmenu は、こちらの指ジェスチャ（リサイズ/行移動/フィル/範囲選択）を優先して抑制。
+      // ドラッグ中、または直前につまみ/長押しを掴んだ直後は menu を出さない（出すと指操作が乗っ取られる）。
+      if (this.resizing || this.rowMove || this.filling || this.dragging || (this._noCtxUntil && Date.now() < this._noCtxUntil) || (this._lpNativeUntil && Date.now() < this._lpNativeUntil)) { e.preventDefault(); return; }
+      if (this._openCtxMenu(e.target, e.clientX, e.clientY)) e.preventDefault();
+    }
+    // 対象(td/th)に応じて選択を合わせ、メニューを (x,y) に出す。右クリックとタッチ長押し(自前タイマー)の共通口。出したら true。
+    _openCtxMenu(target, x, y) {
+      if (!this.contextMenu || !target || !target.closest) return false;
+      const th = target.closest('th'), td = target.closest('td[data-r]');
+      if (!th && !td) return false;
       if (this.mode === 'edit') this._commitActive();
       // 右クリック位置に選択を移す（既存選択の中ならそのまま＝範囲削除に使える）＋対象種別を記録（メニュー項目へ渡す）
       let ctx;
@@ -2702,7 +2833,8 @@
       else if (th.dataset.r != null) { const r = +th.dataset.r, s = this.rectRange(); const inDj = this._headerSel === 'row' && this._selRows && this._selRows.has(r); if (!inDj && !(r >= s.r0 && r <= s.r1)) this.selectRow(r); ctx = { on: 'row', r, c: -1 }; }   // 同上（飛び飛び行も維持）
       else ctx = { on: 'corner', r: -1, c: -1 };   // 隅（全体）ヘッダ
       this._menuCtx = ctx;
-      this._showMenu(e.clientX, e.clientY);
+      this._showMenu(x, y);
+      return true;
     }
     // 既定のメニュー項目キー（allow フラグ・copyPaste で出し分け）。
     _defaultMenuKeys() {
@@ -2798,6 +2930,58 @@
       this.menuEl.style.top = Math.min(y, vh - mh - 4) + 'px';
     }
     _hideMenu() { if (this.menuEl) this.menuEl.style.display = 'none'; }
+    _clearRowLp() { if (this._rowLp) { clearTimeout(this._rowLp); this._rowLp = 0; } }   // 行番号の長押しタイマー解除
+    _clearCellLp() { if (this._cellLp) { clearTimeout(this._cellLp); this._cellLp = 0; } this._cellTouch = null; }   // セル/列見出しの長押しタイマー解除
+    // セル/列見出し/隅の長押し＝自前タイマー（iOS Safari は長押しで contextmenu を出さない）。
+    // 指が動いた(スクロール)・2本指・離した で取り消し（touchmove/_endTouch）。Android ネイティブ contextmenu とは先着1回。
+    _startCellLp(target, t, nTouches) {
+      this._clearCellLp();
+      if (!target || nTouches !== 1) return;
+      // タップ判定（_endTouch のドロップダウン直開き）にも使うので、メニュー無効でも記録はする
+      this._cellTouch = { target, x: t.clientX, y: t.clientY, t0: Date.now(), menu: false };
+      if (!this.contextMenu) return;
+      this._cellLp = setTimeout(() => {
+        this._cellLp = 0;
+        const ct = this._cellTouch;
+        if (!ct || this.filling || this.resizing || this.rowMove || this._selDrag) return;
+        if (this.menuEl.style.display === 'block') return;               // ネイティブ contextmenu 側で既に出た
+        if (this._noCtxUntil && Date.now() < this._noCtxUntil) return;   // つまみ/ハンドルを掴んだ直後
+        if (this.select.style.display !== 'none') this._cancelSelect();  // 開いたドロップダウンは閉じてからメニュー
+        if (this._openCtxMenu(ct.target, ct.x, ct.y)) {
+          ct.menu = true;
+          this._lpNativeUntil = Date.now() + 1500;   // 後から来る Android ネイティブ contextmenu を抑制（二重防止）。_noCtxUntil と分ける＝続けての長押しは妨げない
+          this._dropSoftKeyboard();
+        }
+      }, 500);
+    }
+    // Excel流（touchDropdown:'secondTap'）で指がドロップダウンのセルをタップ（touchend で呼ぶ）。1回目は選択だけ・同じセルの2回目で開く。
+    // 文字入力欄にはフォーカスしない（ソフトキーボードを出さない）。標準（tap）は互換 mousedown 経由で開く（そちらが iPad で安定）。
+    _touchDropdownTap(r, c) {
+      const sp = this.rectRange(), wasActiveHere = !this._headerSel && sp.r0 === r && sp.r1 === r && sp.c0 === c && sp.c1 === c;
+      if (this.mode === 'edit') this._commitActive();
+      this._noEditorFocus = true;
+      try { this.setActive(r, c); } finally { this._noEditorFocus = false; }
+      if (this.active.r !== r || this.active.c !== c) return;   // onBeforeSelection 等で拒否された
+      this._navFocus();
+      if (this._touchDropdown(c) === 'secondTap' && !wasActiveHere) return;   // Excel流: 1回目は選択だけ
+      this._openSelect();
+    }
+    // iOS に飲まれたタップ（一覧を閉じるだけに使われた）を後から反映: 選択をそのセルへ。キーボードは出さない。
+    _afterDismissTap(r, c) {
+      if (r >= this.ROWS || c >= this.COLS) return;
+      if (this.mode === 'edit') this._commitActive();
+      this._noEditorFocus = true;
+      try { this.setActive(r, c); } finally { this._noEditorFocus = false; }
+      if (this.active.r !== r || this.active.c !== c) return;
+      this._navFocus();
+      // 標準(tap)のドロップダウン: select をセル上に置くだけ（タップの外なので focus しても iOS は開かない）。次のタップで iOS がネイティブに開く
+      if (this.colType(c) === 'dropdown' && this._touchDropdown(c) === 'tap') this._openSelect({ focus: false });
+    }
+    // タッチでメニューを出した時はソフトキーボードを下ろす（メニューと被る）。次にセルをタップすれば再フォーカス＝入力可。
+    _dropSoftKeyboard() {
+      const a = document.activeElement;
+      if (a && a !== document.body && this.root.contains(a) && a.blur) { try { a.blur(); } catch (_) {} }   // 共有エディタ(input/textarea)・select 等
+    }
 
     // ---- フィル ----
     fillRectFromPointer(pr, pc, src, twoD) {
@@ -3025,6 +3209,7 @@
         else if (cs.rows) { for (const r of cs.rows) for (let c = 0; c < this.COLS; c++) this.setCell(r, c, '', changes); }   // 飛び飛び行カット
         else { for (let r = cs.r0; r <= cs.r1; r++) for (let c = cs.c0; c <= cs.c1; c++) this.setCell(r, c, '', changes); }   // 連続（従来）
         this.pendingCut = null; this.copybox.style.display = 'none'; }
+      if (this._coarse) this.copybox.style.display = 'none';   // タッチは Esc が無い＝貼り付けたら点線枠を消す（PCは Excel 流に Esc/編集まで残す）
       this.pushCmd(changes, before, after, 'paste');
       this.focusAndSelect(after);
       return after;
@@ -3051,13 +3236,50 @@
       if (fr) { this.placeRect(this.fillpreview, fr.r0, fr.c0, fr.r1, fr.c1); this.fillpreview.style.display = 'block'; }
       else this.fillpreview.style.display = 'none';
     }
+    // フィル中のポインタ移動（マウス mousemove / タッチ touchmove 共通）。窓内はプレビュー更新、窓外は端自動スクロール。
+    _fillMoveAt(clientX, clientY, alt) {
+      const pt = { clientX, clientY, altKey: alt };
+      const td = this._tdAtPoint(pt);
+      if (td) { this._stopAutoScroll(); this._updateFillPreview(+td.dataset.r, +td.dataset.c, alt); }
+      else this._edgeAutoScroll(pt, 'fill');
+    }
+    // フィル確定（マウス mouseup / タッチ touchend 共通）。copy=Ctrl/Cmd 相当（連番でなくコピー）。
+    _finishFill(clientX, clientY, alt, copy) {
+      this._stopAutoScroll();
+      const pt = { clientX, clientY };
+      // autoInsertRow: フィルハンドルをテーブル下端より下へドロップしたら、足りない行を追加（縦フィル時）
+      if (this.fillAutoInsertRow && this.fillDirection !== 'horizontal' && !this._tdAtPoint(pt)) {
+        const tb = this.table.getBoundingClientRect();
+        let extra = Math.min(1000, Math.ceil((clientY - tb.bottom) / this.defRowH));
+        if (this.maxRows) extra = Math.min(extra, this.maxRows - this.ROWS);   // maxRows で天井打ち
+        if (extra > 0) {
+          for (let i = 0; i < extra; i++) { this.data.push(new Array(this.COLS).fill('')); this.rowH.push(undefined); if (this._src) this._src.push({}); this.ROWS++; }
+          this.buildTable();
+        }
+      }
+      // 確定の対象セル: td があればそれ、無ければ（窓外）モデル幾何＝直近のフィル行/ポインタ位置から。
+      const td = this._tdAtPoint(pt);
+      const tr = td ? +td.dataset.r : (this._fillRow != null ? this._fillRow : this._rowFromPointerY(clientY));
+      const tc = td ? +td.dataset.c : this._colFromPointerX(clientX);
+      const fr = this.fillRectFromPointer(tr, tc, this.filling.src, alt);
+      this.fillpreview.style.display = 'none';
+      const src = this.filling.src; this.filling = null;
+      if (fr) { this.doFill(src, fr, copy); this.selectRect(fr.r0, fr.c0, fr.r1, fr.c1); }
+    }
+    // セル範囲選択ドラッグのポインタ移動（マウス mousemove / タッチ touchmove 共通）。
+    _dragMoveAt(clientX, clientY) {
+      const pt = { clientX, clientY };
+      const td = this._tdAtPoint(pt);
+      if (td) { this._stopAutoScroll(); this.setExtent(+td.dataset.r, +td.dataset.c); }
+      else this._edgeAutoScroll(pt, 'drag');   // 窓外/端＝自動スクロール＋モデル幾何で伸ばす
+    }
     // ドラッグ/フィル中に上下端を越えたら自動スクロールしながら選択/プレビューを伸ばす。
     // 重要: 伸ばす先は「カウンタ加算」でなく常に【ポインタ位置の行】＝端を1pxだけ超えたら1行しか伸びない（暴走しない）。
     // 自動スクロール速度は端からのはみ出し量に比例（少し超えた＝ゆっくり / 大きく超えた＝速く）。
     _edgeAutoScroll(e, mode) {
       this._dragY = e.clientY; this._dragX = e.clientX; this._dragAlt = !!e.altKey; this._dragMode = mode;
       const r = this._rowFromPointerY(e.clientY), c = this._colFromPointerX(e.clientX);
-      if (mode === 'drag') this._extendTo(r, c); else this._updateFillPreview(r, c, this._dragAlt);   // まずポインタ位置のセルへ
+      if (mode === 'drag') this._extendTo(r, c); else if (mode === 'sel') this._selApply(r, c); else this._updateFillPreview(r, c, this._dragAlt);   // まずポインタ位置のセルへ
       const wr = this.wrap.getBoundingClientRect();
       const headB = wr.top + (this.colHeaders ? (this._theadH || 0) : 0);   // 上端＝ヘッダ下
       const leftB = wr.left + this._frozenPaneW();                          // 左端＝固定ペイン(行番号+固定列)の右
@@ -3066,7 +3288,7 @@
     }
     _autoScrollTick() {
       this._asRAF = 0;
-      if (!this.dragging && !this.filling) return;
+      if (!this.dragging && !this.filling && !this._selDrag) return;
       const wr = this.wrap.getBoundingClientRect();
       const headB = wr.top + (this.colHeaders ? (this._theadH || 0) : 0), leftB = wr.left + this._frozenPaneW();
       const amp = d => Math.min(24, 2 + d * 0.2);   // px/フレーム＝はみ出し量に比例（上限24・暴走しない）
@@ -3080,7 +3302,7 @@
       }
       if (vh !== 0) this.wrap.scrollLeft = Math.max(0, this.wrap.scrollLeft + vh);   // 横は全列描画なので scrollLeft だけ
       const r = this._rowFromPointerY(this._dragY), c = this._colFromPointerX(this._dragX);   // 伸ばす先は常にポインタのセル
-      if (this._dragMode === 'drag') this._extendTo(r, c); else this._updateFillPreview(r, c, this._dragAlt);
+      if (this._dragMode === 'drag') this._extendTo(r, c); else if (this._dragMode === 'sel') this._selApply(r, c); else this._updateFillPreview(r, c, this._dragAlt);
       const maxTop = this.wrap.scrollHeight - this.wrap.clientHeight, maxLeft = this.wrap.scrollWidth - this.wrap.clientWidth;
       const vStuck = (v > 0 && this.wrap.scrollTop >= maxTop) || (v < 0 && this.wrap.scrollTop <= 0);
       const hStuck = (vh > 0 && this.wrap.scrollLeft >= maxLeft) || (vh < 0 && this.wrap.scrollLeft <= 0);
@@ -3183,12 +3405,17 @@
           else this.setActive(r, this._stepColM(r, c, 1));
         }
       });
-      this.select.addEventListener('blur', () => { if (this.mode === 'edit' && this.select.style.display !== 'none') this._commitSelect(); });
+      this.select.addEventListener('blur', () => { if (!this._refocusSel && this.mode === 'edit' && this.select.style.display !== 'none') this._commitSelect(); });
       // 選択肢を選んだら即確定（移動はしない＝Excel と同様にそのセルに留まる）。
       // ネイティブの一覧で Enter/クリック確定すると change のみ発火し keydown(Enter) が来ないため、
       // ここでエディタへフォーカスを戻さないと以降キー操作が効かなくなる（カーソルキーがブラウザ既定に流れる）。
       this.select.addEventListener('change', () => {
-        if (this.mode === 'edit' && this.select.style.display !== 'none') { this._commitSelect(); this.editor.focus(); }
+        // タッチは文字入力欄へ戻さない（iOS はキーボード分ページを持ち上げ→次のタップの一覧が揺れる/離れる）。select の focus も外す＝次のタップで確実に「新しく focus」させる
+        if (this.mode === 'edit' && this.select.style.display !== 'none') {
+          this._commitSelect();
+          if (this._coarse) { try { this.select.blur(); } catch (_) {} }   // 隠した後は blur 確定ハンドラは素通り
+          this._navFocus();
+        }
       });
 
       this.table.addEventListener('mousedown', (e) => {
@@ -3205,13 +3432,28 @@
         const r = +td.dataset.r, c = +td.dataset.c;
         // 同じセルでカスタムエディタが開いていたら、再クリックは「閉じるだけ」（トグル）
         const wasOpenHere = this._customEditor && this._customCell && this._customCell.r === r && this._customCell.c === c;
+        // 押す前から「このセルだけ」を選択していたか（タッチの touchDropdown:'secondTap' ＝2回目のタップで開く判定用）
+        const sp = this.rectRange(), wasActiveHere = !this._headerSel && sp.r0 === r && sp.r1 === r && sp.c0 === c && sp.c1 === c;
         if (this.mode === 'edit') this._commitActive();
         if (e.shiftKey) { this.toNav(); this.setExtent(r, c); this.editor.focus(); return; }
-        this.setActive(r, c); this.dragging = true;
+        const byTouch = this._lastTouchEnd && Date.now() - this._lastTouchEnd < 1000;   // 指のタップから来た互換 mousedown か（タッチPCのマウスは除外）
+        const ddTouch = byTouch && this.colType(c) === 'dropdown';
+        if (ddTouch) this._noEditorFocus = true;
+        try { this.setActive(r, c); } finally { this._noEditorFocus = false; }
+        this.dragging = true;
         // チェックボックスを直接クリックしたらトグル（範囲選択は阻害しない）
         if (e.target.classList && e.target.classList.contains('tg-cb')) { this.dragging = false; this._toggleCheckbox(r, c); return; }
-        // ドロップダウンはシングルクリックで即開く
-        if (this.colType(c) === 'dropdown') { this.dragging = false; this._openSelect(); }
+        // ドロップダウンはシングルクリックで即開く。タッチで touchDropdown:'secondTap' なら1回目は選択だけ（丸ハンドルで範囲選択できる）・同じセルをもう一度タップで開く（スマホ版 Excel 流）
+        if (this.colType(c) === 'dropdown') {
+          this.dragging = false;
+          // 自前の一覧を開いていた同じセルの再タップ＝閉じるだけ（純正 select の再タップと同じトグル）。一覧は pointerdown で先に閉じているので印で判定
+          const tg = this._ddListToggle; this._ddListToggle = null;
+          if (wasOpenHere || (tg && tg.r === r && tg.c === c && Date.now() - tg.t < 800)) this._navFocus();
+          else if (byTouch && this._touchDropdown(c) === 'secondTap' && !wasActiveHere) this._navFocus();   // 1回目＝選択だけ。文字入力欄にフォーカスしない＝プルダウン列でソフトキーボードを出さない
+          // タッチも mousedown（iOS の互換イベント＝タップ扱い）で即開く。0da9292 と同じ経路が iPad 実測で最も安定（touchend 直開き/遅延/click 開きは悪化した）。
+          // 文字入力欄が focus 中ならそのまま select へ focus を移す（先に blur しない＝キーボード→一覧の受け渡しを iOS に任せる）
+          else this._openSelect();
+        }
         // カスタムエディタが openOnClick を申告していれば、ドロップダウン同様シングルクリックで開く（再クリックは開かない＝トグル）
         else { const ed = this.colCfg(c).editor; if (ed && ed.openOnClick && !wasOpenHere) { this.dragging = false; if (ed.inline) this._beginEdit(r, c); else this._openCustomEditor(r, c); } }   // inline は共有 input を開く（_beginEdit→toEdit→ed.open）
       });
@@ -3232,9 +3474,27 @@
           const th = e.target.closest('th[data-c]'); if (th) this.autoSizeColumn(+th.dataset.c); return;
         }
         const td = e.target.closest('td[data-r]'); if (!td) return;
+        // 指の素早い2回タップ（開く→閉じる）が dblclick になって開き直す＋入力欄 focus（キーボード）になるのを防ぐ。ドロップダウンはタップ単位で開閉済み
+        if (this._lastTouchEnd && Date.now() - this._lastTouchEnd < 1000 && this.colType(+td.dataset.c) === 'dropdown') return;
         this.setActive(+td.dataset.r, +td.dataset.c); this._beginEdit(this.active.r, this.active.c);
       });
-      this.fillhandle.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); this.filling = { src: this.rectRange() }; this._fillRow = null; });
+      // フィル開始（掴む）＝マウスもタッチも同じ。touch は passive:false で preventDefault 可＝掴んだ瞬間スクロールしない。
+      const _startFill = (e) => { e.preventDefault(); e.stopPropagation(); this.filling = { src: this.rectRange() }; this._fillRow = null; };
+      this.fillhandle.addEventListener('mousedown', _startFill);
+      this.fillhandle.addEventListener('touchstart', (e) => { this._noCtxUntil = Date.now() + 1000; _startFill(e); }, { passive: false });
+      // 選択ハンドル（天地の丸）: 掴んで縦に範囲を伸縮。掴んだ反対側の角をアンカーにする。
+      const _startSel = (which) => (e) => {
+        e.preventDefault(); e.stopPropagation();
+        // 掴んだ時の範囲と辺を記録（_selApply が「その辺だけ」動かし、他方の軸の幅は保持する）。
+        // setActive は呼ばない＝選択を1セルに潰さない＆タッチでキーボードを出さない。
+        if (this.select.style.display !== 'none') this._closeSelectQuiet();   // 開いたドロップダウンは値を変えずに閉じてから範囲選択へ
+        this._selDrag = { which, s: this.rectRange() };
+        this._noCtxUntil = Date.now() + 1000;
+      };
+      [['top', this.selhTop], ['bot', this.selhBot], ['left', this.selhLeft], ['right', this.selhRight]].forEach(([w, el]) => {
+        el.addEventListener('mousedown', _startSel(w));
+        el.addEventListener('touchstart', _startSel(w), { passive: false });
+      });
       // 溢れて … で切れたセルは、ホバー時に全文を title（ネイティブツールチップ）で出す。
       // 対象セルだけを初回ホバーで1回測るso軽い（redraw で td が作り直され _ellChk も消える）。ellipsis 未使用なら即 return＝ゼロコスト。
       this.table.addEventListener('mouseover', (e) => {
@@ -3258,6 +3518,9 @@
       // メニュー外クリック / Esc / スクロールで閉じる
       this._docDown = (e) => { if (this.menuEl.style.display !== 'none' && !this.menuEl.contains(e.target)) this._hideMenu(); };
       this._on(document, 'mousedown', this._docDown, true);
+      // タッチ: 次に触れた先が touchstart で preventDefault する要素（行番号/ハンドル/グリップ）だと互換 mousedown が出ず
+      // _docDown が発火しない＝メニューが閉じない。touchstart キャプチャでも外側タップを拾って閉じる（メニュー内は除外）。
+      this._on(document, 'touchstart', this._docDown, true);
       this._on(document, 'keydown', (e) => { if (e.key === 'Escape') this._hideMenu(); });
       this.wrap.addEventListener('scroll', () => this._hideMenu());
       // スクロール時は枠の位置合わせのみ（highlightRange を呼ばない＝ちらつき防止。
@@ -3278,30 +3541,9 @@
 
       // document: 自分が掴んでる時だけ反応（複数インスタンスでも衝突しない）
       this._on(document, 'mousemove', (e) => {
-        if (this.resizing) {
-          const rz = this.resizing;
-          if (rz.type === 'col') {
-            rz.size = Math.max(this.minColW, rz.base + (e.clientX - rz.start));
-            if (this.resizeMode === 'live') this.setColWidth(rz.c, rz.size);
-            else this._showGuide('col', rz.edge + rz.size);
-          } else {
-            rz.size = Math.max(this.minRowH, rz.base + (e.clientY - rz.start));
-            if (this.resizeMode === 'live') this.setRowHeight(rz.r, rz.size);
-            else this._showGuide('row', rz.edge + rz.size);
-          }
-          return;
-        }
-        if (this.rowMove) {
-          const rm = this.rowMove;
-          const el = document.elementFromPoint(e.clientX, e.clientY);
-          const tr = el && el.closest ? el.closest('tr[data-r]') : null;
-          let to = rm.to;
-          if (tr) { const r = +tr.dataset.r, b = tr.getBoundingClientRect(); to = (e.clientY > b.top + b.height / 2) ? r + 1 : r; }
-          rm.to = to;
-          if (to >= rm.r0 && to <= rm.r1 + 1) this.resizeGuide.style.display = 'none';   // 自分の中＝移動無し
-          else this._showRowDropLine(to);
-          return;
-        }
+        if (this._selDrag) { this._selMoveAt(e.clientX, e.clientY); return; }
+        if (this.resizing) { this._resizeMoveAt(e.clientX, e.clientY); return; }
+        if (this.rowMove) { this._rowMoveAt(e.clientX, e.clientY); return; }
         if (this.headerDrag) {
           const el = document.elementFromPoint(e.clientX, e.clientY);
           const th = el && el.closest ? el.closest('th') : null;
@@ -3311,56 +3553,140 @@
           }
           return;
         }
-        if (this.dragging) {
-          const td = this._tdAtPoint(e);
-          if (td) { this._stopAutoScroll(); this.setExtent(+td.dataset.r, +td.dataset.c); }
-          else this._edgeAutoScroll(e, 'drag');   // 窓外/端＝自動スクロール＋モデル幾何で伸ばす
-        }
-        else if (this.filling) {
-          const td = this._tdAtPoint(e);
-          if (td) { this._stopAutoScroll(); this._updateFillPreview(+td.dataset.r, +td.dataset.c, e.altKey); }
-          else this._edgeAutoScroll(e, 'fill');
-        }
+        if (this.dragging) this._dragMoveAt(e.clientX, e.clientY);
+        else if (this.filling) this._fillMoveAt(e.clientX, e.clientY, e.altKey);
       });
       this._on(document, 'mouseup', (e) => {
-        if (this.resizing) {
-          const rz = this.resizing; this.resizing = null; this.resizeGuide.style.display = 'none';
-          if (this.resizeMode !== 'live' && rz.size != null) {   // 離した時に確定
-            if (rz.type === 'col') this.setColWidth(rz.c, rz.size); else this.setRowHeight(rz.r, rz.size);
-          }
-          this._reflow(); return;
-        }
-        if (this.rowMove) {
-          const rm = this.rowMove; this.rowMove = null;
-          if (typeof document !== 'undefined') document.body.style.cursor = '';
-          this.resizeGuide.style.display = 'none';
-          this.moveRows(rm.r0, rm.r1, rm.to);
-          return;
-        }
+        if (this._selDrag) { this._selDrag = null; this._stopAutoScroll(); return; }
+        if (this.resizing) { this._resizeEnd(); return; }
+        if (this.rowMove) { this._rowMoveEnd(); return; }
         if (this.headerDrag) { this.headerDrag = null; return; }
         if (this.dragging) { this.dragging = false; this._stopAutoScroll(); return; }
-        if (this.filling) {
-          this._stopAutoScroll();
-          // autoInsertRow: フィルハンドルをテーブル下端より下へドロップしたら、足りない行を追加（縦フィル時）
-          if (this.fillAutoInsertRow && this.fillDirection !== 'horizontal' && !this._tdAtPoint(e)) {
-            const tb = this.table.getBoundingClientRect();
-            let extra = Math.min(1000, Math.ceil((e.clientY - tb.bottom) / this.defRowH));
-            if (this.maxRows) extra = Math.min(extra, this.maxRows - this.ROWS);   // maxRows で天井打ち
-            if (extra > 0) {
-              for (let i = 0; i < extra; i++) { this.data.push(new Array(this.COLS).fill('')); this.rowH.push(undefined); if (this._src) this._src.push({}); this.ROWS++; }
-              this.buildTable();
-            }
-          }
-          // 確定の対象セル: td があればそれ、無ければ（窓外）モデル幾何＝直近のフィル行/ポインタ位置から。
-          const td = this._tdAtPoint(e);
-          const tr = td ? +td.dataset.r : (this._fillRow != null ? this._fillRow : this._rowFromPointerY(e.clientY));
-          const tc = td ? +td.dataset.c : this._colFromPointerX(e.clientX);
-          const fr = this.fillRectFromPointer(tr, tc, this.filling.src, e.altKey);
-          this.fillpreview.style.display = 'none';
-          const src = this.filling.src; this.filling = null;
-          if (fr) { this.doFill(src, fr, e.ctrlKey || e.metaKey); this.selectRect(fr.r0, fr.c0, fr.r1, fr.c1); }
-        }
+        if (this.filling) this._finishFill(e.clientX, e.clientY, e.altKey, e.ctrlKey || e.metaKey);
       });
+      // タッチ開始: ①列見出しの境目=列幅 ②行番号セル=タップ選択/ドラッグ移動/下端で高さ変更 ③フィル■は別途。
+      this.table.addEventListener('touchstart', (e) => {
+        this._coarse = true;   // 一度でも指で触れたら以降タッチUI（選択ハンドル）を出す＝matchMedia 頼みをやめ確実化
+        const t = e.touches[0]; if (!t) return;
+        const cls = e.target.classList;
+        // ② 列幅リサイズ（列見出しの右端グリップ）＝即開始
+        if (cls && cls.contains('tg-colgrip')) {
+          e.preventDefault(); this._noCtxUntil = Date.now() + 1000;
+          this._startColResize({ target: e.target, clientX: t.clientX, clientY: t.clientY, preventDefault() {}, stopPropagation() {} });
+          return;
+        }
+        // ③ 行番号セル（行ヘッダ）＝タップ=行選択 / 縦ドラッグ=行移動 / 下端ドラッグ=高さ変更（touchmove で確定）
+        const rth = e.target.closest && e.target.closest('th[data-r]');
+        if (rth && rth.dataset.r != null) {
+          const b = rth.getBoundingClientRect();
+          const nearBottom = !!this.resizeRows && (b.bottom - t.clientY) <= 12;
+          this._rowTouch = { r: +rth.dataset.r, th: rth, x: t.clientX, y: t.clientY, top: b.top, bottom: b.bottom, nearBottom, started: null, lp: false };
+          this._noCtxUntil = Date.now() + 1500;   // ネイティブ長押しメニューは抑制し、下の自前タイマーで行メニューを出す（二重防止）
+          // 自前の長押しタイマー: 指が静止したまま時間が来たら「長押し成立」＝行を選択して合図（Android は短く振動）。
+          // メニューは指を離した時に出す（_endTouch）＝長押ししてから引いた時はメニューを一度も出さずに行移動へ。
+          // 行番号 touchstart は preventDefault 済み＝互換 click が出ないので、離した直後にメニューが即閉じすることはない。
+          this._clearRowLp();
+          this._rowLp = setTimeout(() => {
+            const rt = this._rowTouch;
+            if (!rt || rt.started) return;   // 既に移動/リサイズへ化けていたら何もしない
+            rt.lp = true;
+            const rr = rt.r, s = this.rectRange();
+            const inDj = this._headerSel === 'row' && this._selRows && this._selRows.has(rr);
+            if (!inDj && !(rr >= s.r0 && rr <= s.r1)) this.selectRow(rr);   // 対象行を選択（既存選択の中ならそのまま＝複数行削除に使える）
+            try { if (navigator.vibrate) navigator.vibrate(12); } catch (_) {}
+          }, 500);
+          e.preventDefault();
+          return;
+        }
+        // セル／列見出し／隅＝touchstart は止めない（タップ=選択/編集・スクロールはブラウザに任せる）。
+        // 長押しメニューは自前タイマー（iOS Safari は長押しで contextmenu を出さない＝ネイティブ任せだと出ない）。
+        // 指が動いた(スクロール)・2本指・離した で取り消し。Android はネイティブ contextmenu も来るので先着1回だけ出す。
+        const lpTarget = e.target.closest && (e.target.closest('td[data-r]') || e.target.closest('th'));
+        this._startCellLp(lpTarget, t, e.touches.length);
+      }, { passive: false });
+      // 開いたドロップダウン（<select>はtable外のオーバーレイ）上の長押しも、そのセルのメニューにする。
+      this.select.addEventListener('touchstart', (e) => {
+        this._coarse = true;
+        const t = e.touches[0]; if (!t) return;
+        this._startCellLp(this.activeTd(), t, e.touches.length);
+        if (this._cellTouch) this._cellTouch.fromSelect = true;   // <select> 自体のタップはネイティブに任せる（_endTouch の直開き対象外）
+      }, { passive: true });
+      // タッチ移動: 選択ハンドル／行番号のドラッグ判定／掴んでるジェスチャの駆動。
+      this._on(document, 'touchmove', (e) => {
+        const t = e.touches[0]; if (!t) return;
+        if (this._cellTouch && !this._cellTouch.menu && (e.touches.length > 1 || Math.abs(t.clientX - this._cellTouch.x) > 10 || Math.abs(t.clientY - this._cellTouch.y) > 10)) this._clearCellLp();   // スクロール/ピンチ＝長押しではない
+        if (this._selDrag) { e.preventDefault(); this._selMoveAt(t.clientX, t.clientY); return; }
+        // 行番号セル: しきい値(指タップのブレより大きめ=12px)を超えたら「移動」か「高さ変更」を開始（下端は高さ）
+        // 長押し成立(rt.lp)後でも、そのまま指を動かしたら移動（掴んで待ってから引く癖を吸収・メニューは離した時だけ）。
+        if (this._rowTouch && !this._rowTouch.started) {
+          const dx = t.clientX - this._rowTouch.x, dy = t.clientY - this._rowTouch.y;
+          if (Math.abs(dy) > 12 || Math.abs(dx) > 12) {
+            this._clearRowLp();   // 動いた＝ドラッグ確定。長押しタイマーは解除（移動と排他）
+            const pe = { target: this._rowTouch.th, clientX: this._rowTouch.x, clientY: this._rowTouch.y, preventDefault() {}, stopPropagation() {} };
+            if (this._rowTouch.nearBottom) { this._rowTouch.started = 'resize'; this._startRowResize(pe); }
+            else { this._rowTouch.started = 'move'; this._startRowMove(pe); }
+          }
+        }
+        if (!this.filling && !this.resizing && !this.rowMove) return;
+        e.preventDefault();
+        this._touchXY = { x: t.clientX, y: t.clientY };   // touchend が座標を持たない時の保険
+        if (this.resizing) { this._resizeMoveAt(t.clientX, t.clientY); return; }
+        if (this.rowMove) { this._rowMoveAt(t.clientX, t.clientY); return; }
+        this._fillMoveAt(t.clientX, t.clientY, false);   // タッチは Alt 相当なし＝連番/コピーはパターンから推定
+      }, { passive: false });
+      const _endTouch = (e) => {
+        this._lastTouchEnd = Date.now();   // 直後の互換 mousedown を「指のタップ」と見分ける用
+        if (this._cellTouch) {
+          const ct = this._cellTouch; this._clearCellLp();
+          // 長押しでメニューを出した指を離した＝互換 mousedown/click を止める（出すと選択が動き、メニュー外クリック扱いで即閉じる）
+          if (ct.menu) { if (e.cancelable) e.preventDefault(); return; }
+          // 動かさず短く離した＝タップ。Excel流（secondTap）のドロップダウンのセルはここで直接処理（互換 mousedown/click は止める）。
+          // 標準（tap）は互換 mousedown で開く＝iOS がタップとして扱う経路（touchend 直開きは iPad 実測で不安定だった）
+          const td = ct.target.matches && ct.target.matches('td[data-r]') ? ct.target : null;
+          if (td && !ct.fromSelect && e.type === 'touchend' && e.cancelable && Date.now() - ct.t0 < 500 && td.isConnected
+              && !this.filling && !this.resizing && !this.rowMove && !this._selDrag && this.colType(+td.dataset.c) === 'dropdown'
+              && this._touchDropdown(+td.dataset.c) === 'secondTap') {
+            e.preventDefault();
+            this._touchDropdownTap(+td.dataset.r, +td.dataset.c);
+            return;
+          }
+          // 一覧（iPad はポップオーバー）が開いたまま別セルをタップ＝iOS はこのタップを「一覧を閉じる」に使い、互換 mousedown を出さない（iPad 実測）。
+          // ここで即座に選択を移す（待つとカーソルが遅れて動き違和感）。ドロップダウンなら select をそのセルに置く＝次のタップは select 自身に当たり iOS がネイティブに開く。
+          // 互換 mousedown が続いた場合も、そちらが確定→選択→開くをやり直すだけ（冪等）
+          if (td && !ct.fromSelect && e.type === 'touchend' && Date.now() - ct.t0 < 500 && document.activeElement === this.select && this.select.style.display !== 'none') {
+            this._afterDismissTap(+td.dataset.r, +td.dataset.c);
+          }
+        }
+        if (this._selDrag) { this._selDrag = null; this._stopAutoScroll(); return; }
+        if (this._rowTouch) {
+          this._clearRowLp();
+          const rt = this._rowTouch; this._rowTouch = null;
+          if (rt.lp && !rt.started) {   // 長押しして動かさず離した＝ここで行メニュー（選択は成立時に済み）
+            this._menuCtx = { on: 'row', r: rt.r, c: -1 };
+            this._showMenu(rt.x, rt.y);
+            return;
+          }
+          if (rt.started === 'resize') { this._resizeEnd(); return; }
+          if (rt.started === 'move') {
+            // 開始した行の範囲(±8px の余白)の中で離した＝「タップ」とみなして必ず行選択（指ブレ・境界を吸収）。
+            const ct = (e.changedTouches && e.changedTouches[0]) || null;
+            const y = ct ? ct.clientY : (this._touchXY ? this._touchXY.y : rt.y);
+            if (y >= rt.top - 8 && y <= rt.bottom + 8) { this.rowMove = null; this.resizeGuide.style.display = 'none'; this.selectRow(rt.r); }
+            else this._rowMoveEnd();   // 開始行から明確に外れた所で離した＝本当に移動
+            return;
+          }
+          this.selectRow(rt.r); return;   // 動かさずタップ＝行選択
+        }
+        if (this.resizing) { this._resizeEnd(); return; }
+        if (this.rowMove) { this._rowMoveEnd(); return; }
+        if (!this.filling) return;
+        const t = (e.changedTouches && e.changedTouches[0]) || null;
+        const xy = t ? { x: t.clientX, y: t.clientY } : this._touchXY;   // 窓外/異常終了でも最後の位置で確定
+        if (xy) this._finishFill(xy.x, xy.y, false, false);
+        else { this.filling = null; this.fillpreview.style.display = 'none'; this._stopAutoScroll(); }
+      };
+      this._on(document, 'touchend', _endTouch);
+      this._on(document, 'touchcancel', _endTouch);
     }
 
     // ---- 型に応じた編集の入口 ----
@@ -3380,9 +3706,9 @@
     // カスタムエディタ口（base-editor 相当）。columns[c].editor = オブジェクト or ()=>オブジェクト。
     // 契約: editor.open({ grid, r, c, value, td, commit(value), cancel() }) / 任意で editor.close()。
     // 確定は commit→pushCmd（関所）を通すので検証/整形/読取専用が効く。
-    _openCustomEditor(r, c) {
+    _openCustomEditor(r, c, edOverride) {
       if (this._isReadOnly(r, c)) return;
-      const def = this.colCfg(c).editor, ed = typeof def === 'function' ? def() : def;
+      const def = edOverride || this.colCfg(c).editor, ed = typeof def === 'function' ? def() : def;
       if (!ed || typeof ed.open !== 'function') return;
       this._customEditor = ed; this._customCell = { r, c }; this.mode = 'edit';
       // openOnClick のエディタ（プルダウン同様）は開いている間もフィルハンドルを出す＝そのまま埋められる
@@ -3417,9 +3743,11 @@
       this.pushCmd(changes, before, this.snapSel(), 'edit');
     }
     // dropdown: <select> を開く
-    _openSelect() {
+    _openSelect(o) {
+      const noFocus = !!o && o.focus === false;   // タッチ: セル上に置くだけ（次のタップは select 自身に当たり iOS がネイティブに開く）
       const r = this.active.r, c = this.active.c, cfg = this.colCfg(c);
       if (this._isReadOnly(r, c)) return;  // 読み取り専用は <select> を開かない
+      if (this._coarse && this._touchPicker(c) === 'list') { this._openTouchList(r, c); return; }   // タッチ: 自前の一覧
       const opts = this._optList(c, r), values = opts.map(o => o.value), cur = this.data[r][c];
       const allowEmpty = cfg.allowEmpty !== false;   // 既定: クリア用の空オプションを先頭に付ける
       let html = allowEmpty ? '<option value=""></option>' : '';
@@ -3428,11 +3756,79 @@
       this.select.value = values.includes(cur) ? cur : (allowEmpty ? '' : (values[0] || ''));   // 保存は value。空不可なら先頭候補
       this.mode = 'edit';
       this.place(this.select, this.activeTd());
-      this.select.style.display = 'block'; this.select.focus();
+      this.select.style.display = 'block';
+      // 既に select にフォーカスが残っている（iOS は一覧を閉じても focus が残る）と focus() が無変化＝iOS は一覧を開かない。一度外してから当て直す。
+      if (document.activeElement === this.select) { this._refocusSel = true; try { this.select.blur(); } catch (_) {} finally { this._refocusSel = false; } }   // blur 確定ハンドラは素通し
+      if (!noFocus) { try { this.select.focus({ preventScroll: true }); } catch (_) { this.select.focus(); } }   // iOS: フォーカスでページを動かさない（揺れで一覧が離れる/閉じるのを防ぐ）
       this.updateSelectionUI();  // ドロップダウンを開いてもフィルハンドルは出したまま
       // ネイティブの選択肢リストまで開く（.focus() だけでは開かない）。未対応/非ユーザー操作時は黙って無視。
-      if (typeof this.select.showPicker === 'function') { try { this.select.showPicker(); } catch (_) {} }
+      if (!noFocus && typeof this.select.showPicker === 'function') { try { this.select.showPicker(); } catch (_) {} }
       if (this.onEditStart) { try { this.onEditStart({ r, c, value: cur }); } catch (_) {} }
+    }
+    // タッチのドロップダウン（touchPicker:'list'）: 表が出す自前の一覧。開閉・確定・取消はカスタムエディタの共通経路（_openCustomEditor）に乗せる。
+    // iOS 純正ピッカーと違い、①一覧が開いたまま別セルをタップ→そのタップで次の一覧が開く ②タップ直後でなくても開ける ③キーボードの出入りで閉じない。
+    _openTouchList(r, c) {
+      const g = this, cfg = this.colCfg(c), cur = this.data[r][c] == null ? '' : String(this.data[r][c]);
+      const items = (cfg.allowEmpty !== false ? [{ value: '', label: '' }] : []).concat(this._optList(c, r));
+      let pop = null, raf = 0, hi = -1, onOut = null, onKey = null, onMove = null;
+      const place = () => {   // セルの下（入らなければ上）。表/ページのスクロール・キーボードの出入りに追従
+        raf = 0; if (!pop) return;
+        const td = g.cellEl(r, c); if (!td || !td.isConnected) return;
+        const b = td.getBoundingClientRect(), vh = window.innerHeight, vw = window.innerWidth;
+        pop.style.minWidth = Math.max(b.width, 140) + 'px';
+        const h = pop.offsetHeight, w = pop.offsetWidth, below = vh - b.bottom;
+        pop.style.top = ((below >= h || below >= b.top) ? b.bottom : Math.max(0, b.top - h)) + 'px';
+        pop.style.left = Math.max(0, Math.min(b.left, vw - w)) + 'px';
+      };
+      const req = () => { if (!raf) raf = requestAnimationFrame(place); };
+      const setHi = (i) => { const els = pop.children; if (hi >= 0 && els[hi]) els[hi].classList.remove('tg-hi'); hi = i; if (els[i]) { els[i].classList.add('tg-hi'); const e = els[i]; if (e.offsetTop < pop.scrollTop) pop.scrollTop = e.offsetTop; else if (e.offsetTop + e.offsetHeight > pop.scrollTop + pop.clientHeight) pop.scrollTop = e.offsetTop + e.offsetHeight - pop.clientHeight; } };
+      const ed = {
+        _tgTouchList: true, openOnClick: true,
+        open(ctx) {
+          pop = document.createElement('div'); pop.className = 'tg-ddlist'; pop.setAttribute('role', 'listbox');
+          items.forEach((o) => {
+            const it = document.createElement('div');
+            it.className = 'tg-ddl-item' + (o.value === '' ? ' tg-ddl-empty' : '') + (String(o.value) === cur ? ' tg-on' : '');
+            it.textContent = o.value === '' ? '—' : o.label; it.setAttribute('role', 'option');
+            it.addEventListener('click', (e) => { e.preventDefault(); ctx.commit(o.value); });   // スクロールした指では click は来ない＝誤選択しない
+            pop.appendChild(it);
+          });
+          g.root.appendChild(pop);   // root 内＝テーマ変数を継ぐ（fixed なので表のスクロール枠で切れない）
+          place();
+          const on = pop.querySelector('.tg-on'); if (on) pop.scrollTop = on.offsetTop - (pop.clientHeight - on.offsetHeight) / 2;
+          // 一覧の外を押した＝取消（文字入力欄に focus しない＝キーボードを出さない）。そのまま別のプルダウンセルなら mousedown で次が開く
+          onOut = (e) => {
+            if (pop && pop.contains(e.target)) return;
+            const td = e.target.closest && e.target.closest('td[data-r]');
+            if (td && g.root.contains(td) && +td.dataset.r === r && +td.dataset.c === c) g._ddListToggle = { r, c, t: Date.now() };   // 同じセルの再タップ＝閉じるだけ
+            g._noEditorFocus = true; try { ctx.cancel(); } finally { g._noEditorFocus = false; }
+          };
+          onKey = (e) => {   // 外付けキーボード
+            const n = items.length; let k = true;
+            if (e.key === 'ArrowDown') setHi(hi < 0 ? 0 : (hi + 1) % n);
+            else if (e.key === 'ArrowUp') setHi(hi < 0 ? n - 1 : (hi - 1 + n) % n);
+            else if (e.key === 'Enter') { if (hi >= 0) ctx.commit(items[hi].value); else ctx.cancel(); }
+            else if (e.key === 'Escape' || e.key === 'Tab') ctx.cancel();
+            else k = false;
+            if (k) { e.preventDefault(); e.stopPropagation(); }
+          };
+          onMove = req;
+          document.addEventListener('pointerdown', onOut, true);
+          document.addEventListener('keydown', onKey, true);
+          window.addEventListener('scroll', onMove, true); window.addEventListener('resize', onMove);
+          if (window.visualViewport) { visualViewport.addEventListener('resize', onMove); visualViewport.addEventListener('scroll', onMove); }
+        },
+        close() {
+          if (raf) cancelAnimationFrame(raf); raf = 0;
+          document.removeEventListener('pointerdown', onOut, true);
+          document.removeEventListener('keydown', onKey, true);
+          window.removeEventListener('scroll', onMove, true); window.removeEventListener('resize', onMove);
+          if (window.visualViewport) { visualViewport.removeEventListener('resize', onMove); visualViewport.removeEventListener('scroll', onMove); }
+          if (pop) { pop.remove(); pop = null; }
+        },
+      };
+      this._dropSoftKeyboard();   // 日付などの入力欄から来た＝キーボードを下ろす（一覧は揺れに追従するので閉じない）
+      this._openCustomEditor(r, c, ed);
     }
     _commitSelect() {
       const r = this.active.r, c = this.active.c, oldValue = this.data[r][c], v = this.select.value;
@@ -3441,6 +3837,13 @@
       this.setCell(r, c, v, changes);
       this.pushCmd(changes, before, this.snapSel(), 'edit');
       if (this.onEditEnd) { try { this.onEditEnd({ r, c, oldValue, newValue: this.data[r][c], canceled: false }); } catch (_) {} }
+    }
+    // 値を変えずにドロップダウンを閉じる（_cancelSelect と違い setActive/フォーカスをしない＝選択保持・タッチでキーボードを出さない）
+    _closeSelectQuiet() {
+      const r = this.active.r, c = this.active.c, v = this.data[r][c];
+      this.select.style.display = 'none'; this.mode = 'nav';   // 先に隠す＝select の blur 確定ハンドラを素通り
+      try { this.select.blur(); } catch (_) {}
+      if (this.onEditEnd) { try { this.onEditEnd({ r, c, oldValue: v, newValue: v, canceled: true }); } catch (_) {} }
     }
     _cancelSelect() {
       const r = this.active.r, c = this.active.c, v = this.data[r][c];

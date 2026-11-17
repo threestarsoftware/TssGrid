@@ -51,7 +51,7 @@
     var items = [], hi = -1, composing = false;
 
     function teardown() {
-      if (onDoc) document.removeEventListener('mousedown', onDoc, true);
+      if (onDoc) document.removeEventListener('pointerdown', onDoc, true);
       if (onKey) document.removeEventListener('keydown', onKey, true);
       onDoc = onKey = null;
       if (pop && pop.parentNode) pop.parentNode.removeChild(pop);
@@ -155,7 +155,7 @@
         position(ctx.td);
         onDoc = function (e) { if (pop && !pop.contains(e.target) && !(ctx.td && ctx.td.contains(e.target))) doCancel(); };
         onKey = handleKey;
-        document.addEventListener('mousedown', onDoc, true);
+        document.addEventListener('pointerdown', onDoc, true);
         document.addEventListener('keydown', onKey, true);
       },
       close: function () { teardown(); },

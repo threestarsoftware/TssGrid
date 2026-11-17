@@ -15,6 +15,9 @@ HANDOFF.md
 # 下流/ドッグフーディングからのバグ報告・フィードバック起票（内部・公開しない＝temp と同扱い）
 feedback/
 
+# 下流(jimu/kintone)↔本体 の連携・回収依頼MD（社内引き継ぎ。公開しない）
+連携/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

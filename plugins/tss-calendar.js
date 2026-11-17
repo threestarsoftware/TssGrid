@@ -187,10 +187,10 @@
       if (inline) { if (ictx && ictx.inline && ictx.setPopup) ictx.setPopup(pop); return; }
       // 外側クリックで閉じる。ただしアンカー（開いた元セル）は除外＝再クリックはグリッド側でトグル処理させる
       outside = function (e) { if (pop && !pop.contains(e.target) && !(anchor && anchor.contains && anchor.contains(e.target))) cancel(); };
-      setTimeout(function () { document.addEventListener('mousedown', outside, true); }, 0);
+      setTimeout(function () { document.addEventListener('pointerdown', outside, true); }, 0);
       pop.focus();
     }
-    function teardown() { clearTip(); if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } ictx = null; }
+    function teardown() { clearTip(); if (outside) { document.removeEventListener('pointerdown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } ictx = null; }
     function pick(d) {
       if (done) return;
       if (rc && rangeActive) {   // トグル ON＝2クリック範囲

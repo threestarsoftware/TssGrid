@@ -92,10 +92,10 @@
       if (inline) { if (ictx && ictx.inline && ictx.setPopup) ictx.setPopup(pop); return; }   // inline: ポップアップを本体に登録＝select へフォーカスが移っても編集を閉じない。外側クリック/フォーカスは本体が持つ（打ち続けられる）
       // 外側クリックは「確定」（時/分を選んで離す＝採用）。未変更なら同値 commit＝実質no-op。アンカーは除外（再クリックはグリッドがトグル）
       outside = function (e) { if (pop && !pop.contains(e.target) && !(anchor && anchor.contains && anchor.contains(e.target))) commit(readValue()); };
-      setTimeout(function () { document.addEventListener('mousedown', outside, true); }, 0);
+      setTimeout(function () { document.addEventListener('pointerdown', outside, true); }, 0);
       pop.focus();
     }
-    function teardown() { if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } ictx = null; }
+    function teardown() { if (outside) { document.removeEventListener('pointerdown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } ictx = null; }
     function commit(v) { if (done) return; done = true; var f = ref.pick; teardown(); f(v); }
     function cancel() { if (done) return; done = true; var f = ref.cancel; teardown(); if (f) f(); }
 

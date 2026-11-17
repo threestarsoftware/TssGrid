@@ -87,7 +87,7 @@
 <h1>API リファレンス</h1>
 <p class="lead">公開API（オプション・イベント・メソッド）の一覧。<b><code>src/tssgrid.d.ts</code> を正本に自動生成</b>しています。使い方・サンプルは <a href="docs.html">ドキュメント（ガイド）</a> をどうぞ。</p>
 <h2 id="options">グリッド オプション</h2>
-<p>74 項目（<code>new TssGrid(el, options)</code>）。</p>
+<p>77 項目（<code>new TssGrid(el, options)</code>）。</p>
 <table>
 <thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
 <tbody>
@@ -142,12 +142,18 @@ getRows/getData/toCSV・列インデックス・列選択/リサイズ/reorder �
 <tr><td><code>colHeaders</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>hiddenColumns</code></td><td><code class="ty">number[]</code></td><td></td></tr>
 <tr><td><code>wordWrap</code></td><td><code class="ty">boolean</code></td><td></td></tr>
+<tr><td><code>ellipsis</code></td><td><code class="ty">boolean</code></td><td>グリッド全体の … 省略（溢れた文字を省略記号で切る／ホバーで全文を title 表示）。列単位は columns[c].ellipsis。見え方だけ＝値・コピー・編集は不変。</td></tr>
 <tr><td><code>multilineEnter</code></td><td><code class="ty">'commit' | 'newline'</code></td><td>multiline 列の Enter 挙動。'commit'(既定・Excel風): Enter=確定 / Alt+Enter=改行。'newline'(メモ帳風): Enter=改行 / Ctrl+Enter=確定。</td></tr>
 <tr><td><code>multilineMark</code></td><td><code class="ty">boolean</code></td><td>multiline セル右上の「複数行」ヒント表示（既定 true）。色は CSS 変数 --tg-ml-mark。false で非表示。</td></tr>
 <tr><td><code>multilineEditMaxLines</code></td><td><code class="ty">number</code></td><td>multiline 編集時に伸びる箱の最大行数（既定 10）。超えた分はボックス内スクロール。ビューポート/wrap を超える時はそちらが優先。</td></tr>
 <tr><td><code>placeholder</code></td><td><code class="ty">string</code></td><td></td></tr>
 <tr><td><code>className</code></td><td><code class="ty">string</code></td><td></td></tr>
 <tr><td><code>fillHandle</code></td><td><code class="ty">boolean | { direction?: 'vertical' | 'horizontal' | 'both'; autoInsertRow?: boolean }</code></td><td>false でフィル完全OFF。詳細指定も可。</td></tr>
+<tr><td><code>touchSelect</code></td><td><code class="ty">boolean | 'both' | 'vertical' | 'horizontal'</code></td><td>タッチ端末の範囲選択ハンドル（選択枠の四辺の丸）。既定 'both'＝四辺（天地=縦・左右=横・斜め=矩形）。
+'vertical'=天地の丸だけ（行方向のみ）／'horizontal'=左右の丸だけ（列方向のみ）／false=出さない。PC（マウス）には出ない。</td></tr>
+<tr><td><code>touchDropdown</code></td><td><code class="ty">'tap' | 'secondTap'</code></td><td>タッチでのドロップダウン（type:'dropdown'）の開き方。既定 'tap'＝タップ1回で開く。
+'secondTap'＝1回目は選択だけ（丸ハンドルで範囲選択できる）・同じセルをもう一度タップで開く（スマホ版 Excel 流）。
+`columns[c].touchDropdown` で列単位に上書き可。PC（マウス）は常にクリック1回で開く。</td></tr>
 <tr><td><code>autoColumnSize</code></td><td><code class="ty">boolean | number</code></td><td></td></tr>
 <tr><td><code>copyPaste</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>suppressAutofill</code></td><td><code class="ty">boolean</code></td><td>共有エディタへのブラウザ自動入力（Chrome の「ポイントカード/住所/支払い」等）を強めに抑止する。既定 false。
@@ -218,6 +224,10 @@ true にすると autocomplete='new-password' に切り替えて確実に止め�
 <tr><td><code>options</code></td><td><code class="ty">Array&lt;string | { value: string; label?: string }&gt;
     | ((r: number, row: any[]) =&gt; Array&lt;string | { value: string; label?: string }&gt;)</code></td><td>dropdown の選択肢。関数を渡すと**行ごとに異なる依存ドロップダウン**（例: 都道府県→市区町村）。
 `(r, row)=&gt;[…]` の row はその行の値配列（`grid.data[r]`）。静的配列は全行共通（後方互換）。</td></tr>
+<tr><td><code>touchPicker</code></td><td><code class="ty">'list' | 'native'</code></td><td>タッチでのドロップダウンの一覧（表全体の `touchPicker` をこの列だけ上書き）。</td></tr>
+<tr><td><code>touchDropdown</code></td><td><code class="ty">'tap' | 'secondTap'</code></td><td>タッチでのドロップダウンの開き方（表全体の `touchDropdown` をこの列だけ上書き）。</td></tr>
+<tr><td><code>touchPicker</code></td><td><code class="ty">'list' | 'native'</code></td><td>タッチでのドロップダウンの一覧。`'list'`（既定）=表が出す自前の一覧（指で押しやすい・開いたまま別セルのタップで次が開く・キーボードの出入りで閉じない）／
+`'native'`=ブラウザ純正のピッカー（`&lt;select&gt;`）。`columns[c].touchPicker` で列単位に上書き可。PC（マウス）は常に純正。</td></tr>
 <tr><td><code>width</code></td><td><code class="ty">number</code></td><td>列ごとの初期幅(px)。列定義に同居＝並べ替え/コピペで幅が追従。</td></tr>
 <tr><td><code>resizable</code></td><td><code class="ty">boolean</code></td><td>false でこの列だけリサイズ禁止。</td></tr>
 <tr><td><code>align</code></td><td><code class="ty">'left' | 'center' | 'right'</code></td><td>列既定の水平/垂直整列。</td></tr>
@@ -236,12 +246,13 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 <tr><td><code>cellStyle</code></td><td><code class="ty">(value: any, cell: CellClassCtx) =&gt; StyleValue</code></td><td>セル単位のインラインスタイル（連続色・データバー等）。**引数は `(value, { r, c, row, src })`**。</td></tr>
 <tr><td><code>html</code></td><td><code class="ty">boolean</code></td><td>true で表示だけ生HTML（値はテキスト保存のまま）。</td></tr>
 <tr><td><code>wordWrap</code></td><td><code class="ty">boolean</code></td><td>列単位の折り返し。</td></tr>
+<tr><td><code>ellipsis</code></td><td><code class="ty">boolean</code></td><td>列単位の … 省略（溢れた文字を省略記号で切る／ホバーで全文を title 表示）。値・コピー・編集は不変＝見え方だけ。折り返し(wordWrap)と同時なら折り返しが優先。</td></tr>
 <tr><td><code>multiline</code></td><td><code class="ty">boolean</code></td><td>複数行(改行)入力を有効化。編集は隠し textarea（IME 直打ち対応）、表示は改行保持(pre-wrap)。行高は自動で伸びないので rowHeights 等で確保する。</td></tr>
 <tr><td><code>placeholder</code></td><td><code class="ty">string</code></td><td>空セルの薄いヒント文字。</td></tr>
 </tbody>
 </table>
 <h2 id="methods">メソッド</h2>
-<p>公開メソッド 81 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
+<p>公開メソッド 82 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
 <h3 id="m-0">データ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
@@ -255,6 +266,7 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 object モードは元レコード(`_src`)から新 columns で再展開、配列モードは各行を新 COLS に詰める。
 列構造が変わるので整列/セル単位 readOnly はクリア、frozen/選択は範囲内へクランプ。</p></div>
 <div class="api-m"><code class="sig">setReadOnly(flag: boolean): void</code><p>グリッド全体の読み取り専用を実行時に切替（Vue の `:readonly` 等）。</p></div>
+<div class="api-m"><code class="sig">setTouchSelect(v: boolean | 'both' | 'vertical' | 'horizontal'): void</code><p>タッチの範囲選択ハンドルを実行時に切替（`touchSelect` と同じ値）。</p></div>
 <div class="api-m"><code class="sig">appendRows(rows: any[][] | Record&lt;string, any&gt;[], opts?: { keepScroll?: boolean; noHistory?: boolean }): void</code><p>背景で"育てる"追記（progressive）。data 末尾へ rows を足し、可視窓＋スペーサだけ再描画する。
 buildTable 全再描画をせず、スクロール位置・アクティブセル・フォーカス・選択・編集中のエディタと値を保ち、履歴にも積まない。
 「先頭ページを描く→残りを idle で appendRows」して first-paint を早める土台（既存の setData/insertRows 経路は不変）。

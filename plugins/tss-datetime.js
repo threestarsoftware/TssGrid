@@ -168,10 +168,10 @@
       // ★ ポップアップを本体に登録＝年/月/時/分の <select> へフォーカスが移っても編集を閉じない（②）。
       if (inline) { if (ictx && ictx.inline && ictx.setPopup) ictx.setPopup(pop); return; }   // inline は外側クリック/フォーカスを本体が持つ（打ち続けられる）
       outside = function (e) { if (pop && !pop.contains(e.target) && !(anchor && anchor.contains && anchor.contains(e.target))) commit(value()); };   // 外側クリックは確定（time と同方針）
-      setTimeout(function () { document.addEventListener('mousedown', outside, true); }, 0);
+      setTimeout(function () { document.addEventListener('pointerdown', outside, true); }, 0);
       pop.focus();
     }
-    function teardown() { if (outside) { document.removeEventListener('mousedown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } ictx = null; }
+    function teardown() { if (outside) { document.removeEventListener('pointerdown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } ictx = null; }
     function commit(v) { if (done) return; done = true; var f = ref.pick; teardown(); f(v); }
     function cancel() { if (done) return; done = true; var f = ref.cancel; teardown(); if (f) f(); }
 
