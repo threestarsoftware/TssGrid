@@ -45,7 +45,7 @@
 
   // 合計表示用グリッド（入金計・出金計）。列幅を本体と揃える。
   const sumGrid = new TssGrid(document.getElementById('sumgrid'), {
-    name: 'sum', width: 720, rowHeight: 26, rowHeaders: false, colHeaders: false, cursor: false, contextMenu: ['copy'],
+    name: 'sum', width: 720, rowHeaders: false, colHeaders: false, cursor: false, contextMenu: ['copy'],
     columns: [
       { data: 'label',    width: W.date + W.memo, readOnly: true, align: 'center' },
       { data: 'deposit',  width: W.deposit,  readOnly: true, align: 'right', format: yen },
@@ -57,7 +57,7 @@
   });
 
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'cashbook', width: 720, rowHeight: 26, rowHeaders: false,
+    name: 'cashbook', width: 720, rowHeaders: false,
     columns: [
       { data: 'date',     title: '日付', width: W.date, align: 'center' },
       { data: 'memo',     title: '摘要', width: W.memo },

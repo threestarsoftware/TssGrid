@@ -37,7 +37,7 @@
 <script>
   const yen = v => (v === '' || v == null) ? '' : '¥' + Number(v).toLocaleString('ja-JP');
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'estimate', width: 620, rowHeight: 26, rowHeaders: false, initialCell: { r: 0, c: 'quantity' },
+    name: 'estimate', width: 620, rowHeaders: false, initialCell: { r: 0, c: 'quantity' },
     columns: [
       { data: 'name',     title: '品名', width: 200 },
       // ↓ parse: TssCalc() ＝ このセルで式が打てる（=12*3 や 12*3 → 36）

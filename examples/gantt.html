@@ -184,7 +184,7 @@
     const host = document.getElementById('gantt');
     host.innerHTML = '';
     grid = new TssGrid(host, {
-      name: 'gantt', width: 1060, rowHeight: 30, rowHeaders: false, invalidMode: 'keep',
+      name: 'gantt', width: 1060, rowHeaders: false, invalidMode: 'keep',
       frozenCols: LEFT, nestedHeaders: nestedHeaders, columns: columns, cellStyle: cellStyle,
       onAfterChange: () => {
         for (let i = 0; i < grid.data.length; i++) grid.data[i][7] = status(taskOf(grid.data[i])).label;   // 状態を再計算

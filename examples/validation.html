@@ -44,7 +44,7 @@
 <script>
   const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'reg', width: 780, rowHeight: 26, rowHeaders: false, invalidMode: 'keep',   // 赤く残す＋title（invalidTitle 既定ON）
+    name: 'reg', width: 780, rowHeaders: false, invalidMode: 'keep',   // 赤く残す＋title（invalidTitle 既定ON）
     columns: [
       { data: 'code', title: 'コード', width: 120, placeholder: 'A1234', maxLength: 5,
         validator: v => v === '' || /^[A-Z0-9]{1,5}$/.test(v) || '英数字（大文字）5桁以内' },

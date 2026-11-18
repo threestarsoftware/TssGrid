@@ -40,7 +40,7 @@
   const barFmtThresh = TssBar({ max: 100, suffix: '%', decimals: 1, height: 13, color: v => v < 40 ? '#dc2626' : '#1573c0' });
 
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'survey', width: 660, rowHeight: 30, rowHeaders: false, initialCell: { r: 0, c: 'a' },
+    name: 'survey', width: 660, rowHeaders: false, initialCell: { r: 0, c: 'a' },
     columns: [
       { data: 'metric', title: '指標', width: 150, readOnly: true },
       { data: 'a', title: 'ブランドA', width: 280, type: 'number', html: true, cellClass: () => 'bar', format: barFmt },

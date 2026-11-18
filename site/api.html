@@ -87,7 +87,7 @@
 <h1>API リファレンス</h1>
 <p class="lead">公開API（オプション・イベント・メソッド）の一覧。<b><code>src/tssgrid.d.ts</code> を正本に自動生成</b>しています。使い方・サンプルは <a href="docs.html">ドキュメント（ガイド）</a> をどうぞ。</p>
 <h2 id="options">グリッド オプション</h2>
-<p>77 項目（<code>new TssGrid(el, options)</code>）。</p>
+<p>83 項目（<code>new TssGrid(el, options)</code>）。</p>
 <table>
 <thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
 <tbody>
@@ -127,6 +127,7 @@
 <tr><td><code>resizeRows</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>cursor</code></td><td><code class="ty">boolean</code></td><td>false で選択カーソルを非表示（表示専用グリッド向け・内部選択は保持）。</td></tr>
 <tr><td><code>stretchH</code></td><td><code class="ty">'none' | 'last' | 'all'</code></td><td></td></tr>
+<tr><td><code>headerWrap</code></td><td><code class="ty">boolean</code></td><td>長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。既定 false＝1行で切る。</td></tr>
 <tr><td><code>rowHeaders</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>rowHeaderWidth</code></td><td><code class="ty">number</code></td><td>行番号列の幅(px)。既定 40。大量行で桁数が増える時に広げる。</td></tr>
 <tr><td><code>rowHeaderLabel</code></td><td><code class="ty">false | ((r: number) =&gt; string | number)</code></td><td>行ヘッダの表示内容。未指定=行番号(r+1) / false=数字なし(空) / (r)=&gt;文字列=カスタム表示。</td></tr>
@@ -140,7 +141,7 @@ getRows/getData/toCSV・列インデックス・列選択/リサイズ/reorder �
 <tr><td><code>virtual</code></td><td><code class="ty">boolean | { buffer?: number }</code></td><td>仮想スクロール（固定行高ウィンドウイング）。大量行を可視窓だけ描画。true か { buffer:窓上下バッファ行数(既定6) }。
 制約(v1): 行高一定／固定行列・折り返し・セル結合は非対応（指定時は自動無効化）。</td></tr>
 <tr><td><code>colHeaders</code></td><td><code class="ty">boolean</code></td><td></td></tr>
-<tr><td><code>hiddenColumns</code></td><td><code class="ty">number[]</code></td><td></td></tr>
+<tr><td><code>hiddenColumns</code></td><td><code class="ty">(number | string)[]</code></td><td>初期で隠す列（番号か data キー）。列定義の `columns[c].hidden: true` でも可。</td></tr>
 <tr><td><code>wordWrap</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>ellipsis</code></td><td><code class="ty">boolean</code></td><td>グリッド全体の … 省略（溢れた文字を省略記号で切る／ホバーで全文を title 表示）。列単位は columns[c].ellipsis。見え方だけ＝値・コピー・編集は不変。</td></tr>
 <tr><td><code>multilineEnter</code></td><td><code class="ty">'commit' | 'newline'</code></td><td>multiline 列の Enter 挙動。'commit'(既定・Excel風): Enter=確定 / Alt+Enter=改行。'newline'(メモ帳風): Enter=改行 / Ctrl+Enter=確定。</td></tr>
@@ -151,9 +152,17 @@ getRows/getData/toCSV・列インデックス・列選択/リサイズ/reorder �
 <tr><td><code>fillHandle</code></td><td><code class="ty">boolean | { direction?: 'vertical' | 'horizontal' | 'both'; autoInsertRow?: boolean }</code></td><td>false でフィル完全OFF。詳細指定も可。</td></tr>
 <tr><td><code>touchSelect</code></td><td><code class="ty">boolean | 'both' | 'vertical' | 'horizontal'</code></td><td>タッチ端末の範囲選択ハンドル（選択枠の四辺の丸）。既定 'both'＝四辺（天地=縦・左右=横・斜め=矩形）。
 'vertical'=天地の丸だけ（行方向のみ）／'horizontal'=左右の丸だけ（列方向のみ）／false=出さない。PC（マウス）には出ない。</td></tr>
+<tr><td><code>touchSelectEdge</code></td><td><code class="ty">'keep' | 'hide'</code></td><td>表の端（先頭/最終行・最初/最後の表示列）に接した選択ハンドルの扱い。既定 'keep'＝残す（端側から縮められる）。
+'hide'＝隠す（その向きへは伸ばせないので丸を減らして誤タッチを防ぐ）。
+どちらでも「端かつその向きが1マス幅」の丸は伸ばすも縮めるも出来ないので常に隠す（1行だけの表の天地・1列だけの表の左右）。</td></tr>
 <tr><td><code>touchDropdown</code></td><td><code class="ty">'tap' | 'secondTap'</code></td><td>タッチでのドロップダウン（type:'dropdown'）の開き方。既定 'tap'＝タップ1回で開く。
 'secondTap'＝1回目は選択だけ（丸ハンドルで範囲選択できる）・同じセルをもう一度タップで開く（スマホ版 Excel 流）。
 `columns[c].touchDropdown` で列単位に上書き可。PC（マウス）は常にクリック1回で開く。</td></tr>
+<tr><td><code>touchPicker</code></td><td><code class="ty">'list' | 'native'</code></td><td>タッチでのドロップダウンの一覧。`'list'`（既定）=表が出す自前の一覧（指で押しやすい・開いたまま別セルのタップで次が開く・キーボードの出入りで閉じない）／
+`'native'`=ブラウザ純正のピッカー（`&lt;select&gt;`）。`columns[c].touchPicker` で列単位に上書き可。PC（マウス）は常に純正。</td></tr>
+<tr><td><code>flashInvalid</code></td><td><code class="ty">boolean</code></td><td>不正値を弾いて巻き戻した時にセルを短く赤く点滅（既定 true）。false で無効。</td></tr>
+<tr><td><code>hidePickerOnReadOnly</code></td><td><code class="ty">boolean</code></td><td>読み取り専用セルのピッカー▾/アイコンを消す（既定 false＝表示）。`columns[c].hidePickerOnReadOnly` で列単位も可。</td></tr>
+<tr><td><code>navSkipReadOnly</code></td><td><code class="ty">boolean</code></td><td>Tab/Enter の送りで読み取り専用セルを飛ばす（伝票入力向け＝編集する所だけ移動）。既定 false。</td></tr>
 <tr><td><code>autoColumnSize</code></td><td><code class="ty">boolean | number</code></td><td></td></tr>
 <tr><td><code>copyPaste</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>suppressAutofill</code></td><td><code class="ty">boolean</code></td><td>共有エディタへのブラウザ自動入力（Chrome の「ポイントカード/住所/支払い」等）を強めに抑止する。既定 false。
@@ -183,10 +192,12 @@ true にすると autocomplete='new-password' に切り替えて確実に止め�
 </tbody>
 </table>
 <h2 id="events">イベント / コールバック</h2>
-<p>24 個。値変更系（onBeforeChange/onAfterChange）は編集・貼付・フィル・Delete の全経路を通ります。</p>
+<p>26 個。値変更系（onBeforeChange/onAfterChange）は編集・貼付・フィル・Delete の全経路を通ります。</p>
 <table>
 <thead><tr><th>イベント</th><th>シグネチャ</th><th>説明</th></tr></thead>
 <tbody>
+<tr><td><code>onAfterRowMove</code></td><td><code class="ty">(from: number, to: number, count: number) =&gt; void</code></td><td>行ドラッグ移動の確定後（from=元の先頭行, to=新しい先頭行, count=行数）。</td></tr>
+<tr><td><code>onFilter</code></td><td><code class="ty">(info: { count: number; total: number; cleared?: boolean }) =&gt; void</code></td><td>非破壊フィルタ（filter / clearFilter）の適用・解除の後。count=見えている行数, total=全行数, cleared=解除した時 true。</td></tr>
 <tr><td><code>onBeforeChange</code></td><td><code class="ty">(changes: ChangeItem[], source: ChangeSource) =&gt; boolean | void</code></td><td>確定の直前。検証・自動整形。false で全取消、change.newValue 書換で整形。</td></tr>
 <tr><td><code>onAfterChange</code></td><td><code class="ty">(changes: ChangeItem[], source: ChangeSource) =&gt; void</code></td><td>確定の直後（undo/redo 含む）。保存・再計算に。</td></tr>
 <tr><td><code>onEditStart</code></td><td><code class="ty">(info: { r: number; c: number; value: any }) =&gt; void</code></td><td></td></tr>
@@ -208,7 +219,8 @@ true にすると autocomplete='new-password' に切り替えて確実に止め�
 <tr><td><code>onHeaderClick</code></td><td><code class="ty">(c: number, e: MouseEvent) =&gt; boolean | void</code></td><td></td></tr>
 <tr><td><code>onHeaderRender</code></td><td><code class="ty">(th: HTMLTableCellElement, c: number) =&gt; void</code></td><td>各列ヘッダ th の生成後に呼ぶ（再描画毎に自動で再実行）。ソートアイコン等の要素差し込み用。</td></tr>
 <tr><td><code>onInvalid</code></td><td><code class="ty">(rejections: Rejection[], source: ChangeSource) =&gt; void</code></td><td></td></tr>
-<tr><td><code>onReadOnly</code></td><td><code class="ty">(blocked: ReadOnlyBlock[], source: ChangeSource) =&gt; void</code></td><td></td></tr>
+<tr><td><code>onReadOnly</code></td><td><code class="ty">(blocked: ReadOnlyBlock[], source: ChangeSource) =&gt; void</code></td><td>読み取り専用セルを変えようとした時（値は変わらない・知らせだけ）。貼り付け/Delete/フィルに加え、
+打鍵（value＝打った文字）・F2・ダブルクリック・チェックのトグルでも source:'edit' で呼ばれる。クリックで選んだだけでは呼ばれない。</td></tr>
 <tr><td><code>onChange</code></td><td><code class="ty">(grid: TssGrid) =&gt; void</code></td><td></td></tr>
 <tr><td><code>onPasteOverflow</code></td><td><code class="ty">(info: { anchor: CellCoord; height: number; width: number; rows: number; cols: number; overRows: number; overCols: number }) =&gt; void</code></td><td></td></tr>
 </tbody>
@@ -226,8 +238,7 @@ true にすると autocomplete='new-password' に切り替えて確実に止め�
 `(r, row)=&gt;[…]` の row はその行の値配列（`grid.data[r]`）。静的配列は全行共通（後方互換）。</td></tr>
 <tr><td><code>touchPicker</code></td><td><code class="ty">'list' | 'native'</code></td><td>タッチでのドロップダウンの一覧（表全体の `touchPicker` をこの列だけ上書き）。</td></tr>
 <tr><td><code>touchDropdown</code></td><td><code class="ty">'tap' | 'secondTap'</code></td><td>タッチでのドロップダウンの開き方（表全体の `touchDropdown` をこの列だけ上書き）。</td></tr>
-<tr><td><code>touchPicker</code></td><td><code class="ty">'list' | 'native'</code></td><td>タッチでのドロップダウンの一覧。`'list'`（既定）=表が出す自前の一覧（指で押しやすい・開いたまま別セルのタップで次が開く・キーボードの出入りで閉じない）／
-`'native'`=ブラウザ純正のピッカー（`&lt;select&gt;`）。`columns[c].touchPicker` で列単位に上書き可。PC（マウス）は常に純正。</td></tr>
+<tr><td><code>hidden</code></td><td><code class="ty">boolean</code></td><td>true で初期非表示（hiddenColumns の列定義版）。setColumns で差し替えた時も反映。値は getRows に含まれる。</td></tr>
 <tr><td><code>width</code></td><td><code class="ty">number</code></td><td>列ごとの初期幅(px)。列定義に同居＝並べ替え/コピペで幅が追従。</td></tr>
 <tr><td><code>resizable</code></td><td><code class="ty">boolean</code></td><td>false でこの列だけリサイズ禁止。</td></tr>
 <tr><td><code>align</code></td><td><code class="ty">'left' | 'center' | 'right'</code></td><td>列既定の水平/垂直整列。</td></tr>
@@ -256,8 +267,9 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 <h3 id="m-0">データ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
-<div class="api-m"><code class="sig">getRows(): Record&lt;string, any&gt;[]</code><p>全行をオブジェクト配列で取得（columns[c].data キー基準）。</p></div>
-<div class="api-m"><code class="sig">getRow(r: number): Record&lt;string, any&gt;</code><p>r 行目をオブジェクトで取得。</p></div>
+<div class="api-m"><code class="sig">getRows(opts?: GetRowsOptions): Record&lt;string, any&gt;[]</code><p>全行をオブジェクト配列で取得（columns[c].data キー基準）。値は入力欄と同じ**文字列**（数値列も "1200"）。
+`{ typed: true }` で number 列→数値（空欄は null・数にならない値は文字列のまま）、checkbox 列→true/false にして返す（表の値は変えない）。</p></div>
+<div class="api-m"><code class="sig">getRow(r: number, opts?: GetRowsOptions): Record&lt;string, any&gt;</code><p>r 行目をオブジェクトで取得（`{ typed: true }` は getRows と同じ）。</p></div>
 <div class="api-m"><code class="sig">getColumn(cOrKey: number | string): any[] | undefined</code><p>列を縦に取得（index か data キー）。</p></div>
 <div class="api-m"><code class="sig">getColumns(): any[][]</code><p>全列を配列の配列で取得。</p></div>
 <div class="api-m"><code class="sig">getValue(r: number, cOrKey: number | string): any</code><p>1セルの値を取得（c は index か data キー）。</p></div>
@@ -266,7 +278,7 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 object モードは元レコード(`_src`)から新 columns で再展開、配列モードは各行を新 COLS に詰める。
 列構造が変わるので整列/セル単位 readOnly はクリア、frozen/選択は範囲内へクランプ。</p></div>
 <div class="api-m"><code class="sig">setReadOnly(flag: boolean): void</code><p>グリッド全体の読み取り専用を実行時に切替（Vue の `:readonly` 等）。</p></div>
-<div class="api-m"><code class="sig">setTouchSelect(v: boolean | 'both' | 'vertical' | 'horizontal'): void</code><p>タッチの範囲選択ハンドルを実行時に切替（`touchSelect` と同じ値）。</p></div>
+<div class="api-m"><code class="sig">setTouchSelect(v: boolean | 'both' | 'vertical' | 'horizontal', edge?: 'keep' | 'hide'): void</code><p>タッチの範囲選択ハンドルを実行時に切替（`touchSelect` と同じ値。第2引数で `touchSelectEdge` も切替）。</p></div>
 <div class="api-m"><code class="sig">appendRows(rows: any[][] | Record&lt;string, any&gt;[], opts?: { keepScroll?: boolean; noHistory?: boolean }): void</code><p>背景で"育てる"追記（progressive）。data 末尾へ rows を足し、可視窓＋スペーサだけ再描画する。
 buildTable 全再描画をせず、スクロール位置・アクティブセル・フォーカス・選択・編集中のエディタと値を保ち、履歴にも積まない。
 「先頭ページを描く→残りを idle で appendRows」して first-paint を早める土台（既存の setData/insertRows 経路は不変）。
@@ -292,11 +304,11 @@ setData で解除。AG Grid の Infinite Row Model 相当を push プリミテ�
 <div class="api-m"><code class="sig">filter(pred: ((row: any[], masterIndex: number, src: any) =&gt; boolean) | Record&lt;string, any&gt;): void</code><p>非破壊フィルタ。pred(row, masterIndex, src)=&gt;boolean、または { col: 値|fn }。</p></div>
 <div class="api-m"><code class="sig">clearFilter(): void</code><p>フィルタ解除（フィルタ中に編集/追加した行も含め全部戻る）。</p></div>
 <div class="api-m"><code class="sig">isFiltered(): boolean</code></div>
-<div class="api-m"><code class="sig">getAllRows(): Record&lt;string, any&gt;[]</code><p>フィルタ中でも全行（マスタ）を取得。</p></div>
+<div class="api-m"><code class="sig">getAllRows(opts?: GetRowsOptions): Record&lt;string, any&gt;[]</code><p>フィルタ中でも全行（マスタ）を取得（`{ typed: true }` は getRows と同じ）。</p></div>
 </div>
 <h3 id="m-2">選択 / カーソル</h3>
 <div class="api-list">
-<div class="api-m"><code class="sig">setActive(r: number, c: number): void</code></div>
+<div class="api-m"><code class="sig">setActive(r: number, c: number | string): void</code><p>カーソルを (r, c) へ。c は列番号か data キー。</p></div>
 <div class="api-m"><code class="sig">setExtent(r: number, c: number): void</code></div>
 <div class="api-m"><code class="sig">selectRect(r0: number, c0: number, r1: number, c1: number): void</code></div>
 <div class="api-m"><code class="sig">selectRow(r: number): void</code></div>
@@ -325,10 +337,10 @@ setData で解除。AG Grid の Infinite Row Model 相当を push プリミテ�
 </div>
 <h3 id="m-4">列の表示 / 幅 / 固定 / 行高</h3>
 <div class="api-list">
-<div class="api-m"><code class="sig">hideColumn(c: number): void</code></div>
-<div class="api-m"><code class="sig">showColumn(c: number): void</code></div>
-<div class="api-m"><code class="sig">toggleColumn(c: number): void</code></div>
-<div class="api-m"><code class="sig">isColumnHidden(c: number): boolean</code></div>
+<div class="api-m"><code class="sig">hideColumn(c: number | string): void</code><p>列を隠す（c は列番号か data キー。最低1列は残る）。</p></div>
+<div class="api-m"><code class="sig">showColumn(c: number | string): void</code></div>
+<div class="api-m"><code class="sig">toggleColumn(c: number | string): void</code></div>
+<div class="api-m"><code class="sig">isColumnHidden(c: number | string): boolean</code></div>
 <div class="api-m"><code class="sig">getHiddenColumns(): number[]</code></div>
 <div class="api-m"><code class="sig">colCfg(c: number): ColumnDef</code><p>列 c の定義（columns[c]）を取得（列の introspection 用）。</p></div>
 <div class="api-m"><code class="sig">colType(c: number): string</code><p>列 c の型（'text'|'dropdown'|'checkbox'|'date'|'time'|'number'）。</p></div>

@@ -258,7 +258,7 @@
   function render() {
     const host = document.getElementById('grid');
     grid = new TssGrid(host, {
-      name: 'quote', width: 672, rowHeight: 30, rowHeaders: true, resizeCols: false,   // 列幅固定（帳票なのでドラッグでの列幅変更を無効化）
+      name: 'quote', width: 672, rowHeaders: true, resizeCols: false,   // 列幅固定（帳票なのでドラッグでの列幅変更を無効化）
       allowInsertRows: true, allowDeleteRows: true,
       allowInsertCols: false, allowDeleteCols: false,
       nextCell: ({ r, c, shift }) => nextEditable(r, c, shift ? -1 : 1),   // Enter/Tab＝品名→数量→単価→税区分→次行先頭（No/金額・帯行スキップ）

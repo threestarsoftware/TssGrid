@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 列幅と表のサイズ（内容に合わせる・余白を埋める・高さ・行の高さ）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 30px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; } code { background: #eef2f6; padding: 0 4px; border-radius: 3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  .bar { margin: 8px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+  .bar button { font: inherit; padding: 3px 10px; border: 1px solid #c5ced8; background: #fff; border-radius: 4px; cursor: pointer; }
+  .bar button.on { background: #1573c0; border-color: #1573c0; color: #fff; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > div { min-width: 0; }
+  .cap { font-size: 12px; color: #667; margin: 4px 0; }
+  .frame { border: 1px dashed #b9c4d0; padding: 6px; max-width: 760px; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 列幅と表のサイズ <span class="pill">autoColumnSize</span> <span class="pill">stretchH</span> <span class="pill">height</span> <span class="pill">rowHeights</span> <span class="pill">headerWrap</span></h1>
+
+<div class="note">
+列幅・表の幅と高さ・行の高さ・見出しの折り返しを、やりたいこと別にまとめました。
+<br>どの表も<b>列の境目をドラッグで幅変更</b>、<b>境目をダブルクリックでその列を内容に合わせる</b>ことができます（PC）。
+</div>
+
+<!-- ① -->
+<h2>① 列幅を内容に合わせる</h2>
+<div class="note">
+<code>autoColumnSize:true</code> で、<b>表を作った時に全列を中身（見出し含む）の幅に</b>そろえます。数値を渡すと上限(px)になります（例 <code>autoColumnSize: 240</code>＝長い備考で列が伸びすぎない）。
+<br>データを入れ替えた後などは <code>autoSizeAllColumns()</code>（全列）／<code>autoSizeColumn(c)</code>（1列）を呼びます。
+</div>
+<div class="bar">
+  <button id="a-long">長い値を入れる</button>
+  <button id="a-fit">全列を内容に合わせる（autoSizeAllColumns）</button>
+  <button id="a-fit1">「品名」列だけ合わせる（autoSizeColumn）</button>
+</div>
+<div class="tssgrid-host"><div id="g1"></div></div>
+
+<!-- ② -->
+<h2>② 余白を埋める／横スクロールさせる</h2>
+<div class="note">
+枠の幅は <code>width</code>（px か <code>'100%'</code> などの CSS 値）。<b>列の合計が枠より狭いと右に余白</b>が出ます。<code>stretchH</code> で埋め方を選べます。
+<br><code>'none'</code>＝そのまま／<code>'last'</code>＝余りを最後の列へ／<code>'all'</code>＝全列で分け合う。枠を狭めて<b>列の合計が枠より広くなると横スクロール</b>（<code>frozenCols</code> で左の列を固定したまま）になります。
+<br>ウィンドウ幅を変えると追従します（隠し列は配分の対象外）。
+</div>
+<div class="bar">
+  <span>stretchH:</span>
+  <button data-st="none">'none'</button>
+  <button data-st="last">'last'</button>
+  <button data-st="all" class="on">'all'</button>
+  <span style="margin-left:12px">枠の幅:</span>
+  <button data-w="100%" class="on">100%</button>
+  <button data-w="360">360px（横スクロール）</button>
+  <span style="margin-left:12px"><label><input type="checkbox" id="b-hide"> 「備考」列を隠す</label></span>
+</div>
+<div class="frame"><div class="tssgrid-host"><div id="g2"></div></div></div>
+
+<!-- ③ -->
+<h2>③ 表の高さ（行数に合わせる／上限で止めてスクロール）</h2>
+<div class="note">
+<code>height</code> を<b>指定しない＝行数ぶん伸びる</b>（ページごとスクロール）。<code>height: 200</code> を指定すると<b>その高さが上限</b>になり、行が少ないうちは縮んだまま、超えたら表の中でスクロールします（見出しは上に固定）。
+</div>
+<div class="bar">
+  <button id="c-add">5行ふやす</button>
+  <button id="c-reset">3行に戻す</button>
+</div>
+<div class="row2">
+  <div><div class="cap">height 指定なし（行数ぶん伸びる）</div><div class="tssgrid-host"><div id="g3a"></div></div></div>
+  <div><div class="cap">height: 200（上限・超えたら中でスクロール）</div><div class="tssgrid-host"><div id="g3b"></div></div></div>
+</div>
+
+<!-- ④ -->
+<h2>④ 行の高さ</h2>
+<div class="note">
+全体の既定は <code>defaultRowHeight</code>、行ごとの初期値は <code>rowHeights</code>（配列か <code>{ 行番号: px }</code>）、あとから変えるのは <code>setRowHeight(r, px)</code>。
+<br><b>行番号の下端をドラッグ</b>で手で変えられます（<code>resizeRows:false</code> で禁止）。中身に合わせて高さを伸ばしたい時は列に <code>wordWrap:true</code>（折り返し）を付けます。
+</div>
+<div class="bar">
+  <button id="d-tall">選択中の行を 60px に</button>
+  <button id="d-reset">全行を既定(32px)に戻す</button>
+</div>
+<div class="tssgrid-host"><div id="g4"></div></div>
+
+<!-- ⑤ -->
+<h2>⑤ 長い見出しを折り返す</h2>
+<div class="note">
+<code>headerWrap:true</code> で、見出しが列幅に収まらない時に<b>折り返してヘッダ行を伸ばします</b>（既定は1行で切る）。表の中をスクロールしても<b>伸びた見出しは上に固定</b>されたままです（行固定 <code>frozenRows</code> と併用しても、固定行は伸びた見出しの下にそろいます）。見出しは既定で中央寄せです。
+</div>
+<div class="tssgrid-host"><div id="g5"></div></div>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  // ---------- ① 内容に合わせる ----------
+  const items = [
+    { code: 'A-01', name: 'ボールペン', qty: 12, note: '' },
+    { code: 'A-02', name: 'ノート', qty: 5, note: '' },
+    { code: 'B-10', name: 'クリップ', qty: 100, note: '' },
+  ];
+  const g1 = new TssGrid(document.getElementById('g1'), {
+    autoColumnSize: 240,                         // ← 作成時に内容へ合わせる（上限 240px）
+    headers: ['コード', '品名', '数量', '備考'],
+    columns: [{ data: 'code' }, { data: 'name' }, { data: 'qty', type: 'number' }, { data: 'note' }],
+    data: items.map(r => ({ ...r })),
+  });
+  document.getElementById('a-long').onclick = () => {
+    g1.setValue(0, 1, 'ゲルインクボールペン 0.5mm 黒（10本入り）');
+    g1.setValue(1, 3, '在庫が少なくなったら総務へ連絡。発注は月末締め・翌月10日納品。');
+  };
+  document.getElementById('a-fit').onclick = () => g1.autoSizeAllColumns();
+  document.getElementById('a-fit1').onclick = () => g1.autoSizeColumn(1);
+
+  // ---------- ② 余白を埋める／横スクロール ----------
+  let st = 'all', w = '100%', g2 = null;
+  const make2 = () => {
+    const hidden = document.getElementById('b-hide').checked ? [3] : [];
+    if (g2) g2.destroy();
+    g2 = new TssGrid(document.getElementById('g2'), {
+      width: w, stretchH: st, frozenCols: 1, hiddenColumns: hidden,
+      headers: ['氏名', '部署', '内線', '備考'],
+      columns: [{ data: 'name', width: 90 }, { data: 'dept', width: 90 }, { data: 'tel', width: 60 }, { data: 'note', width: 120 }],
+      data: [
+        { name: '佐藤 一郎', dept: '営業部', tel: '101', note: '' },
+        { name: '鈴木 花子', dept: '総務部', tel: '202', note: '在宅（火・木）' },
+        { name: '高橋 次郎', dept: '開発部', tel: '303', note: '' },
+      ],
+    });
+  };
+  const sel = (attr, v) => document.querySelectorAll('[data-' + attr + ']').forEach(b => b.classList.toggle('on', b.dataset[attr] === v));
+  document.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { st = b.dataset.st; sel('st', st); make2(); });
+  document.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { w = /^\d+$/.test(b.dataset.w) ? +b.dataset.w : b.dataset.w; sel('w', b.dataset.w); make2(); });
+  document.getElementById('b-hide').onchange = make2;
+  make2();
+
+  // ---------- ③ 高さ ----------
+  const rows3 = n => Array.from({ length: n }, (_, i) => ({ no: i + 1, item: '明細 ' + (i + 1) }));
+  const opt3 = { headers: ['No', '項目'], columns: [{ data: 'no', width: 50 }, { data: 'item', width: 160 }] };
+  const g3a = new TssGrid(document.getElementById('g3a'), { ...opt3, data: rows3(3) });
+  const g3b = new TssGrid(document.getElementById('g3b'), { ...opt3, height: 200, data: rows3(3) });   // ← 上限 200px
+  document.getElementById('c-add').onclick = () => {
+    for (const g of [g3a, g3b]) { const n = g.getRows().length; g.appendRows(Array.from({ length: 5 }, (_, i) => ({ no: n + i + 1, item: '明細 ' + (n + i + 1) }))); }
+  };
+  document.getElementById('c-reset').onclick = () => { g3a.setData(rows3(3)); g3b.setData(rows3(3)); };
+
+  // ---------- ④ 行の高さ ----------
+  const g4 = new TssGrid(document.getElementById('g4'), {
+    defaultRowHeight: 32,                         // ← 全体の既定
+    rowHeights: { 1: 56 },                        // ← 2行目だけ 56px（行番号は0始まり）
+    headers: ['日付', '内容', 'メモ（折り返し）'],
+    columns: [{ data: 'd', width: 100 }, { data: 'what', width: 140 }, { data: 'memo', width: 220, wordWrap: true }],
+    data: [
+      { d: '2026-11-02', what: '定例会議', memo: '' },
+      { d: '2026-11-05', what: '客先訪問', memo: '新大阪 9:30 集合。資料は前日までに共有フォルダへ。' },
+      { d: '2026-11-09', what: '研修', memo: '' },
+    ],
+  });
+  document.getElementById('d-tall').onclick = () => {
+    const s = g4.rectRange(); for (let r = s.r0; r <= s.r1; r++) g4.setRowHeight(r, 60);
+  };
+  document.getElementById('d-reset').onclick = () => { for (let r = 0; r < g4.getRows().length; r++) g4.setRowHeight(r, 32); };
+
+  // ---------- ⑤ 見出しの折り返し ----------
+  new TssGrid(document.getElementById('g5'), {
+    headerWrap: true,                             // ← 長い見出しを折り返す
+    height: 220,                                  // ← 中でスクロール＝折り返した見出しは上に固定されたまま
+    headers: ['社員番号', '前月までの有給休暇の残日数', '今月の取得予定日数', '備考'],
+    columns: [{ data: 'id', width: 80 }, { data: 'rest', width: 100, type: 'number' }, { data: 'plan', width: 90, type: 'number' }, { data: 'note', width: 160 }],
+    data: Array.from({ length: 12 }, (_, i) => ({ id: 'E' + String(101 + i), rest: 10 - (i % 5), plan: i % 3, note: '' })),
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — データの取り出しと流し込み（全行・選択行・JSON・件数・全消去）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 30px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; } code { background: #eef2f6; padding: 0 4px; border-radius: 3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  .bar { margin: 8px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+  .bar button { font: inherit; padding: 3px 10px; border: 1px solid #c5ced8; background: #fff; border-radius: 4px; cursor: pointer; }
+  .bar button.on { background: #1573c0; border-color: #1573c0; color: #fff; }
+  .count { font-size: 13px; color: #445; margin: 6px 0; } .count b { color: #1573c0; font-size: 15px; }
+  pre#out { background: #1e2530; color: #d7e1ec; padding: 10px 14px; border-radius: 6px; font-size: 12px; max-width: 760px; max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+  .cap { font-size: 12px; color: #667; margin: 4px 0; }
+  textarea { width: 100%; max-width: 760px; box-sizing: border-box; font: 12px/1.5 Consolas, monospace; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: データの取り出しと流し込み <span class="pill">getRows</span> <span class="pill">getAllRows</span> <span class="pill">getRow</span> <span class="pill">setData</span> <span class="pill">onChange</span></h1>
+
+<div class="note">
+表の中身を <b>JSON（オブジェクトの配列）で取り出す</b>・<b>選んだ行だけ取り出す</b>・<b>件数を出す</b>・<b>入れ替える／空にする</b>、をまとめました。
+<br><code>columns[c].data</code> にキー（<code>'name'</code> など）を付けておくと、取り出しも流し込みも<b>そのキーのオブジェクト</b>でやり取りできます。
+<br>コピーは表を選んで <b>Ctrl+C</b>（Excel にそのまま貼れる）。ボタンから行うなら <code>copy()</code>。
+</div>
+
+<div class="bar">
+  <span>絞り込み:</span>
+  <button data-f="" class="on">すべて</button>
+  <button data-f="営業部">営業部</button>
+  <button data-f="開発部">開発部</button>
+</div>
+<div class="count" id="count"></div>
+<div class="tssgrid-host"><div id="g"></div></div>
+
+<h2>① 取り出す</h2>
+<div class="bar">
+  <button id="o-rows">見えている行（getRows）</button>
+  <button id="o-all">絞り込み中も全部（getAllRows）</button>
+  <button id="o-sel">選んだ行（getRow）</button>
+  <button id="o-head">見出しをキーにした JSON</button>
+  <button id="o-num">数値は数値で（getRows({ typed: true })）</button>
+  <button id="o-col">「金額」列だけ（getColumn）</button>
+  <button id="o-arr">2次元配列（getData）</button>
+  <button id="o-csv">CSV（toCSV）</button>
+  <button id="o-copy">選択範囲をクリップボードへ（copy）</button>
+</div>
+<div class="note">
+★<b>値は文字列で返ります</b>（数値列も <code>"120000"</code>）。入力欄に打った文字をそのまま持つためです。保存や計算で型が要る時は <code>getRows({ typed: true })</code>＝<code>type:'number'</code> 列は数値（空欄は <code>null</code>）、<code>type:'checkbox'</code> 列は <code>true</code>/<code>false</code> で返ります（「数値は数値で」ボタン）。
+<br>★<b>表は最低1行を残します</b>（空にしても入力用の空行が1行）。件数や保存では「全部空の行」を除いてください（このページの件数表示も除いています）。
+</div>
+<pre id="out">（ボタンを押すとここに出ます）</pre>
+
+<h2>② 流し込む・空にする</h2>
+<div class="note">
+<code>setData(配列)</code> で中身を丸ごと入れ替えます（元に戻す履歴・絞り込み・並べ替えもリセット）。<code>setData([])</code> で空にできます。
+<br>末尾に足すだけなら <code>appendRows(配列)</code>（スクロール位置や選択を保ったまま）。
+</div>
+<div class="cap">流し込む JSON（編集できます）</div>
+<textarea id="json" rows="6"></textarea>
+<div class="bar">
+  <button id="i-set">この JSON で入れ替える（setData）</button>
+  <button id="i-add">末尾に足す（appendRows）</button>
+  <button id="i-clear">空にする（setData([])）</button>
+</div>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const seed = [
+    { name: '佐藤 一郎', dept: '営業部', amount: 120000 },
+    { name: '鈴木 花子', dept: '総務部', amount: 45000 },
+    { name: '高橋 次郎', dept: '開発部', amount: 98000 },
+    { name: '田中 三郎', dept: '営業部', amount: 76000 },
+    { name: '伊藤 さくら', dept: '開発部', amount: 152000 },
+  ];
+  const out = v => { document.getElementById('out').textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2); };
+
+  const grid = new TssGrid(document.getElementById('g'), {
+    headers: ['氏名', '部署', '金額'],
+    columns: [
+      { data: 'name', width: 120 },
+      { data: 'dept', width: 90, type: 'dropdown', options: ['営業部', '総務部', '開発部'] },
+      { data: 'amount', width: 110, type: 'number', thousands: true },   // 表示だけ 3桁区切り（値は "120000"）
+    ],
+    data: seed.map(r => ({ ...r })),
+    onChange: g => showCount(g),                  // ← 編集・行の追加削除・入れ替えのたびに呼ばれる（引数は表そのもの）
+  });
+
+  // ---------- 件数 ----------
+  // ※ onChange は表を作っている最中にも呼ばれるので、変数 grid ではなく引数の表を使う
+  // 中身が全部空の行（入力用に残る空行など）は数えない
+  function notEmpty(row) { return Object.values(row).some(v => v !== '' && v != null); }
+  function showCount(g = grid) {
+    const shown = g.getRows().filter(notEmpty).length, all = g.getAllRows().filter(notEmpty).length;
+    document.getElementById('count').innerHTML = g.isFiltered()
+      ? '<b>' + shown + '</b> 件（全 ' + all + ' 件中・絞り込み中）'
+      : '<b>' + shown + '</b> 件';
+  }
+  showCount();
+
+  // ---------- 絞り込み（見えている行と全部の違いを見るため） ----------
+  document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => {
+    document.querySelectorAll('[data-f]').forEach(x => x.classList.toggle('on', x === b));
+    if (b.dataset.f) grid.filter({ dept: b.dataset.f }); else grid.clearFilter();
+    showCount();
+  });
+
+  // ---------- ① 取り出す ----------
+  document.getElementById('o-rows').onclick = () => out(grid.getRows());          // 絞り込み中は見えている行だけ
+  document.getElementById('o-all').onclick = () => out(grid.getAllRows());        // 絞り込みに関係なく全部
+  document.getElementById('o-sel').onclick = () => {
+    // 行番号クリック（Ctrl で飛び飛び）の行選択なら getSelectedRows()、セルを範囲で選んだならその行
+    let rows = grid.getSelectedRows();
+    if (!rows.length) { const s = grid.rectRange(); rows = []; for (let r = s.r0; r <= s.r1; r++) rows.push(r); }
+    out(rows.map(r => grid.getRow(r)));
+  };
+  document.getElementById('o-head').onclick = () => {
+    // データキーではなく見出しの文字をキーにしたい時（画面の見た目どおりに渡したい等）
+    const keys = ['name', 'dept', 'amount'], heads = ['氏名', '部署', '金額'];
+    out(grid.getRows().map(row => Object.fromEntries(keys.map((k, i) => [heads[i], row[k]]))));
+  };
+  document.getElementById('o-num').onclick = () => {
+    // 既定は入力欄と同じ文字列（"120000"）。typed:true で number 列は数値・空欄は null に。
+    out(grid.getRows({ typed: true }).filter(notEmpty));
+  };
+  document.getElementById('o-col').onclick = () => {
+    const v = grid.getColumn('amount');
+    out({ 金額: v, 合計: v.reduce((a, b) => a + (Number(b) || 0), 0) });
+  };
+  document.getElementById('o-arr').onclick = () => out(grid.getData());
+  document.getElementById('o-csv').onclick = () => out(grid.toCSV());
+  document.getElementById('o-copy').onclick = () => { grid.copy(); out('選択範囲をコピーしました。Excel やメモ帳に貼り付けてみてください。'); };
+
+  // ---------- ② 流し込む・空にする ----------
+  const ta = document.getElementById('json');
+  ta.value = JSON.stringify([
+    { name: '山本 健', dept: '総務部', amount: 30000 },
+    { name: '中村 優子', dept: '営業部', amount: 210000 },
+  ], null, 2);
+  const readJson = () => { try { const v = JSON.parse(ta.value); if (!Array.isArray(v)) throw new Error('配列ではありません'); return v; } catch (e) { out('JSON の形が正しくありません: ' + e.message); return null; } };
+  const resetFilterButtons = () => document.querySelectorAll('[data-f]').forEach(x => x.classList.toggle('on', !x.dataset.f));
+  document.getElementById('i-set').onclick = () => { const v = readJson(); if (v) { grid.setData(v); resetFilterButtons(); showCount(); out('入れ替えました（' + v.length + ' 件）'); } };
+  document.getElementById('i-add').onclick = () => { const v = readJson(); if (v) { grid.appendRows(v); showCount(); out('末尾に ' + v.length + ' 件足しました'); } };
+  document.getElementById('i-clear').onclick = () => { grid.setData([]); resetFilterButtons(); showCount(); out('空にしました'); };
+</script>
+</body>
+</html>

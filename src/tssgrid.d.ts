@@ -11,6 +11,11 @@
 
 export type MoveDir = 'down' | 'up' | 'right' | 'left' | 'none';
 export type CellType = 'text' | 'number' | 'date' | 'time' | 'dropdown' | 'checkbox';
+/** getRows / getRow / getAllRows のオプション。 */
+export interface GetRowsOptions {
+  /** true で number 列→数値（空欄は null）・checkbox 列→true/false にして返す。既定 false＝入力欄と同じ文字列。 */
+  typed?: boolean;
+}
 export type ChangeSource = 'edit' | 'paste' | 'fill' | 'delete' | 'undo' | 'redo';
 
 /** 1つの値変更（onBeforeChange / onAfterChange の配列要素）。newValue を書き換えると整形確定。 */
@@ -40,7 +45,10 @@ export interface Rejection { r: number; c: number; value: any; code?: string; le
 export interface ReadOnlyBlock { r: number; c: number; value: any; }
 
 /** 行/列の挿入・削除の情報（onStructureChange / onBeforeStructureChange）。 */
-export interface StructureInfo { type: 'insertRow' | 'insertRows' | 'deleteRows' | 'insertCol' | 'deleteCols'; undo?: boolean; [k: string]: any; }
+/** 行/列の挿入・削除の情報。deleteRows は r0/r1、deleteCols は c0/c1。
+ *  飛び飛びの削除（deleteRowsSet / deleteColsSet・右クリック「N 行を削除」）では onBeforeStructureChange が**まとめて1回**呼ばれ、
+ *  rows / cols に対象の一覧（昇順）、count に件数が入る。 */
+export interface StructureInfo { type: 'insertRow' | 'insertRows' | 'deleteRows' | 'insertCol' | 'deleteCols'; undo?: boolean; rows?: number[]; cols?: number[]; count?: number; [k: string]: any; }
 
 /** validator の戻り値: true=OK / 文字列=エラー文 / オブジェクト=メッセージカタログ解決用。 */
 export type ValidatorResult = true | string | { code: string; params?: Record<string, any>; level?: string };
@@ -61,9 +69,8 @@ export interface ColumnDef {
   touchPicker?: 'list' | 'native';
   /** タッチでのドロップダウンの開き方（表全体の `touchDropdown` をこの列だけ上書き）。 */
   touchDropdown?: 'tap' | 'secondTap';
-  /** タッチでのドロップダウンの一覧。`'list'`（既定）=表が出す自前の一覧（指で押しやすい・開いたまま別セルのタップで次が開く・キーボードの出入りで閉じない）／
-   *  `'native'`=ブラウザ純正のピッカー（`<select>`）。`columns[c].touchPicker` で列単位に上書き可。PC（マウス）は常に純正。 */
-  touchPicker?: 'list' | 'native';
+  /** true で初期非表示（hiddenColumns の列定義版）。setColumns で差し替えた時も反映。値は getRows に含まれる。 */
+  hidden?: boolean;
   /** 列ごとの初期幅(px)。列定義に同居＝並べ替え/コピペで幅が追従。 */
   width?: number;
   /** false でこの列だけリサイズ禁止。 */
@@ -158,6 +165,8 @@ export interface TssGridOptions {
   /** false で選択カーソルを非表示（表示専用グリッド向け・内部選択は保持）。 */
   cursor?: boolean;
   stretchH?: 'none' | 'last' | 'all';
+  /** 長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。既定 false＝1行で切る。 */
+  headerWrap?: boolean;
   rowHeaders?: boolean;
   /** 行番号列の幅(px)。既定 40。大量行で桁数が増える時に広げる。 */
   rowHeaderWidth?: number;
@@ -178,7 +187,8 @@ export interface TssGridOptions {
    *  制約(v1): 行高一定／固定行列・折り返し・セル結合は非対応（指定時は自動無効化）。 */
   virtual?: boolean | { buffer?: number };
   colHeaders?: boolean;
-  hiddenColumns?: number[];
+  /** 初期で隠す列（番号か data キー）。列定義の `columns[c].hidden: true` でも可。 */
+  hiddenColumns?: (number | string)[];
   wordWrap?: boolean;
   /** グリッド全体の … 省略（溢れた文字を省略記号で切る／ホバーで全文を title 表示）。列単位は columns[c].ellipsis。見え方だけ＝値・コピー・編集は不変。 */
   ellipsis?: boolean;
@@ -195,10 +205,27 @@ export interface TssGridOptions {
   /** タッチ端末の範囲選択ハンドル（選択枠の四辺の丸）。既定 'both'＝四辺（天地=縦・左右=横・斜め=矩形）。
    *  'vertical'=天地の丸だけ（行方向のみ）／'horizontal'=左右の丸だけ（列方向のみ）／false=出さない。PC（マウス）には出ない。 */
   touchSelect?: boolean | 'both' | 'vertical' | 'horizontal';
+  /** 表の端（先頭/最終行・最初/最後の表示列）に接した選択ハンドルの扱い。既定 'keep'＝残す（端側から縮められる）。
+   *  'hide'＝隠す（その向きへは伸ばせないので丸を減らして誤タッチを防ぐ）。
+   *  どちらでも「端かつその向きが1マス幅」の丸は伸ばすも縮めるも出来ないので常に隠す（1行だけの表の天地・1列だけの表の左右）。 */
+  touchSelectEdge?: 'keep' | 'hide';
   /** タッチでのドロップダウン（type:'dropdown'）の開き方。既定 'tap'＝タップ1回で開く。
    *  'secondTap'＝1回目は選択だけ（丸ハンドルで範囲選択できる）・同じセルをもう一度タップで開く（スマホ版 Excel 流）。
    *  `columns[c].touchDropdown` で列単位に上書き可。PC（マウス）は常にクリック1回で開く。 */
   touchDropdown?: 'tap' | 'secondTap';
+  /** タッチでのドロップダウンの一覧。`'list'`（既定）=表が出す自前の一覧（指で押しやすい・開いたまま別セルのタップで次が開く・キーボードの出入りで閉じない）／
+   *  `'native'`=ブラウザ純正のピッカー（`<select>`）。`columns[c].touchPicker` で列単位に上書き可。PC（マウス）は常に純正。 */
+  touchPicker?: 'list' | 'native';
+  /** 不正値を弾いて巻き戻した時にセルを短く赤く点滅（既定 true）。false で無効。 */
+  flashInvalid?: boolean;
+  /** 読み取り専用セルのピッカー▾/アイコンを消す（既定 false＝表示）。`columns[c].hidePickerOnReadOnly` で列単位も可。 */
+  hidePickerOnReadOnly?: boolean;
+  /** Tab/Enter の送りで読み取り専用セルを飛ばす（伝票入力向け＝編集する所だけ移動）。既定 false。 */
+  navSkipReadOnly?: boolean;
+  /** 行ドラッグ移動の確定後（from=元の先頭行, to=新しい先頭行, count=行数）。 */
+  onAfterRowMove?: (from: number, to: number, count: number) => void;
+  /** 非破壊フィルタ（filter / clearFilter）の適用・解除の後。count=見えている行数, total=全行数, cleared=解除した時 true。 */
+  onFilter?: (info: { count: number; total: number; cleared?: boolean }) => void;
   autoColumnSize?: boolean | number;
   copyPaste?: boolean;
   /** 共有エディタへのブラウザ自動入力（Chrome の「ポイントカード/住所/支払い」等）を強めに抑止する。既定 false。
@@ -262,11 +289,13 @@ export interface TssGridOptions {
   /** 各列ヘッダ th の生成後に呼ぶ（再描画毎に自動で再実行）。ソートアイコン等の要素差し込み用。 */
   onHeaderRender?: (th: HTMLTableCellElement, c: number) => void;
   onInvalid?: (rejections: Rejection[], source: ChangeSource) => void;
+  /** 読み取り専用セルを変えようとした時（値は変わらない・知らせだけ）。貼り付け/Delete/フィルに加え、
+   *  打鍵（value＝打った文字）・F2・ダブルクリック・チェックのトグルでも source:'edit' で呼ばれる。クリックで選んだだけでは呼ばれない。 */
   onReadOnly?: (blocked: ReadOnlyBlock[], source: ChangeSource) => void;
   onChange?: (grid: TssGrid) => void;
   onPasteOverflow?: (info: { anchor: CellCoord; height: number; width: number; rows: number; cols: number; overRows: number; overCols: number }) => void;
-
-  [k: string]: any;
+  // ※ 任意キーの受け皿（[k: string]: any）は持たない＝オプション名の書き間違い（maxRowz 等）を型エラーで気づけるように。
+  //   本体が読むオプションはすべてここに宣言済み（列ごとの拡張キーは ColumnDef 側で受ける＝プラグインが列に設定を足すため）。
 }
 
 export interface CsvOptions {
@@ -374,10 +403,11 @@ export declare class TssGrid {
   // ---- データ -------------------------------------------------------------
   /** 全データを2次元配列で取得（コピー）。 */
   getData(): any[][];
-  /** 全行をオブジェクト配列で取得（columns[c].data キー基準）。 */
-  getRows(): Record<string, any>[];
-  /** r 行目をオブジェクトで取得。 */
-  getRow(r: number): Record<string, any>;
+  /** 全行をオブジェクト配列で取得（columns[c].data キー基準）。値は入力欄と同じ**文字列**（数値列も "1200"）。
+   *  `{ typed: true }` で number 列→数値（空欄は null・数にならない値は文字列のまま）、checkbox 列→true/false にして返す（表の値は変えない）。 */
+  getRows(opts?: GetRowsOptions): Record<string, any>[];
+  /** r 行目をオブジェクトで取得（`{ typed: true }` は getRows と同じ）。 */
+  getRow(r: number, opts?: GetRowsOptions): Record<string, any>;
   /** 列を縦に取得（index か data キー）。 */
   getColumn(cOrKey: number | string): any[] | undefined;
   /** 全列を配列の配列で取得。 */
@@ -392,8 +422,8 @@ export declare class TssGrid {
   setColumns(columns: ColumnDef[], headers?: (string | { label?: string })[]): void;
   /** グリッド全体の読み取り専用を実行時に切替（Vue の `:readonly` 等）。 */
   setReadOnly(flag: boolean): void;
-  /** タッチの範囲選択ハンドルを実行時に切替（`touchSelect` と同じ値）。 */
-  setTouchSelect(v: boolean | 'both' | 'vertical' | 'horizontal'): void;
+  /** タッチの範囲選択ハンドルを実行時に切替（`touchSelect` と同じ値。第2引数で `touchSelectEdge` も切替）。 */
+  setTouchSelect(v: boolean | 'both' | 'vertical' | 'horizontal', edge?: 'keep' | 'hide'): void;
   /**
    * 背景で"育てる"追記（progressive）。data 末尾へ rows を足し、可視窓＋スペーサだけ再描画する。
    * buildTable 全再描画をせず、スクロール位置・アクティブセル・フォーカス・選択・編集中のエディタと値を保ち、履歴にも積まない。
@@ -440,11 +470,12 @@ export declare class TssGrid {
   /** フィルタ解除（フィルタ中に編集/追加した行も含め全部戻る）。 */
   clearFilter(): void;
   isFiltered(): boolean;
-  /** フィルタ中でも全行（マスタ）を取得。 */
-  getAllRows(): Record<string, any>[];
+  /** フィルタ中でも全行（マスタ）を取得（`{ typed: true }` は getRows と同じ）。 */
+  getAllRows(opts?: GetRowsOptions): Record<string, any>[];
 
   // ---- 選択 / カーソル ----------------------------------------------------
-  setActive(r: number, c: number): void;
+  /** カーソルを (r, c) へ。c は列番号か data キー。 */
+  setActive(r: number, c: number | string): void;
   setExtent(r: number, c: number): void;
   selectRect(r0: number, c0: number, r1: number, c1: number): void;
   selectRow(r: number): void;
@@ -484,10 +515,11 @@ export declare class TssGrid {
   moveRows(r0: number, r1: number, to: number): void;
 
   // ---- 列の表示 / 幅 / 固定 / 行高 ---------------------------------------
-  hideColumn(c: number): void;
-  showColumn(c: number): void;
-  toggleColumn(c: number): void;
-  isColumnHidden(c: number): boolean;
+  /** 列を隠す（c は列番号か data キー。最低1列は残る）。 */
+  hideColumn(c: number | string): void;
+  showColumn(c: number | string): void;
+  toggleColumn(c: number | string): void;
+  isColumnHidden(c: number | string): boolean;
   getHiddenColumns(): number[];
   /** 列 c の定義（columns[c]）を取得（列の introspection 用）。 */
   colCfg(c: number): ColumnDef;

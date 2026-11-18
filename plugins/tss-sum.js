@@ -70,7 +70,7 @@
     }
     var tg = new Grid(mountEl, {
       name: opts.name || (source.name ? source.name + '-sum' : 'sum'),
-      width: source.width, rowHeight: opts.rowHeight || 28,
+      width: source.width, defaultRowHeight: opts.rowHeight || 28,   // 本体のオプション名は defaultRowHeight（rowHeight は本体が読まない＝以前は指定が効いていなかった）
       rowHeaders: source.rowHeaders, colHeaders: false,
       columns: columns, data: data, plugins: plugins,
     });

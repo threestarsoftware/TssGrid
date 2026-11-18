@@ -216,7 +216,7 @@
   function render() {
     const host = document.getElementById('grid');
     grid = new TssGrid(host, {
-      name: 'invoice', width: 672, rowHeight: 30, rowHeaders: true,   // 行ヘッダ＝Excel風の行選択＋つまみ移動（印刷では0幅に潰す）。幅672＝A4portrait(余白14mm)に中央寄せで収まる
+      name: 'invoice', width: 672, rowHeaders: true,   // 行ヘッダ＝Excel風の行選択＋つまみ移動（印刷では0幅に潰す）。幅672＝A4portrait(余白14mm)に中央寄せで収まる
       allowInsertRows: true, allowDeleteRows: true,
       allowInsertCols: false, allowDeleteCols: false,        // 列の追加/削除は請求書では不要
       columns: [

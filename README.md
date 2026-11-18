@@ -78,7 +78,7 @@ const { TssGrid, HistoryManager } = require('@threestarsoftware/tssgrid');
 
 ## フレームワークで使う（React / Vue / Angular）
 
-**React / Vue には薄い公式アダプタ**（`@threestarsoftware/tssgrid/react`・`/vue`）があります。コアは無依存のまま＝`react`・`vue` は **peerDependency（任意）**、アダプタは `React.createElement` / `Vue.h` で手書き＝**ノービルド**。グリッドは「アンコントロールド」（マウントで生成・アンマウントで `destroy()`・**cell は React/Vue で描かない**＝高速）、値は **ref で公開した grid 本体（命令API）** ＋ `onAfterChange` 等のコールバック、`data` プロップは「差し替え」用（参照が変わった時だけ `setData`）。動く例: [`examples/react.html`](https://tssgrid.threestarsoftware.co.jp/examples/react.html) / [`examples/vue.html`](https://tssgrid.threestarsoftware.co.jp/examples/vue.html)。
+**React / Vue には薄い公式アダプタ**（`@threestarsoftware/tssgrid/react`・`/vue`）があります。コアは無依存のまま＝`react`・`vue` は **peerDependency（任意）**、アダプタは `React.createElement` / `Vue.h` で手書き＝**ノービルド**。グリッドは「アンコントロールド」（マウントで生成・アンマウントで `destroy()`・**cell は React/Vue で描かない**＝高速）、値は **ref で公開した grid 本体（命令API）** ＋ `onAfterChange` 等のコールバック、`data` プロップは「差し替え」用（参照が変わった時だけ `setData`）。**TssGrid のオプションは全部そのままプロップ／属性に書けます**（React `maxRows={50}`・Vue `:max-rows="50"`）。**後から変えて効くのは `data`・`columns`（`setColumns`）・`readOnly`（`setReadOnly`）**、それ以外は作成時の値（変えたい時は `key` で作り直す）。`on*` コールバックは常に最新の関数が呼ばれます（React のインライン関数でも古い state を掴まない）。型定義付き＝オプション名の書き間違いは TypeScript がエラーで教えます。動く例: [`examples/react.html`](https://tssgrid.threestarsoftware.co.jp/examples/react.html) / [`examples/vue.html`](https://tssgrid.threestarsoftware.co.jp/examples/vue.html)。
 
 **React（公式アダプタ）**:
 ```jsx
@@ -86,9 +86,9 @@ import { useRef } from 'react';
 import { TssGridReact } from '@threestarsoftware/tssgrid/react';
 import '@threestarsoftware/tssgrid/tssgrid.css';
 
-function Grid({ columns, data }) {
+function Grid({ columns, data, locked }) {
   const ref = useRef(null);   // ref.current = grid 本体（命令API）
-  return <TssGridReact columns={columns} data={data}
+  return <TssGridReact columns={columns} data={data} readOnly={locked} maxRows={50}
     onAfterChange={(ch, src) => console.log(ch, src)} ref={ref} />;
   // 例: ref.current.sortBy('age','desc') / ref.current.getRows()
 }
@@ -101,10 +101,11 @@ import { ref } from 'vue';
 import { TssGridVue } from '@threestarsoftware/tssgrid/vue';
 import '@threestarsoftware/tssgrid/tssgrid.css';
 const g = ref(null);   // g.value.grid() = grid 本体
+const locked = ref(false);   // 変えると setReadOnly で即反映
 </script>
 <template>
-  <TssGridVue :columns="columns" :data="data"
-    :options="{ onAfterChange: (ch, src) => console.log(ch, src) }" ref="g" />
+  <TssGridVue :columns="columns" :data="data" :read-only="locked" :max-rows="50"
+    @after-change="(ch, src) => console.log(ch, src)" ref="g" />
 </template>
 ```
 
@@ -187,6 +188,7 @@ grid.setValue(0, '数量', '5'); // → 列名で書き込み（Undo 可）
 grid.getRow(0);               // → {品番:'P-100', 品名:'ボルト', 数量:'1200', id:42}（1行を横断）
 grid.getColumn('品番');       // → ['P-100','P-101',...]（getRow の対。1列を縦断）
 grid.getRows();               // → [{品番:'P-100', ...}, ...]（全行をオブジェクト配列で）
+grid.getRows({ typed: true }); // → [{品番:'P-100', 数量:1200, ...}]（number 列は数値・空欄は null／checkbox 列は true/false）
 grid.getColumns();            // → {品番:['P-100',...], 品名:[...], 数量:[...]}（列ごとの値配列）
 
 grid.toCSV();                 // → CSV文字列（RFC4180クォート / 既定は素の値・空行除外）
@@ -201,6 +203,8 @@ grid.downloadCSV('在庫.csv'); // → UTF-8 BOM付きで即ダウンロード�
 
 - **保存値は常に文字列の2次元配列**を内部に持ち、描画・編集・コピペ・履歴はすべて従来どおり。オブジェクト配列は**入出力時の変換層**です（大きな作りは変えていません）。
 - **`getData()`** は常に2次元配列を返す（後方互換）。**`getRows()`** はオブジェクト配列で返す。
+- 取り出した値は**文字列**（数値列も `'1200'`）。保存や計算で型が要るときは **`getRows({ typed: true })`**（`getRow` / `getAllRows` も同じ）＝ `type:'number'` 列は数値（空欄は `null`・`'1,200'` も 1200・数にならない値は文字列のまま）、`type:'checkbox'` 列は `true`/`false`。表の中の値は変わりません。
+- `columns[c].type` に使える型は `text` / `number` / `date` / `time` / `dropdown` / `checkbox`。**それ以外（`'numeric'` 等の書き間違い）はコンソールに警告**を出し、`text` として扱います。
 - **画面に出さないフィールド**（上の `id` など）も `getRows()` で**保持**されます（元オブジェクトを内部に退避。編集・行挿入・削除をしても維持）。
 - 見出し `headers` を省略すると、`columns[c].title`（あれば）→ `data` キー → `A,B,C…` の順で補完します。
 - `getValue` / `setValue` の列指定は **数値index** でも **`data` キー文字列** でも可。`setData(rows)` も配列/オブジェクトを自動判別。
@@ -984,11 +988,15 @@ cellClass: (r, c, value, row) => isAlert(r, c) ? 'tg-box tg-box-warn' : ''   // 
 ```js
 grid.hideColumn(1);          // 列1を隠す
 grid.showColumn(1);          // 再表示
-grid.toggleColumn(1);        // 切替
+grid.toggleColumn('memo');   // 切替（列番号でも data キーでも可）
 grid.isColumnHidden(1);      // → true/false
 grid.getHiddenColumns();     // → [1, 3]
-new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
+new TssGrid(el, { hiddenColumns: [1] });                 // 初期で隠す（番号でも data キーでも可）
+new TssGrid(el, { columns: [{ data: 'id', hidden: true }, …] });   // 列定義に同居（並べ替えても追従）
 ```
+
+- 隠した列の値も **`getRows()` には含まれます**（画面に出さないだけ）。
+- `setColumns` で列定義を差し替えると、各列の `hidden: true/false` が反映されます。
 
 - 隠し列は**畳まれ**（幅0）、**カーソル移動は隣の可視列へスキップ**、幅計算・固定列オフセットからも除外されます。
 - **コピーは隠し列を除外**し、**貼り付けは可視列へ**流し込みます（見たままをコピペ）。
@@ -1025,12 +1033,13 @@ new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
 | `nestedHeaders` | `array[]` | — | **ヘッダ結合**（複数段見出し）。各段は配列で要素は文字列 or `{label,colspan}`。最下段が**リーフ＝実列**（並べ替え・全選択チェック等は機能）。上段グループのクリックで範囲列を選択 → 動く例: [`examples/nested-headers.html`](https://tssgrid.threestarsoftware.co.jp/examples/nested-headers.html) |
 | `width` / `height` | `number\|string` | — | 枠(wrap)の幅/高さ。**指定するとテーブル自身に横/縦スクロールバーが出る**（未指定だと枠が内容幅まで広がりページ側がスクロール）。固定行/列・縦横スクロールを使うなら指定推奨 |
 | `resizeCols` / `resizeRows` | `boolean` | `true` | 列幅/行高のリサイズ可否（全体）。`false` でグリップを出さない |
-| `cursor` | `boolean` | `true` | 選択カーソル（青の選択枠/範囲/セルハイライト/フィルハンドル）を表示するか。`false` で**表示専用グリッド向けに非表示**＋セルカーソルも既定に（内部の選択は保持＝コピーは可）。合計表・サマリ等に |
+| `cursor` | `boolean` | `true` | 選択カーソル（青の選択枠/範囲/セルハイライト/フィルハンドル）を表示するか。`false` で**表示専用グリッド向けに非表示**＋セルカーソルも既定に（内部の選択は保持＝コピーは可）。合計表・サマリ等に。`readOnly:true` と併用すると読み取り専用の灰色を付けず普通の色で表示（見せるだけの表） |
 | `columns[c].width` | `number` | — | 列ごとの初期幅(px)。**列定義に同居するので並べ替え・コピペで幅が一緒に動く**（`colWidths` より壊れにくい）。実行時リサイズ・明示 `colWidths` があればそちらが優先 |
 | `columns[c].resizable` | `boolean` | `true` | 列ごとの幅ロック。`false` でその列だけリサイズ禁止 |
-| `stretchH` | `'none'\|'last'\|'all'` | `'none'` | 列を枠幅まで伸ばす。`'last'`=余りを最終列へ / `'all'`=全列で配分（`width` 指定時に効く） |
+| `stretchH` | `'none'\|'last'\|'all'` | `'none'` | 列を枠幅まで伸ばす。`'last'`=余りを最終列へ / `'all'`=全列で配分（`width` 指定時に効く・隠し列は対象外） |
+| `headerWrap` | `boolean` | `false` | 長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。既定は1行で切る |
 | `rowHeaders` / `colHeaders` | `boolean` | `true` | 行番号列 / ヘッダ行の表示。`false` で隠す |
-| `hiddenColumns` | `number[]` | `[]` | 初期で隠す列インデックス。実行時は `hideColumn`/`showColumn`/`toggleColumn`（→ [列の表示/非表示](#列の表示非表示)） |
+| `hiddenColumns` | `(number\|string)[]` | `[]` | 初期で隠す列（番号か data キー）。列定義の `columns[c].hidden: true` でも可。実行時は `hideColumn`/`showColumn`/`toggleColumn`（→ [列の表示/非表示](#列の表示非表示)） |
 | `wordWrap` | `boolean` | `false` | セル内で折り返し（行高は内容に合わせ伸びる）。`columns[c].wordWrap` で列単位も可 |
 | `ellipsis` | `boolean` | `false` | 溢れた文字を **… で省略**し、溢れたセルは**ホバーで全文（`title`）**。`columns[c].ellipsis` で列単位も可。見え方だけ＝値・コピー・編集は全文のまま。`wordWrap` と同時なら折り返しが優先 |
 | `hidePickerOnReadOnly` | `boolean` | `false` | **読取専用セルのピッカー▾/アイコンを消す**。既定は**表示**（グレーで「押せない」は分かるが、「選ぶ欄」という情報として ▾ は残す）。`columns[c].hidePickerOnReadOnly` で列単位も可。対象はカスタムエディタ列（`editor.icon` ＝ ▾ や 📅 等）。CSS は ▾ 描画より強い詳細度で効くので、本番ビルドの読み込み順でも安定 |
@@ -1039,6 +1048,7 @@ new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
 | `className` | `string` | — | コンテナ(`.tssgrid`)に付ける任意クラス（テーマ付け） |
 | `fillHandle` | `boolean \| {direction,autoInsertRow}` | `true` | **`false`でフィル完全OFF**（ハンドルを出さない＝ドラッグでの消去/上書きなし。フィルの起点はハンドルのみなので fill 自体が無効に）。`{direction:'vertical'\|'horizontal'\|'both', autoInsertRow:true}`で詳細指定（下へドラッグで行追加）。設定/表示専用グリッドで誤フィルを防ぐのに有効 |
 | `touchSelect` | `boolean \| 'both'\|'vertical'\|'horizontal'` | `'both'` | **タッチ端末の範囲選択ハンドル**（選択枠の四辺の丸を指で引いて範囲を広げる）。`'both'`=四辺（天地=縦・左右=横・斜め=矩形）／`'vertical'`=天地だけ（行方向のみ）／`'horizontal'`=左右だけ（列方向のみ）／`false`=出さない。PC（マウス）には出ない。実行時は `setTouchSelect(v)` |
+| `touchSelectEdge` | `'keep'\|'hide'` | `'keep'` | 表の端（先頭/最終行・最初/最後の表示列）に接した選択ハンドル。`'keep'`=残す（端側から縮められる）／`'hide'`=隠す（伸ばせない向きの丸を減らす）。どちらでも「端かつその向きが1マス幅」の丸は常に隠す（1行だけの表なら天地、1列だけなら左右が自動で消える）。実行時は `setTouchSelect(v, edge)` |
 | `touchPicker` | `'list'\|'native'` | `'list'` | **タッチでのドロップダウンの一覧**。`'list'`=表が出す自前の一覧（指で押しやすい行高・一覧を開いたまま別のセルをタップするとそのまま次が開く・キーボードの出入りで閉じない）／`'native'`=ブラウザ純正のピッカー（`<select>`）。`columns[c].touchPicker` で列単位に上書き可。PC（マウス）は常に純正 |
 | `touchDropdown` | `'tap'\|'secondTap'` | `'tap'` | **タッチでのドロップダウンの開き方**。`'tap'`=タップ1回で開く／`'secondTap'`=1回目は選択だけ（丸ハンドルで範囲選択できる・キーボードも出ない）、同じセルをもう一度タップで開く（スマホ版 Excel 流）。`columns[c].touchDropdown` で列単位に上書き可。PC（マウス）は常にクリック1回で開く |
 | `onBeforeAutofill` / `onAfterAutofill` | `(src,target)=>…` | — | フィル前後。before は `false` で取消。`src`/`target` = `{r0,c0,r1,c1}` |
@@ -1055,7 +1065,7 @@ new TssGrid(el, { hiddenColumns: [1] });   // 初期で隠す
 | `onChange` | `(grid)=>void` | — | データ変更時に呼ばれる（後方互換） |
 | `onInvalid` | `(rejections, source)=>void` | — | 列ルールで弾かれた時。`rejections = [{ r, c, value, message }]` |
 | `flashInvalid` | `boolean` | `true` | 不正値を弾いて**巻き戻した時にセルを短く赤く点滅**して知らせる（`.tg-reject`・`prefers-reduced-motion` 配慮）。`onInvalid` は別途そのまま発火。`false` で無効 |
-| `onReadOnly` | `(blocked, source)=>void` | — | 読み取り専用セルへの変更を弾いた時。`blocked = [{ r, c, value }]` |
+| `onReadOnly` | `(blocked, source)=>void` | — | 読み取り専用セルへの変更を弾いた時。`blocked = [{ r, c, value }]`。貼り付け/Delete/フィルに加え、**打鍵（`value`＝打った文字）・F2・ダブルクリック・チェックのトグル**でも `source:'edit'` で呼ばれる（「🔒 変更できません」の表示用）。クリックで選んだだけでは呼ばれない |
 | `contextMenu` | `boolean \| Array \| {items}` | `true` | 右クリックメニュー。`true`=既定項目 / `false`=無効 / **配列**=項目を構成（組込キー＋カスタム項目）（→ [右クリックメニュー](#右クリックメニュー行列の挿入削除)） |
 | `allowInsertRows` / `allowDeleteRows` | `boolean` | `true` | 行の挿入 / 削除の可否（メニュー項目の表示も連動） |
 | `allowInsertCols` / `allowDeleteCols` | `boolean` | `true` | 列の挿入 / 削除の可否 |

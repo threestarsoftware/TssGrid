@@ -43,7 +43,7 @@
   const pays = ['現金', '振込', '掛け(月末締)', '掛け(20日締)', 'クレジット'];
 
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'orders', width: 660, rowHeight: 26, rowHeaders: false, initialCell: { r: 0, c: 'client' },
+    name: 'orders', width: 660, rowHeaders: false, initialCell: { r: 0, c: 'client' },
     columns: [
       // 既定で inline＝セルに打ちながら絞る（打鍵の1文字目もIME直打ちも素のテキスト列と同じに効く）
       { data: 'client',  title: '取引先',  width: 200, editor: TssAutocomplete({ source: clients }) },           // 自由入力可

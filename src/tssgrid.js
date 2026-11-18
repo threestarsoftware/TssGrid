@@ -60,6 +60,8 @@
     constructor(container, opts = {}) {
       this.name = opts.name || 'grid';
       this.columns = opts.columns || [];
+      TssGrid._warnColumnTypes(this.columns);
+      TssGrid._warnOptionNames(opts);
       // 見出し: 明示 headers > columns の title/data 由来 > 既定 A,B,C
       // 見出しの決定: 明示 title（'' 含む）を最優先で尊重。checkbox 列は「ヘッダ＝全選択チェック」なので
       // title 未設定でも data 名（'checked' 等）を出さない（空）。それ以外は title 未設定なら data 名→無ければ列ラベル。
@@ -172,7 +174,10 @@
       if (Array.isArray(_cw)) this.colW = _cw.slice();
       else if (_cw && typeof _cw === 'object') for (const k in _cw) { const ci = this._resolveCol(k); if (ci >= 0) this.colW[ci] = _cw[k]; }
       for (let c = 0; c < this.COLS; c++) if (this.colW[c] == null && this.colCfg(c).width != null) this.colW[c] = this.colCfg(c).width;
-      this.rowH = (opts.rowHeights || []).slice();     // rowH[r] = px（未指定は既定）
+      // rowH[r] = px（未指定は既定）。配列（位置指定）でも { 行番号: px } のオブジェクトでも可（d.ts/README の約束どおり）。
+      const _rh = opts.rowHeights;
+      this.rowH = Array.isArray(_rh) ? _rh.slice() : [];
+      if (_rh && !Array.isArray(_rh) && typeof _rh === 'object') for (const k of Object.keys(_rh)) { const r = +k, h = +_rh[k]; if (Number.isInteger(r) && r >= 0 && h > 0) this.rowH[r] = h; }
       this.defColW = opts.defaultColWidth || 120;
       this.defRowH = opts.defaultRowHeight || 28;
       this.minColW = opts.minColWidth || 30;
@@ -210,6 +215,7 @@
       // 選択カーソル（緑の選択枠・範囲・セルハイライト・フィルハンドル）を表示するか。
       // false で表示専用グリッド向けに非表示（内部の選択は保持＝コピーは可）。
       this.cursor = opts.cursor !== false;
+      this.headerWrap = !!opts.headerWrap;   // 見出しの折り返し（既定 false＝1行で切る）
       this.onAfterRowMove = opts.onAfterRowMove || null;   // (from, to) 行移動の確定後
       // 列ストレッチ: 'none'(既定) | 'last'(余白を最終列へ) | 'all'(全列で配分)。枠幅まで伸ばす。
       this.stretchH = opts.stretchH || 'none';
@@ -235,6 +241,7 @@
       this.fillDirection = (_fh && _fh.direction) || 'both';   // 'both'|'vertical'|'horizontal'
       this.fillAutoInsertRow = !!(_fh && _fh.autoInsertRow);   // 下へドラッグで行を自動追加
       this.touchSelect = TssGrid._normTouchSelect(opts.touchSelect);   // タッチの選択ハンドル: 'both'|'vertical'|'horizontal'|false
+      this.touchSelectEdge = opts.touchSelectEdge === 'hide' ? 'hide' : 'keep';   // 表の端に接した丸: 'keep'=残す(端側から縮める用)/'hide'=隠す
       this.touchDropdown = opts.touchDropdown === 'secondTap' ? 'secondTap' : 'tap';   // タッチでのドロップダウンの開き方（列 columns[c].touchDropdown で上書き可）
       // タッチでのドロップダウンの一覧: 'list'（既定）＝表が出す自前の一覧（iOS 純正ピッカーの「閉じるタップが飲まれる/タップ直後しか開けない/キーボードの揺れで閉じる」を避ける）／'native'＝<select> の純正ピッカー
       this.touchPicker = opts.touchPicker === 'native' ? 'native' : 'list';
@@ -247,7 +254,8 @@
       // 生成PW提案が出ることがあるため opt-in。周囲に自前のラベル付き input（フォーム塊）を並べる埋め込みで有効。
       this.suppressAutofill = !!opts.suppressAutofill;
       // 列幅オートフィット（内容に合わせて自動調整）。境界ダブルクリック / autoSizeColumn でも。
-      this.autoColumnSize = !!opts.autoColumnSize;
+      // true=内容に合わせる／数値=合わせる＋その px を上限（!! で潰すと上限が消えるので数値は数値のまま持つ）
+      this.autoColumnSize = typeof opts.autoColumnSize === 'number' && opts.autoColumnSize > 0 ? opts.autoColumnSize : !!opts.autoColumnSize;
       // データ入力支援
       this.minSpareRows = opts.minSpareRows | 0;     // 末尾に常に確保する空行数
       this.autoWrapRow = !!opts.autoWrapRow;         // Tab で行末→次行頭に折り返し
@@ -280,7 +288,9 @@
       // 全体版 cellClass でも代用できるが（全 td に付く）、行単位はこちらが素直。編集で再描画時に追従（_applyRowClass）。
       this.rowClass = opts.rowClass || null;
       // 列の非表示（描画で畳む＋移動/幅/コピーは隠し列をスキップ）。実行時は hideColumn/showColumn。
-      this.hiddenCols = new Set((opts.hiddenColumns || []).map(Number));
+      // 列番号でも data キーでも可。列定義側の columns[c].hidden:true でも隠せる（列の設定は列に同居＝並べ替えても追従）。
+      this.hiddenCols = new Set((opts.hiddenColumns || []).map(k => this._resolveCol(typeof k === 'string' && /^\d+$/.test(k) ? +k : k)).filter(c => c >= 0));
+      this.columns.forEach((cfg, c) => { if (cfg && cfg.hidden === true) this.hiddenCols.add(c); });
       // セル単位の可変状態（キー "r,c"）。整列 / 実行時 readOnly。構造変更で _structCmd がキー追従。
       this._align = new Map();      // "r,c" → { h?, v? }（列既定は columns[c].align/valign）
       this._cellRO = new Set();     // "r,c"（セル単位の読み取り専用）
@@ -357,17 +367,30 @@
     // 全件が要る export はプラグインが全件 fillRows してから呼ぶ＝dataComplete で通常経路）。
     getData() { if (this.dataComplete) return this.data.map(row => row.slice()); const P = TssGrid.PENDING; return this.data.filter(row => row !== P).map(row => row.slice()); }
     // オブジェクト配列で取り出す。_src（元の非表示フィールド）にキー列の現在値を上書きして返す。遅延ロード中はロード済みのみ。
-    getRows() {
-      const P = TssGrid.PENDING, out = [];
+    // opts.typed=true: 値は既定で入力欄と同じ文字列。typed なら number 列→数値（空欄は null・数にならない値は文字列のまま）、
+    // checkbox 列→true/false に変換して返す（保存・計算用）。表の中の値は変えない。
+    getRows(opts) {
+      const P = TssGrid.PENDING, out = [], typed = !!(opts && opts.typed);
       for (let r = 0; r < this.ROWS; r++) {
         const row = this.data[r]; if (row === P) continue;   // 未取得行は除外
         const o = this._src ? Object.assign({}, this._src[r]) : {};
-        for (let c = 0; c < this.COLS; c++) { const k = this._key(c); if (k != null) this._setPathCOW(o, k, row[c]); }
+        for (let c = 0; c < this.COLS; c++) { const k = this._key(c); if (k != null) this._setPathCOW(o, k, typed ? this._typedVal(c, row[c]) : row[c]); }
         out.push(o);
       }
       return out;
     }
-    getRow(r) { return this.getRows()[r]; }
+    getRow(r, opts) { return this.getRows(opts)[r]; }
+    _typedVal(c, v) {
+      const t = this.colType(c);
+      if (t === 'number') {
+        if (v === '' || v == null) return null;
+        if (typeof v === 'number') return v;
+        const n = Number(String(v).replace(/,/g, '').trim());   // 貼り付け等で "1,200" が来ても数に
+        return Number.isFinite(n) ? n : v;
+      }
+      if (t === 'checkbox') return this._isCheckedVal(c, v);
+      return v;
+    }
     // getRow の対（行→列）。1列分の値を全行ぶん配列で。列は index か data キー。
     getColumn(c) { const ci = this._resolveCol(c); if (ci < 0) return undefined; const rows = this.dataComplete ? this.data : this.data.filter(row => row !== TssGrid.PENDING); return rows.map(row => row[ci]); }
     // 全列を「列ごとの値配列」で。見出しキーは data キー > headers。getRows の列方向版。遅延ロード中はロード済みのみ。
@@ -393,6 +416,7 @@
     // 列構造が変わるので per-cell 状態（整列/セル readOnly）はクリア、frozen/選択は範囲内へクランプ。
     setColumns(columns, headers) {
       this.columns = columns || [];
+      TssGrid._warnColumnTypes(this.columns);
       this.headers = this._deriveHeaders(headers);
       this.COLS = this.headers.length;
       if (this._src) {
@@ -401,13 +425,20 @@
         this.data = this.data.map(row => { const a = (Array.isArray(row) ? row : []).slice(0, this.COLS); while (a.length < this.COLS) a.push(''); return a; });
       }
       this._align.clear(); this._cellRO.clear();              // 旧列 index を指す状態は破棄
+      // 隠し列: 範囲外の番号を捨て、新しい列定義の hidden(true/false) を反映（定義が真実＝:columns 差し替えで追従）
+      this.hiddenCols = new Set([...this.hiddenCols].filter(c => c < this.COLS));
+      this.columns.forEach((cfg, c) => { if (cfg && cfg.hidden === true) this.hiddenCols.add(c); else if (cfg && cfg.hidden === false) this.hiddenCols.delete(c); });
+      if (this.hiddenCols.size >= this.COLS && this.COLS > 0) this.hiddenCols.delete(Math.min(...this.hiddenCols));   // 最低1列は見せる
       if (this.frozenCols > this.COLS) this.frozenCols = this.COLS;
       this.active = { r: this.clampR(this.active.r), c: this.clampC(this.active.c) };
       this.extent = { r: this.active.r, c: this.active.c };
       this.buildTable(); this.setActive(this.active.r, this.active.c);
     }
     // グリッド全体の読み取り専用を実行時に切替（Vue の :readonly 等）。
-    setReadOnly(flag) { this.readOnly = !!flag; this.buildTable(); this.setActive(this.active.r, this.active.c); }
+    setReadOnly(flag) { this.readOnly = !!flag; this._applyViewClass(); this.buildTable(); this.setActive(this.active.r, this.active.c); }
+    // 見せるだけの表（cursor:false かつ全体 readOnly）は「編集できない灰色」を付けない＝普通の表の色で読みやすく。
+    // 列/セル単位の readOnly だけの表は従来どおり灰色（編集できる所とできない所の区別が要るため）。
+    _applyViewClass() { if (this.root) this.root.classList.toggle('tg-view', !this.cursor && !!this.readOnly); }
     // 現在の選択範囲を取得（矩形＋active/extent）。rectRange の公開版。
     getSelection() { const g = this.rectRange(); return { r0: g.r0, c0: g.c0, r1: g.r1, c1: g.c1, active: { ...this.active }, extent: { ...this.extent } }; }
     // 背景で"育てる"追記（progressive）: data 末尾へ rows を足し ROWS を更新、可視窓＋上下スペーサだけ再描画する。
@@ -754,9 +785,9 @@
       else { this.active = { r: 0, c: 0 }; this.extent = { r: 0, c: 0 }; this.selbox.style.display = this.selrange.style.display = this.fillhandle.style.display = 'none'; }
     }
     // マスタ(全行)を getRows 形式で取得（フィルタ中でも全件）。未フィルタなら getRows と同じ。
-    getAllRows() {
-      const rows = this._allRows || this.data, src = this._allRows ? this._allSrc : this._src;
-      return rows.map((row, r) => { const o = src ? Object.assign({}, src[r]) : {}; for (let c = 0; c < this.COLS; c++) { const k = this._key(c); if (k != null) this._setPathCOW(o, k, row[c]); } return o; });
+    getAllRows(opts) {
+      const rows = this._allRows || this.data, src = this._allRows ? this._allSrc : this._src, typed = !!(opts && opts.typed);
+      return rows.map((row, r) => { const o = src ? Object.assign({}, src[r]) : {}; for (let c = 0; c < this.COLS; c++) { const k = this._key(c); if (k != null) this._setPathCOW(o, k, typed ? this._typedVal(c, row[c]) : row[c]); } return o; });
     }
 
     // ---- リスナ登録（destroy() 用に記録） / 後始末 ----
@@ -877,6 +908,8 @@
       if (this.hidePickerOnReadOnly) this.root.classList.add('tg-hide-ro-picker');  // 読取専用セルのピッカー▾を消す（表全体）
       if (!this.multilineMark) this.root.classList.add('tg-no-ml-mark'); // multiline の右上ヒントを消す
       if (!this.cursor) this.root.classList.add('tg-no-cursor');        // 表示専用（選択枠なし＋セルカーソル既定）
+      if (this.headerWrap) this.root.classList.add('tg-head-wrap');     // 長い見出しを折り返す（ヘッダ行が伸びる）
+      this._applyViewClass();
       if (this.width) {
         this.wrap.style.width = this.width;                      // 幅制約（横スクロール／固定列用）
         if (this.dumpEl) this.dumpEl.style.width = this.width;   // ダンプ欄も枠幅に揃える
@@ -1387,21 +1420,23 @@
     // 縦結合(rowspan>1)が在ると行移動は禁止（行順を崩すと結合が分断＝Handsontable の auto-split 相当を避ける）。
     // 横結合のみなら _applyRowOrder が座標追従するので移動可。
     _hasVMerge() { return !!(this._merges && this._merges.some(m => (m.rowspan || 1) > 1)); }
-    isColumnHidden(c) { return this.hiddenCols.has(this.clampC(c)); }
+    // 列の表示切替。c は列番号でも data キーでも可（getValue 等と同じ）。存在しないキーは何もしない。
+    _visArg(c) { const ci = this._resolveCol(c); return ci < 0 ? -1 : this.clampC(ci); }
+    isColumnHidden(c) { const ci = this._visArg(c); return ci >= 0 && this.hiddenCols.has(ci); }
     getHiddenColumns() { return [...this.hiddenCols].sort((a, b) => a - b); }
     hideColumn(c) {
-      c = this.clampC(c);
+      c = this._visArg(c); if (c < 0) return;
       if (this.hiddenCols.has(c) || this._visCols().length <= 1) return;   // 最低1列は残す
       this.hiddenCols.add(c);
       this.buildTable(); this.setActive(this.active.r, this._snapVisCol(this.active.c));
     }
     showColumn(c) {
-      c = this.clampC(c);
+      c = this._visArg(c); if (c < 0) return;
       if (!this.hiddenCols.has(c)) return;
       this.hiddenCols.delete(c);
       this.buildTable(); this.setActive(this.active.r, this.active.c);
     }
-    toggleColumn(c) { this.hiddenCols.has(this.clampC(c)) ? this.showColumn(c) : this.hideColumn(c); }
+    toggleColumn(c) { this.isColumnHidden(c) ? this.showColumn(c) : this.hideColumn(c); }
     _placeholder(c) { const p = this.colCfg(c).placeholder; return p != null ? String(p) : this.placeholder; }
     _totalWidth() { let w = this._rhW(); for (let c = 0; c < this.COLS; c++) if (!this._isHidden(c)) w += this._colWidth(c); return w + this._delW(); }
     // テーブルに合計幅を明示。これが無いと狭い枠で fixed レイアウトが列を比例圧縮し、
@@ -1748,15 +1783,18 @@
       const avail = this.wrap ? this.wrap.clientWidth : 0;
       if (!avail) return;
       const base = this._rhW() + this._delW(), widths = [];   // 削除列は固定幅＝ストレッチ対象外（余白計算から差し引く）
+      // 隠し列は幅0のまま＝配分の対象にも合計にも入れない（入れると隠した列が空の列として現れる）。
+      const vis = this._visCols(); if (!vis.length) return;
       let sum = 0;
-      for (let c = 0; c < this.COLS; c++) { const wd = this._colWidth(c); widths.push(wd); sum += wd; }
+      for (let c = 0; c < this.COLS; c++) { const wd = this._isHidden(c) ? 0 : this._colWidth(c); widths.push(wd); sum += wd; }
       const extra = avail - base - sum;
       if (extra <= 0) return;   // 余白なし → 通常（_applyTableWidth のまま）
-      if (this.stretchH === 'last') widths[this.COLS - 1] += extra;
-      else { // 'all': ほぼ均等に配分し、端数は最終列へ
-        const add = Math.floor(extra / this.COLS);
-        for (let c = 0; c < this.COLS; c++) widths[c] += add;
-        widths[this.COLS - 1] += extra - add * this.COLS;
+      const last = vis[vis.length - 1];
+      if (this.stretchH === 'last') widths[last] += extra;
+      else { // 'all': 見えている列へほぼ均等に配分し、端数は最後の表示列へ
+        const add = Math.floor(extra / vis.length);
+        for (const c of vis) widths[c] += add;
+        widths[last] += extra - add * vis.length;
       }
       for (let c = 0; c < this.COLS; c++) { const col = this.table.querySelector('colgroup col[data-c="' + c + '"]'); if (col) col.style.width = widths[c] + 'px'; }
       this.table.style.width = avail + 'px';
@@ -1973,8 +2011,17 @@
             this._placeSelHandle(el, hx, hy);
           };
           const hide = el => { el.style.display = 'none'; };
-          if (V) { show(this.selhTop, cx, top); show(this.selhBot, cx, bottom); } else { hide(this.selhTop); hide(this.selhBot); }
-          if (H) { show(this.selhLeft, left, cy); show(this.selhRight, right, cy); } else { hide(this.selhLeft); hide(this.selhRight); }
+          // 表の端に接した丸: 'hide'＝常に隠す（その向きへは伸ばせない）／'keep'＝端側から縮める用に残す。
+          // ただし端かつその向きが1マス幅の丸は伸ばすも縮めるも出来ない＝設定に関係なく隠す（1行だけの表の天地・1列だけの表の左右）。
+          const fc = this._firstVisCol(), lc = this._lastVisCol(), lr = this.ROWS - 1, edgeHide = this.touchSelectEdge === 'hide';
+          // 掴んで引いている最中の丸は端に着いても消さない（指の下の丸が消えると戻れない様に見える）。
+          const dragging = this._selDrag && this._selDrag.which;
+          const useless = (w, atEdge, span1) => w !== dragging && atEdge && (edgeHide || span1);
+          const put = (el, on, hx, hy) => { if (on) show(el, hx, hy); else hide(el); };
+          put(this.selhTop, V && !useless('top', r0 <= 0, r0 === r1), cx, top);
+          put(this.selhBot, V && !useless('bot', r1 >= lr, r0 === r1), cx, bottom);
+          put(this.selhLeft, H && !useless('left', c0 <= fc, c0 === c1), left, cy);
+          put(this.selhRight, H && !useless('right', c1 >= lc, c0 === c1), right, cy);
         } else {
           this.selhTop.style.display = 'none'; this.selhBot.style.display = 'none';
           this.selhLeft.style.display = 'none'; this.selhRight.style.display = 'none';
@@ -2103,8 +2150,17 @@
       this.editor.value = '';
       if (this.select) this.select.style.display = 'none';
     }
+    // 読み取り専用セルで「変えようとした」操作（打鍵・F2・ダブルクリック・チェックのトグル）を onReadOnly で知らせる。
+    // 値は変わらない＝通知だけ。打鍵は beforeinput と compositionstart の両方から来るので同じセルの連続は1回に畳む。
+    _roAttempt(r, c, value) {
+      if (!this.onReadOnly) return;
+      const now = Date.now(), last = this._roLast;
+      if (last && last.r === r && last.c === c && now - last.t < 300) return;
+      this._roLast = { r, c, t: now };
+      try { this.onReadOnly([{ r, c, value: value != null ? value : this.data[r][c] }], 'edit'); } catch (_) {}
+    }
     toEdit(value, caretEnd) {
-      if (this._isReadOnly(this.active.r, this.active.c)) return;  // 読み取り専用は編集モードに入らない
+      if (this._isReadOnly(this.active.r, this.active.c)) { this._roAttempt(this.active.r, this.active.c, value); return; }  // 読み取り専用は編集モードに入らない（知らせだけ）
       const starting = this.mode !== 'edit';
       if (starting) this.clearCopyMarquee();   // 編集開始でコピー/カットのマーキー（点線）を消す（Excel 流）
       this.mode = 'edit';
@@ -2137,14 +2193,38 @@
     // タッチ端末では input にフォーカスするとソフトキーボードが出てしまうので出さない（むしろ blur で閉じる）。
     // ※ セルのタップ編集（setActive / toEdit）は別経路で、スマホの文字入力に必要なのでここでは触らない。
     // タッチの選択ハンドルの ON/OFF・向き。true/未指定='both'（四辺）/ 'vertical'（天地だけ）/ 'horizontal'（左右だけ）/ false（出さない）。
+    // 他ライブラリの癖などで書きがちな「本体が読まない名前」を警告（動作は変えない＝その指定は効かない）。
+    // 例: rowHeight は本体に無い（正しくは defaultRowHeight）＝以前はサンプル自身がこれを書いていて黙って無視されていた。
+    static _warnOptionNames(opts) {
+      const alias = { rowHeight: 'defaultRowHeight', colWidth: 'defaultColWidth', columnWidth: 'defaultColWidth', readonly: 'readOnly',
+        hiddenCols: 'hiddenColumns', frozenColumns: 'frozenCols', fixedColumnsLeft: 'frozenCols', fixedRowsTop: 'frozenRows', rowHeader: 'rowHeaders', colHeader: 'colHeaders' };
+      Object.keys(opts || {}).forEach(k => {
+        if (alias[k] && !(alias[k] in opts)) { try { console.warn('[TssGrid] オプション "' + k + '" は TssGrid にはありません（効きません）。"' + alias[k] + '" のことですか？'); } catch (_) {} }
+      });
+    }
+    // columns[c].type の書き間違い（'numeric' 等）は黙って text 扱いになり気づけないので、コンソールに警告だけ出す（動作は変えない）。
+    static _warnColumnTypes(columns) {
+      const ok = TssGrid.CELL_TYPES;
+      (columns || []).forEach((cfg, c) => {
+        const t = cfg && cfg.type;
+        if (t == null || t === '' || ok.includes(t)) return;
+        const hint = { numeric: 'number', num: 'number', int: 'number', integer: 'number', select: 'dropdown', list: 'dropdown', bool: 'checkbox', boolean: 'checkbox', check: 'checkbox', datetime: 'date', string: 'text' }[String(t).toLowerCase()];
+        try { console.warn('[TssGrid] columns[' + c + '].type="' + t + '" は未知の型のため text として扱います（使える型: ' + ok.join(' / ') + '）' + (hint ? '。もしかして "' + hint + '"？' : '')); } catch (_) {}
+      });
+    }
     static _normTouchSelect(v) { return v === false ? false : (v === 'vertical' || v === 'horizontal') ? v : 'both'; }
     // タッチでのドロップダウンの開き方: 'tap'＝タップ1回で開く（既定）／'secondTap'＝1回目は選択・同じセルの2回目で開く。列指定が優先。
     _touchDropdown(c) { const v = this.colCfg(c).touchDropdown; return v === 'secondTap' || v === 'tap' ? v : this.touchDropdown; }
     _touchPicker(c) { const v = this.colCfg(c).touchPicker; return v === 'native' || v === 'list' ? v : this.touchPicker; }
-    setTouchSelect(v) { this.touchSelect = TssGrid._normTouchSelect(v); if (this.selhTop) this._placeOverlays(); }
+    setTouchSelect(v, edge) {
+      this.touchSelect = TssGrid._normTouchSelect(v);
+      if (edge !== undefined) this.touchSelectEdge = edge === 'hide' ? 'hide' : 'keep';
+      if (this.selhTop) this._placeOverlays();
+    }
     _navFocus() { if (this._coarse) { try { this.editor.blur(); } catch (_) {} } else this.editor.focus(); }
     setActive(r, c) {
-      const a = { r: this.clampR(r), c: this._snapVisCol(this.clampC(c)) };   // 隠し列にはカーソルを置かない
+      if (typeof c === 'string') { const ci = this._resolveCol(c); if (ci < 0) return; c = ci; }   // 列は data キーでも可（getValue 等と同じ）
+      const a ={ r: this.clampR(r), c: this._snapVisCol(this.clampC(c)) };   // 隠し列にはカーソルを置かない
       if (this._merges) { const an = this._anchorOf(a.r, a.c); a.r = an.r; a.c = an.c; }   // 結合内はアンカーへ
       if (!this._beforeSel(a, a)) return;
       this._headerSel = null;
@@ -2625,7 +2705,7 @@
     // 構造変更を実行＋履歴に積む共通処理。doIt/undoIt は冪等（redo で再実行される）。
     _structCmd(doIt, undoIt, selAfterFn, selBefore, info) {
       // 挿入/削除の「前」フック。false で中止（履歴にも積まない）。redo では呼ばれない（確定済みの再実行）。
-      if (this.onBeforeStructureChange) { let r; try { r = this.onBeforeStructureChange(info); } catch (_) {} if (r === false) return; }
+      if (this.onBeforeStructureChange && !this._skipBeforeStruct) { let r; try { r = this.onBeforeStructureChange(info); } catch (_) {} if (r === false) return; }   // 一括(deleteRowsSet 等)は呼び出し側で1回だけ
       const grid = this, remap = this._structRemapFn(info);
       const cellBefore = this._cloneCellState();   // セル状態(整列/RO)の undo 用スナップショット
       const mergeBefore = this._merges ? this._merges.map(m => ({ ...m })) : null;   // 結合の undo 用スナップショット
@@ -2767,12 +2847,30 @@
     // N回の deleteCols/deleteRows を _batchHistory で1つのUndo/Redo段にまとめる（1発で戻る/やり直す）。
     deleteColsSet(cols) {
       const sorted = [...new Set(cols)].sort((a, b) => b - a);
-      this._batchHistory(() => { for (const c of sorted) this.deleteCols(c, c); });
+      if (!sorted.length || !this.allowDeleteCols || this._allRows) return;
+      if (this.onBeforeStructureChange) {   // deleteRowsSet と同じく「前」フックはまとめて1回（info.cols＝飛び飛びの列一覧・昇順）
+        const asc = [...sorted].reverse(); let ret;
+        try { ret = this.onBeforeStructureChange({ type: 'deleteCols', c0: asc[0], c1: asc[asc.length - 1], cols: asc, count: asc.length }); } catch (_) {}
+        if (ret === false) return;
+      }
+      this._skipBeforeStruct = true;
+      try { this._batchHistory(() => { for (const c of sorted) this.deleteCols(c, c); }); }
+      finally { this._skipBeforeStruct = false; }
       this._selCols = new Set(); this._headerSel = null; this.updateSelectionUI();
     }
     deleteRowsSet(rows) {
       const sorted = [...new Set(rows)].sort((a, b) => b - a);
-      this._batchHistory(() => { for (const r of sorted) this.deleteRows(r, r); });
+      if (!sorted.length || !this.allowDeleteRows) return;
+      // 「前」フックはまとめて1回（行ごとに呼ぶと確認ダイアログが行数ぶん出て、途中で中止すると一部だけ消える）。
+      // info は deleteRows と同じ形＋rows（飛び飛びの行一覧・昇順）。r0/r1 は最小/最大行、count は行数。
+      if (this.onBeforeStructureChange) {
+        const asc = [...sorted].reverse(); let ret;
+        try { ret = this.onBeforeStructureChange({ type: 'deleteRows', r0: asc[0], r1: asc[asc.length - 1], rows: asc, count: asc.length }); } catch (_) {}
+        if (ret === false) return;
+      }
+      this._skipBeforeStruct = true;
+      try { this._batchHistory(() => { for (const r of sorted) this.deleteRows(r, r); }); }
+      finally { this._skipBeforeStruct = false; }
       this._selRows = new Set(); this._headerSel = null; this.updateSelectionUI();
     }
     // 複数の構造変更を1つのUndo/Redo段にまとめる。history.push を一時横取りしてサブコマンドを集め、
@@ -3372,6 +3470,8 @@
         ed.addEventListener('beforeinput', (e) => {
           if (this.mode !== 'nav' || !(e.inputType || '').startsWith('insert')) return;
           const c = this.active.c, t = this.colType(c);
+          // 読み取り専用で打った＝文字は入れず、打った文字を添えて知らせるだけ（全型共通）
+          if (this._isReadOnly(this.active.r, c)) { e.preventDefault(); this._roAttempt(this.active.r, c, e.data); return; }
           if (this._usesTextEditor(c)) { this.toEdit(null, false); return; }  // text / multiline / parse・format 付き date・time
           e.preventDefault();
           if (this.colCfg(c).editor) this._openCustomEditor(this.active.r, c);   // カスタムエディタ
@@ -3455,7 +3555,7 @@
           else this._openSelect();
         }
         // カスタムエディタが openOnClick を申告していれば、ドロップダウン同様シングルクリックで開く（再クリックは開かない＝トグル）
-        else { const ed = this.colCfg(c).editor; if (ed && ed.openOnClick && !wasOpenHere) { this.dragging = false; if (ed.inline) this._beginEdit(r, c); else this._openCustomEditor(r, c); } }   // inline は共有 input を開く（_beginEdit→toEdit→ed.open）
+        else { const ed = this.colCfg(c).editor; if (ed && ed.openOnClick && !wasOpenHere) { this.dragging = false; if (ed.inline) this._beginEdit(r, c, true); else this._openCustomEditor(r, c); } }   // inline は共有 input を開く（_beginEdit→toEdit→ed.open）
       });
       // ヘッダ全選択チェックは mousedown で処理済み。click のネイティブ・トグルを止めて二重反転を防ぐ
       this.table.addEventListener('click', (e) => {
@@ -3557,7 +3657,7 @@
         else if (this.filling) this._fillMoveAt(e.clientX, e.clientY, e.altKey);
       });
       this._on(document, 'mouseup', (e) => {
-        if (this._selDrag) { this._selDrag = null; this._stopAutoScroll(); return; }
+        if (this._selDrag) { this._selDrag = null; this._stopAutoScroll(); this._placeOverlays(); return; }   // 離したら端の丸の出し分けをやり直す
         if (this.resizing) { this._resizeEnd(); return; }
         if (this.rowMove) { this._rowMoveEnd(); return; }
         if (this.headerDrag) { this.headerDrag = null; return; }
@@ -3657,7 +3757,7 @@
             this._afterDismissTap(+td.dataset.r, +td.dataset.c);
           }
         }
-        if (this._selDrag) { this._selDrag = null; this._stopAutoScroll(); return; }
+        if (this._selDrag) { this._selDrag = null; this._stopAutoScroll(); this._placeOverlays(); return; }   // 離したら端の丸の出し分けをやり直す
         if (this._rowTouch) {
           this._clearRowLp();
           const rt = this._rowTouch; this._rowTouch = null;
@@ -3690,7 +3790,9 @@
     }
 
     // ---- 型に応じた編集の入口 ----
-    _beginEdit(r, c) {
+    _beginEdit(r, c, quiet) {
+      // 読み取り専用: F2・ダブルクリックは「変えようとした」＝知らせる。クリックで開く系（openOnClick）は移動しただけ＝quiet で黙る。
+      if (this._isReadOnly(r, c)) { if (!quiet) this._roAttempt(r, c); return; }
       this.clearCopyMarquee();   // 編集開始でコピー/カットのマーキー（点線）を消す（dropdown/checkbox/カスタム含む）
       const _ed = this.colCfg(c).editor;
       if (_ed && !_ed.inline) { this._openCustomEditor(r, c); return; }   // カスタムエディタ（inline は共有 input の経路へ落として toEdit が open する）
@@ -3735,7 +3837,7 @@
     }
     // checkbox: ON/OFF をトグルして関所を通す
     _toggleCheckbox(r, c) {
-      if (this._isReadOnly(r, c)) return;  // 読み取り専用はトグル不可
+      if (this._isReadOnly(r, c)) { this._roAttempt(r, c); return; }  // 読み取り専用はトグル不可（知らせだけ）
       const cur = this.data[r][c];
       const nv = this._isCheckedVal(c, cur) ? this._cbUnchecked(c) : this._cbChecked(c);
       const before = this.snapSel(), changes = [];
@@ -3965,6 +4067,7 @@
     }
   }
 
+  TssGrid.CELL_TYPES = ['text', 'number', 'date', 'time', 'dropdown', 'checkbox'];   // columns[c].type に使える型（d.ts の CellType と同じ）
   TssGrid.PENDING = Symbol('tg-pending');   // 遅延ロード(push): 未取得行を表す sentinel。data[r] に入れると _rowHTML が「読込中」行を描く
 
   // ---- UMD export ----

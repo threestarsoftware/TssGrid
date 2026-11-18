@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 列の表示切り替え（チェックで出し入れ・最初から隠す・右クリック・表示を覚える）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 30px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; } code { background: #eef2f6; padding: 0 4px; border-radius: 3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  .bar { margin: 8px 0; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; }
+  .bar button { font: inherit; padding: 3px 10px; border: 1px solid #c5ced8; background: #fff; border-radius: 4px; cursor: pointer; }
+  .bar label { cursor: pointer; white-space: nowrap; }
+  pre { background: #1e2530; color: #d7e1ec; padding: 8px 12px; border-radius: 6px; font-size: 12px; max-width: 760px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 列の表示切り替え <span class="pill">hideColumn</span> <span class="pill">showColumn</span> <span class="pill">toggleColumn</span> <span class="pill">columns[c].hidden</span></h1>
+
+<div class="note">
+列を<b>消さずに隠す</b>（値はそのまま）方法です。列の指定は <b>列番号でも data キー（<code>'tel'</code> など）でも</b>できます。
+<br>隠した列は畳まれ、カーソル移動・コピーは隠し列を飛ばします（見たままをコピー）。値は <code>getRows()</code> に含まれます。
+</div>
+
+<!-- ① -->
+<h2>① チェックで列を出し入れする</h2>
+<div class="note">
+<code>toggleColumn(キー)</code> で切り替え、<code>isColumnHidden(キー)</code> で今の状態を読めます。最低1列は残ります（全部は隠せない）。
+</div>
+<div class="bar" id="checks"></div>
+<div class="bar"><button id="show-all">すべて表示</button></div>
+<div class="tssgrid-host"><div id="g1"></div></div>
+
+<!-- ② -->
+<h2>② 最初から隠しておく</h2>
+<div class="note">
+列定義に <code>hidden: true</code> を書くと最初から隠れます（<code>hiddenColumns: ['id']</code> と同じ。列定義に書けば並べ替えても一緒に動く）。
+<br>画面には出さないけれど、保存の時に要る値（社員ID・コードなど）を持たせておく使い方です。
+</div>
+<div class="bar"><button id="b-rows">getRows() を見る</button><button id="b-show">ID列を表示する</button></div>
+<div class="tssgrid-host"><div id="g2"></div></div>
+<pre id="out2">（getRows() を押すと、隠したIDも含まれているのが見えます）</pre>
+
+<!-- ③ -->
+<h2>③ 右クリックで隠す・表示した状態を覚える</h2>
+<div class="note">
+<b>列見出しを右クリック →「この列を隠す」</b>。戻すときは「すべての列を表示」。右クリックメニューに自分の項目を足す例です（列見出しの時だけ出す）。
+<br>隠した列は <b>この端末のブラウザに覚えておき、ページを開き直しても同じ表示</b>になります（<code>localStorage</code>・列番号でなく data キーで保存＝列が増えてもずれない）。
+</div>
+<div class="bar"><button id="c-reset">覚えた表示を消す</button></div>
+<div class="tssgrid-host"><div id="g3"></div></div>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const people = [
+    { id: 'E101', name: '佐藤 一郎', dept: '営業部', tel: '101', mail: 'sato@example.com', memo: '' },
+    { id: 'E102', name: '鈴木 花子', dept: '総務部', tel: '202', mail: 'suzuki@example.com', memo: '在宅（火・木）' },
+    { id: 'E103', name: '高橋 次郎', dept: '開発部', tel: '303', mail: 'takahashi@example.com', memo: '' },
+  ];
+  const cols = [
+    { data: 'name', title: '氏名', width: 100 },
+    { data: 'dept', title: '部署', width: 80 },
+    { data: 'tel', title: '内線', width: 60 },
+    { data: 'mail', title: 'メール', width: 180 },
+    { data: 'memo', title: '備考', width: 140 },
+  ];
+
+  // ---------- ① チェックで出し入れ ----------
+  const g1 = new TssGrid(document.getElementById('g1'), { columns: cols, data: people.map(r => ({ ...r })) });
+  const checks = document.getElementById('checks');
+  const syncChecks = () => checks.querySelectorAll('input').forEach(cb => { cb.checked = !g1.isColumnHidden(cb.value); });
+  cols.forEach(col => {
+    const lb = document.createElement('label');
+    lb.innerHTML = '<input type="checkbox" value="' + col.data + '"> ' + col.title;
+    lb.querySelector('input').onchange = e => { g1.toggleColumn(e.target.value); syncChecks(); };   // ← data キーで切り替え
+    checks.appendChild(lb);
+  });
+  syncChecks();   // 最後の1列は隠せないので、押しても戻る（チェックは表の状態に合わせ直す）
+  document.getElementById('show-all').onclick = () => { cols.forEach(col => g1.showColumn(col.data)); syncChecks(); };
+
+  // ---------- ② 最初から隠す ----------
+  const g2 = new TssGrid(document.getElementById('g2'), {
+    columns: [{ data: 'id', title: '社員ID', width: 70, hidden: true }, ...cols.slice(0, 3)],   // ← ID は最初から隠す
+    data: people.map(r => ({ ...r })),
+  });
+  document.getElementById('b-rows').onclick = () => { document.getElementById('out2').textContent = JSON.stringify(g2.getRows(), null, 2); };
+  document.getElementById('b-show').onclick = () => g2.toggleColumn('id');
+
+  // ---------- ③ 右クリックで隠す・表示を覚える ----------
+  const KEY = 'tssgrid-example-hidden-columns';
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (_) { return []; } };
+  const save = g => { try { localStorage.setItem(KEY, JSON.stringify(cols.filter(c => g.isColumnHidden(c.data)).map(c => c.data))); } catch (_) {} };
+  const g3 = new TssGrid(document.getElementById('g3'), {
+    columns: cols,
+    hiddenColumns: load(),                                   // ← 前回隠した列（data キー）で復元
+    data: people.map(r => ({ ...r })),
+    contextMenu: [
+      'copy', 'cut', 'paste', 'clear', '---',               // 組み込み項目は名前で並べる（行の挿入/削除などは載せていない）
+      { name: 'この列を隠す', hidden: (s, ctx) => ctx.on !== 'col',
+        callback: ({ ctx }) => { g3.hideColumn(ctx.c); save(g3); } },
+      { name: 'すべての列を表示', disabled: () => !g3.getHiddenColumns().length,
+        callback: () => { cols.forEach(c => g3.showColumn(c.data)); save(g3); } },
+    ],
+  });
+  document.getElementById('c-reset').onclick = () => { try { localStorage.removeItem(KEY); } catch (_) {} cols.forEach(c => g3.showColumn(c.data)); };
+</script>
+</body>
+</html>

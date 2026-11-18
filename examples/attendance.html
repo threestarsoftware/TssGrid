@@ -150,7 +150,7 @@
   const FLOW = [C.start, C.end, C.exbreak, C.remarks];   // Enter の巡回順（入力セルだけ）
 
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'attendance', width: 1014, height: 430, rowHeight: 23, maxRows: 31,
+    name: 'attendance', width: 1014, height: 430, maxRows: 31,
     rowHeaders: false,         // 行番号列（自動連番）を非表示（日 列が連番なので不要）
     invalidMode: 'keep',
     contextMenu: ['copy', 'cut', 'paste', 'clear'],   // 行/列の挿入削除は出さない（固定31日なので不要）
@@ -209,7 +209,7 @@
 
   // ===== 合計グリッド =====
   const sum = new TssGrid(document.getElementById('sum'), {
-    name: 'sum', rowHeight: 23, rowHeaders: false, cursor: false,   // 表示専用＝選択カーソル非表示。幅は中身に合わせる
+    name: 'sum', rowHeaders: false, cursor: false,   // 表示専用＝選択カーソル非表示。幅は中身に合わせる
     contextMenu: ['copy'],   // 表示専用なのでコピーのみ（行/列操作なし）
     headers: ['', '勤務日数', '勤務時間', '残業', '深夜', '休出日数', '有給取得', '有給残'],
     colWidths: [60, 88, 90, 80, 80, 80, 80, 80],   // 合計列＝上テーブルの 日(30)+曜(30)
@@ -242,7 +242,7 @@
   // ラベル列(偶数列)は cellClass で スレートのチップ見た目に。値列は内部キー(employeeId 等)で持つ＝
   // getRows() は { lbl_*:..., employeeId:'000001', ... }。値だけ欲しければ employeeId 等を読めばよい。
   const infoGrid = new TssGrid(document.getElementById('info'), {
-    name: 'info', colHeaders: false, rowHeaders: false, cursor: false, contextMenu: false, rowHeight: 28,
+    name: 'info', colHeaders: false, rowHeaders: false, cursor: false, contextMenu: false,
     colWidths: [72, 92, 56, 110, 56, 130, 90, 78],
     columns: [
       { data: 'lbl_id', readOnly: true }, { data: 'employeeId', readOnly: true, align: 'center' },
@@ -265,7 +265,7 @@
   // value='2026-6'(保存される内部コード) / label='2026年06月（30日）'(表示)
   const ymOptions = MONTHS.map(([y, m]) => ({ value: y + '-' + m, label: ymLabel(y, m) }));
   const settingsGrid = new TssGrid(document.getElementById('settings'), {
-    name: 'settings', colHeaders: false, rowHeaders: false, contextMenu: false, rowHeight: 28,
+    name: 'settings', colHeaders: false, rowHeaders: false, contextMenu: false,
     fillHandle: false,   // フィル無効（ドラッグ消去なし）
     copyPaste: false,    // コピペ無効＝paste で年月/プロジェクトが消えるのを防止（ドロップダウン操作は生きたまま）
     colWidths: [76, 150, 90, 200],

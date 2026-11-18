@@ -41,7 +41,7 @@
   const monthCols = MONTHS.map((k, i) => ({ data: k, title: (i + 4) + '月', width: 70, type: 'number', align: 'right', format: num }));
 
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'sales', width: 760, rowHeight: 28, rowHeaders: false,
+    name: 'sales', width: 760, rowHeaders: false,
     columns: [
       { data: 'shop', title: '店舗', width: 90 },
       ...monthCols,

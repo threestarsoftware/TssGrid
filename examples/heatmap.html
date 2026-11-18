@@ -41,7 +41,7 @@
   const MONTHS = ['m4', 'm5', 'm6', 'm7', 'm8', 'm9'];
 
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'sales', width: 800, rowHeight: 28, rowHeaders: false,
+    name: 'sales', width: 800, rowHeaders: false,
     columns: [
       { data: 'shop', title: '店舗', width: 80 },
       ...MONTHS.map((k, i) => ({ data: k, title: (i + 4) + '月', width: 110, type: 'number', align: 'right', format: num, cellStyle: heat })),
@@ -57,7 +57,7 @@
   // データバー（背景に棒・数値はそのまま・編集可）
   const bar = TssDataBar({ min: 0, max: 100, color: 'rgba(21,115,192,.22)' });
   const grid2 = new TssGrid(document.getElementById('grid2'), {
-    name: 'kpi', width: 360, rowHeight: 28, rowHeaders: false,
+    name: 'kpi', width: 360, rowHeaders: false,
     columns: [
       { data: 'name', title: '担当', width: 140 },
       { data: 'rate', title: '達成率(%)', width: 200, type: 'number', align: 'right', cellStyle: bar },

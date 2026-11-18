@@ -49,7 +49,7 @@
   const num = v => (v === '' || v == null) ? '' : Number(v).toLocaleString('ja-JP');
 
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'sales', width: 800, rowHeight: 28, rowHeaders: false,
+    name: 'sales', width: 800, rowHeaders: false,
     columns: [
       { data: 'shop', title: '店舗', width: 90 },
       ...MONTHS.map((k, i) => ({ data: k, title: (i + 4) + '月', width: 110, type: 'number', align: 'right', format: num })),

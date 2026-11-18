@@ -46,7 +46,7 @@
 
   // ① 合計表示用グリッド（表示専用）。列幅を本体と揃えて下にぴたっと並べる＝「究極の見た目」。
   const sumGrid = new TssGrid(document.getElementById('sumgrid'), {
-    name: 'sum', width: 660, rowHeight: 26, rowHeaders: false, colHeaders: false, cursor: false, contextMenu: ['copy'],
+    name: 'sum', width: 660, rowHeaders: false, colHeaders: false, cursor: false, contextMenu: ['copy'],
     columns: [
       { data: 'label',    width: W.name,     readOnly: true, align: 'center' },
       { data: 'quantity', width: W.quantity, readOnly: true, align: 'right', format: num },
@@ -60,7 +60,7 @@
 
   // ② 明細グリッド。totals の onTotals で①へ流し込むだけ（setValueRaw＝表示専用なので履歴も汚さない）。
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'formula-demo', width: 660, rowHeight: 26, rowHeaders: false,
+    name: 'formula-demo', width: 660, rowHeaders: false,
     columns: [
       { data: 'name',     title: '品名', width: W.name },
       { data: 'quantity', title: '数量', width: W.quantity, type: 'number', align: 'right' },

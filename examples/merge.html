@@ -47,7 +47,7 @@
 <script>
   const inMerge = (g, r, c) => (g.getMerges ? g.getMerges() : []).some(m => r >= m.r && r < m.r + (m.rowspan || 1) && c >= m.c && c < m.c + m.colspan);
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'team', width: 660, rowHeight: 30, rowHeaders: true,
+    name: 'team', width: 660, rowHeaders: true,
     headers: ['チーム', 'メンバー', '9:00', '10:00', '11:00'],
     colWidths: [90, 110, 110, 110, 110],
     // 右クリックでも結合/解除（Excel風。ボタンと同じ mergeSelection/removeMerge を呼ぶだけ）

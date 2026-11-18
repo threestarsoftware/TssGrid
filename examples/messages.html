@@ -60,7 +60,7 @@ W_LONG,warn,{label}がやや長めです（{value}）`;
 
   const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const grid = new TssGrid(document.getElementById('grid'), {
-    name: 'reg', width: 820, rowHeight: 26, rowHeaders: false, invalidMode: 'keep',
+    name: 'reg', width: 820, rowHeaders: false, invalidMode: 'keep',
     messages,   // ← カタログを渡すだけ。validator はコードを返す
     columns: [
       { data: 'code', title: 'コード', width: 130, maxLength: 5,

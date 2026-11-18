@@ -3,6 +3,51 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.46] - 2026-11-18
+
+### 追加／改善（スマホ・タブレットの指操作）
+- **表の端の選択ハンドル（丸）の出し分け `touchSelectEdge`**：`'keep'`（既定）＝端でも残す（端側から縮められる）／`'hide'`＝表の端に接した丸を隠す。実行時は `setTouchSelect(v, edge)`。
+- どちらの設定でも、**端かつその向きが1マス幅の丸は常に隠す**（伸ばすも縮めるも出来ない丸）。1行だけの表では天地、1列だけの表では左右の丸が自動で消える。
+- 引いている最中の丸は端に着いても消さず、指を離した時点で出し分けをやり直す。
+
+### 追加
+- **`headerWrap`**：長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。
+- **`getRows({ typed: true })`**（`getRow` / `getAllRows` も）：number 列を数値（空欄は null・`'1,200'` も 1200）、checkbox 列を true/false にして取り出す。既定は従来どおり文字列。
+- **`columns[c].type` の書き間違い（`'numeric'` など）をコンソールで警告**（使える型の一覧と「もしかして」を表示・動作は従来どおり text 扱い）。
+- 例 `examples/data-io.html`（データの取り出しと流し込み：全行/選択行/絞り込み中も全部・数値で取り出す・件数・入れ替え/追記/空にする）。
+- **列の表示切替を data キーでも**：`hideColumn` / `showColumn` / `toggleColumn` / `isColumnHidden` と `hiddenColumns` に `'tel'` のような data キーを渡せる（従来の列番号も可）。
+- **列定義に `hidden: true`**（`hiddenColumns` の列定義版＝並べ替えても追従）。`setColumns` で差し替えた時も各列の `hidden` を反映。
+- **読み取り専用セルで打った・F2・ダブルクリック・チェックをトグルした時も `onReadOnly` を呼ぶ**（`source:'edit'`・打鍵は打った文字を `value` に）。従来は貼り付け/Delete/フィルだけで、打っても無反応＝「🔒 変更できません」を出す手段がなかった。値は変わらない・クリックで選んだだけでは呼ばない。
+- **見せるだけの表（`cursor:false`＋`readOnly:true`）は読み取り専用の灰色を付けない**（普通の色で読みやすく）。列/セル単位のロックは従来どおり灰色。`cellClass`/`cellStyle` の色付けはそのまま効く。
+- `setActive(r, c)` の列も data キーで指定可（`setActive(2, 'qty')`）。
+- 例 `examples/select-control.html`（表示専用と選択の制御：選択枠なしの表・一部だけ編集させない・選べるセルを絞る・ボタンから入力を始める）。
+- 例 `examples/columns-visibility.html`（列の表示切り替え：チェックで出し入れ・最初から隠す・右クリックで隠す・表示を覚える）。
+- 例 `examples/rows.html`（行の追加・削除と制限：ボタンで追加/削除・削除前の確認・上限/下限・利用者には禁止・末尾に常に空行）。
+- 例 `examples/column-size.html`（列幅と表のサイズ：内容に合わせる・余白を埋める・高さ・行の高さ・見出しの折り返し）。
+
+### 改善（React / Vue アダプタ・TypeScript）
+- **React / Vue アダプタが TssGrid のオプションを全部渡すように**。従来は決め打ちの15種だけを渡し、型では書けるのに `readOnly` / `maxRows` / `hiddenColumns`（Vue）などが**黙って無視**されていた。Vue は `:max-rows` も `:maxRows` も可・`@after-change` で on* を受ける。
+- **後から変えて効くプロップを追加**：`columns`（`setColumns`）・`readOnly`（`setReadOnly`）。`data` は従来どおり。列→データの順で反映。
+- **on* コールバックは常に最新の関数を呼ぶ**（React のインライン関数が古い state を掴む問題を解消）。React StrictMode の二重実行では余計な `setData` を呼ばない（元に戻す履歴が消えない）。
+- **TypeScript**：`TssGridOptions` から任意キーの受け皿を外し、**オプション名の書き間違いを型エラーに**（本体が読む全オプションを宣言。足りなかった `touchPicker` / `flashInvalid` / `hidePickerOnReadOnly` / `navSkipReadOnly` / `onAfterRowMove` / `onFilter` を追加）。列定義（`ColumnDef`）はプラグインが設定を足すため従来どおり拡張可。
+- よくある書き間違いのオプション名（`rowHeight`→`defaultRowHeight`・`readonly`→`readOnly` など）を**実行時にコンソールで警告**。
+
+### 修正
+- **`rowHeight` は本体に無いオプションで、サンプル17本・サイトのデモ・旧アダプタが書いていたのに効いていなかった**（正しくは `defaultRowHeight`）。見た目は既定 28px のままにするため、サンプルからは削除。
+- `tss-sum` の `rowHeight` 指定が合計行に効いていなかった（内部で本体に無い名前を渡していた）。
+- d.ts の列定義で `touchPicker` が二重宣言になっており、`skipLibCheck:false` の TypeScript でエラーになっていた（0.1.45）。
+- 読み取り専用のチェックボックス列で、**セルの真ん中（チェック）をクリックしてもセルを選べなかった**（無効なチェックがクリックを受け止めていた）。
+- `setColumns` で列定義を差し替えた後も、**古い列番号の隠し状態が残っていた**（範囲外の番号を捨て、新しい定義の `hidden` を反映。全列が隠れる時は1列見せる）。
+- 飛び飛びの行/列削除（`deleteRowsSet`／`deleteColsSet`・右クリック「N 行を削除」）で **`onBeforeStructureChange` が行（列）の数だけ呼ばれていた**のを、まとめて1回に（info に `rows`/`cols` と `count`）。確認ダイアログが何度も出る・途中で中止すると一部だけ消える、が起きなくなる。
+- `stretchH:'all'`／`'last'` と隠し列（`hiddenColumns`／`hideColumn`）を併用すると、**隠した列が空の列として現れていた**のを修正（隠し列は配分の対象外に）。
+- `autoColumnSize: 240` のように**数値（上限px）を渡しても上限が効いていなかった**。
+- `rowHeights` を `{ 行番号: px }` のオブジェクトで渡すと**エラーで表が作られなかった**（配列は従来どおり）。
+
+### アップデート時の注意（見え方・型チェックが変わる点）
+- タッチ端末：**先頭行・最終行・端の列の1マス選択では、伸ばすも縮めるも出来ない丸が出なくなる**（例: 先頭行の1マスでは上の丸が消える）。
+- `cursor:false`＋`readOnly:true` の表は、**灰色ではなく普通の色**で表示される。
+- TypeScript：**`TssGridOptions` に無い名前のオプションは型エラー**になる（本体はもともと読んでいない＝効いていなかった指定）。`rowHeight` は `defaultRowHeight` へ。
+
 ## [0.1.45] - 2026-11-17
 
 ### 追加／改善（スマホ・タブレットの指操作）

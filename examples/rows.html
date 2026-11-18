@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 行の追加・削除と制限（ボタンで追加/削除・上限/下限・禁止・常に空行）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 30px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; } code { background: #eef2f6; padding: 0 4px; border-radius: 3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  .bar { margin: 8px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+  .bar button { font: inherit; padding: 3px 10px; border: 1px solid #c5ced8; background: #fff; border-radius: 4px; cursor: pointer; }
+  .bar button:disabled { color: #aab; cursor: default; background: #f4f6f8; }
+  .msg { font-size: 13px; color: #445; margin: 4px 0; min-height: 1.6em; } .msg b { color: #1573c0; }
+  .log { font: 12px/1.5 Consolas, monospace; color: #556; background: #f7f8fa; border: 1px solid #e3e7ec; border-radius: 4px; padding: 4px 10px; max-width: 760px; min-height: 1.5em; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 行の追加・削除と制限 <span class="pill">insertRow</span> <span class="pill">deleteRows</span> <span class="pill">maxRows</span> <span class="pill">minRows</span> <span class="pill">allowInsertRows</span> <span class="pill">minSpareRows</span></h1>
+
+<div class="note">
+行の追加・削除は、<b>右クリックメニュー</b>（行を上/下に挿入・行を削除）でも、<b>ボタンから API</b> でもできます。どちらも <b>Ctrl+Z で元に戻せます</b>。
+<br>行の削除アイコン（🗑）を各行に出す方法は <a href="row-delete.html">行削除アイコン</a> の例を参照。
+</div>
+
+<!-- ① -->
+<h2>① ボタンで追加・削除する</h2>
+<div class="note">
+<code>insertRow(行, 'above'|'below')</code> で1行、<code>insertRows(行, 件数)</code> でまとめて追加。<code>deleteRows(先頭行, 最終行)</code> で範囲を削除、行番号を Ctrl で飛び飛びに選んだ時は <code>deleteRowsSet([行…])</code>。
+<br>削除の前に確かめたい時は <code>onBeforeStructureChange</code> で <code>false</code> を返すと中止できます。
+</div>
+<div class="bar">
+  <button id="a-end">末尾に1行追加</button>
+  <button id="a-above">選んだ行の上に追加</button>
+  <button id="a-3">選んだ行の下に3行追加</button>
+  <button id="a-del">選んだ行を削除</button>
+  <label><input type="checkbox" id="a-confirm"> 削除の前に確認する</label>
+</div>
+<div class="tssgrid-host"><div id="g1"></div></div>
+<div class="log" id="log1"></div>
+
+<!-- ② -->
+<h2>② 行数の上限・下限</h2>
+<div class="note">
+<code>maxRows: 5</code> で<b>5行より増えない</b>（右クリックの挿入・貼り付けで増える分・API もここで止まる）。<code>minRows: 2</code> で<b>2行より減らない</b>（右クリックの削除も効かない）。
+<br>今の行数から「あと何行足せるか」を出してボタンを止めることもできます。
+</div>
+<div class="bar">
+  <button id="b-add">末尾に1行追加</button>
+  <button id="b-del">最後の行を削除</button>
+</div>
+<div class="msg" id="msg2"></div>
+<div class="tssgrid-host"><div id="g2"></div></div>
+
+<!-- ③ -->
+<h2>③ 利用者には追加・削除させない</h2>
+<div class="note">
+<code>allowInsertRows: false</code>／<code>allowDeleteRows: false</code> で、<b>右クリックメニューから行の挿入・削除が消え</b>、<code>insertRow</code>／<code>deleteRows</code> も何もしません（決まった行数の表＝月の勤怠・固定の明細など）。列も同じく <code>allowInsertCols</code>／<code>allowDeleteCols</code>。
+<br>プログラムから行を足したい時は <code>appendRows</code> や <code>setData</code> を使います（こちらは止まりません）。
+</div>
+<div class="bar">
+  <button id="c-ins">insertRow を呼ぶ（何も起きない）</button>
+  <button id="c-app">プログラムから追加（appendRows）</button>
+</div>
+<div class="tssgrid-host"><div id="g3"></div></div>
+
+<!-- ④ -->
+<h2>④ 末尾にいつも入力用の空行を置く</h2>
+<div class="note">
+<code>minSpareRows: 1</code> で、<b>最後の行に何か入力すると、その下に空行が自動で1行増えます</b>。「行を追加」ボタンなしで、下へ下へと入力していけます。
+</div>
+<div class="tssgrid-host"><div id="g4"></div></div>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const cols = [{ data: 'item', width: 160 }, { data: 'qty', width: 70, type: 'number' }, { data: 'memo', width: 180 }];
+  const heads = ['品名', '数量', 'メモ'];
+  const seed = () => [
+    { item: 'ボールペン', qty: 10, memo: '' },
+    { item: 'ノート', qty: 5, memo: '' },
+    { item: 'クリップ', qty: 100, memo: '' },
+  ];
+  const rowCount = g => g.getData().length;
+
+  // ---------- ① ボタンで追加・削除 ----------
+  const log1 = document.getElementById('log1');
+  const g1 = new TssGrid(document.getElementById('g1'), {
+    headers: heads, columns: cols, data: seed(),
+    onBeforeStructureChange: info => {                       // ← 挿入・削除の「前」。false で中止
+      if (info.type === 'deleteRows' && document.getElementById('a-confirm').checked) {
+        // 飛び飛びの削除（deleteRowsSet・右クリック「N 行を削除」）は info.rows に行一覧・info.count に行数が入り、1回だけ呼ばれる
+        const n = info.count || (info.r1 - info.r0 + 1);
+        if (!confirm(n + ' 行を削除します。よろしいですか？')) return false;
+      }
+    },
+    onStructureChange: info => {                             // ← 挿入・削除の「後」（元に戻した時は info.undo）
+      log1.textContent = 'onStructureChange: ' + JSON.stringify(info) + '　→ ' + rowCount(g1) + ' 行';
+    },
+  });
+  // 選んでいる行（行番号で飛び飛びに選んだ時はその行、セルを選んだ時はその範囲の行）
+  const selectedRows = g => { const s = g.getSelectedRows(); if (s.length) return s; const r = g.rectRange(); const a = []; for (let i = r.r0; i <= r.r1; i++) a.push(i); return a; };
+  document.getElementById('a-end').onclick = () => g1.insertRow(rowCount(g1) - 1, 'below');
+  document.getElementById('a-above').onclick = () => g1.insertRow(selectedRows(g1)[0], 'above');
+  document.getElementById('a-3').onclick = () => { const s = selectedRows(g1); g1.insertRows(s[s.length - 1], 3, 'below'); };
+  document.getElementById('a-del').onclick = () => {
+    const s = selectedRows(g1);
+    // 連続した範囲なら deleteRows、飛び飛びなら deleteRowsSet
+    if (s[s.length - 1] - s[0] + 1 === s.length) g1.deleteRows(s[0], s[s.length - 1]); else g1.deleteRowsSet(s);
+  };
+
+  // ---------- ② 上限・下限 ----------
+  const MAX = 5, MIN = 2;
+  const g2 = new TssGrid(document.getElementById('g2'), {
+    maxRows: MAX, minRows: MIN,                               // ← 5行より増えない・2行より減らない
+    headers: heads, columns: cols, data: seed(),
+    onStructureChange: () => update2(),
+  });
+  function update2() {
+    const n = rowCount(g2);
+    document.getElementById('msg2').innerHTML = '<b>' + n + '</b> 行（あと ' + (MAX - n) + ' 行追加できます・' + MIN + ' 行より減らせません）';
+    document.getElementById('b-add').disabled = n >= MAX;
+    document.getElementById('b-del').disabled = n <= MIN;
+  }
+  update2();
+  document.getElementById('b-add').onclick = () => g2.insertRow(rowCount(g2) - 1, 'below');
+  document.getElementById('b-del').onclick = () => g2.deleteRows(rowCount(g2) - 1);
+
+  // ---------- ③ 追加・削除を禁止 ----------
+  const g3 = new TssGrid(document.getElementById('g3'), {
+    allowInsertRows: false, allowDeleteRows: false,           // ← 右クリックの行挿入・削除が消える
+    allowInsertCols: false, allowDeleteCols: false,           // ← 列の挿入・削除も消す（決まった形の表）
+    headers: ['日', '出勤', '退勤'],
+    columns: [{ data: 'd', width: 60, readOnly: true }, { data: 'in', width: 80, type: 'time' }, { data: 'out', width: 80, type: 'time' }],
+    data: [{ d: '1日', in: '09:00', out: '18:00' }, { d: '2日', in: '', out: '' }, { d: '3日', in: '', out: '' }],
+  });
+  document.getElementById('c-ins').onclick = () => g3.insertRow(0, 'below');
+  document.getElementById('c-app').onclick = () => g3.appendRows([{ d: (rowCount(g3) + 1) + '日', in: '', out: '' }]);
+
+  // ---------- ④ 常に空行 ----------
+  new TssGrid(document.getElementById('g4'), {
+    minSpareRows: 1,                                          // ← 末尾に入力用の空行を1行保つ
+    headers: heads, columns: cols, data: seed(),
+  });
+</script>
+</body>
+</html>

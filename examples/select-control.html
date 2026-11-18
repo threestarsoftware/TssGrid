@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 表示専用と選択の制御（選択枠なし・読み取り専用・選べるセルを絞る・プログラムから編集）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 30px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 760px; }
+  .note b { color: #1573c0; } code { background: #eef2f6; padding: 0 4px; border-radius: 3px; }
+  .pill { display: inline-block; background: #eef4ff; color: #2456b0; border-radius: 10px; padding: 1px 8px; font-size: 12px; }
+  .bar { margin: 8px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+  .bar button { font: inherit; padding: 3px 10px; border: 1px solid #c5ced8; background: #fff; border-radius: 4px; cursor: pointer; }
+  .bar button.on { background: #1573c0; border-color: #1573c0; color: #fff; }
+  .msg { font-size: 13px; color: #b5482a; min-height: 1.6em; margin: 4px 0; }
+  .tssgrid .tg-table td.done { color: #889; background: #f4f6f8; }
+  .tssgrid .tg-table td.total { font-weight: 600; background: #eef4ff; }
+</style>
+</head>
+<body>
+<h1>TssGrid 例: 表示専用と選択の制御 <span class="pill">cursor</span> <span class="pill">readOnly</span> <span class="pill">onBeforeSelectionChange</span> <span class="pill">toEdit</span></h1>
+
+<div class="note">
+「見せるだけの表」「一部だけ編集させない」「選べるセルを絞る」「ボタンから入力を始める」をまとめました。
+</div>
+
+<!-- ① -->
+<h2>① 見せるだけの表（選択枠を出さない）</h2>
+<div class="note">
+<code>readOnly: true</code> で編集できなくなり、<code>cursor: false</code> で<b>青い選択枠も出なくなります</b>（集計表・一覧の表示用）。
+<br>それでも <b>ドラッグして Ctrl+C でコピーはできます</b>（内部では選択を持っている）。
+<br>読み取り専用のセルはふだん灰色ですが、<b>この2つを両方付けた「見せるだけの表」は普通の色</b>で表示します（列やセル単位のロックは従来どおり灰色）。
+</div>
+<div class="tssgrid-host"><div id="g1"></div></div>
+
+<!-- ② -->
+<h2>② 一部だけ編集させない</h2>
+<div class="note">
+表全体は <code>setReadOnly(true/false)</code> で切り替え。列は <code>columns[c].readOnly</code>、<b>関数にすると行ごとに判定</b>できます（ここでは「状態が済」の行の金額はロック）。
+<br>選んだセルだけロックするなら <code>setCellReadOnly(true)</code>。ロックされたセルで<b>打つ・F2・ダブルクリック・Delete・貼り付け</b>など変えようとすると、<code>onReadOnly</code> で知らせを受け取れます（ここでは赤字で表示。クリックで選ぶだけなら出ません）。
+</div>
+<div class="bar">
+  <button id="b-ro">表全体を読み取り専用にする</button>
+  <button id="b-lock">選んだセルをロック</button>
+  <button id="b-unlock">選んだセルのロックを外す</button>
+</div>
+<div class="msg" id="msg2"></div>
+<div class="tssgrid-host"><div id="g2"></div></div>
+
+<!-- ③ -->
+<h2>③ 選べるセルを絞る</h2>
+<div class="note">
+<code>onBeforeSelectionChange</code> で <code>false</code> を返すと、その選択は起きません（クリック・矢印キー・ドラッグすべて）。
+<br>ここでは<b>「合計」の行には入れない</b>・<b>選べるのは1セルだけ（範囲選択しない）</b>にしています。範囲選択だけ止めたい・特定の列だけ止めたい、なども同じ書き方です。
+</div>
+<div class="bar">
+  <label><input type="checkbox" id="c-single" checked> 1セルだけ選べる</label>
+  <label><input type="checkbox" id="c-total" checked> 合計の行には入れない</label>
+</div>
+<div class="tssgrid-host"><div id="g3"></div></div>
+
+<!-- ④ -->
+<h2>④ ボタンから入力を始める</h2>
+<div class="note">
+<code>setActive(行, 列)</code> でカーソルを動かし、<code>toEdit()</code> で<b>そのセルを入力状態</b>にします（列は data キーでも可）。「行を足してすぐ入力」「エラーのセルへ飛んで直してもらう」などに。
+</div>
+<div class="bar">
+  <button id="d-edit">3行目の「数量」を入力する</button>
+  <button id="d-new">行を足して品名を入力する</button>
+  <button id="d-empty">空の数量へ飛ぶ</button>
+</div>
+<div class="tssgrid-host"><div id="g4"></div></div>
+
+<script src="../src/tssgrid.js"></script>
+<script>
+  const sales = [
+    { m: '4月', a: 1200, b: 980 }, { m: '5月', a: 1350, b: 1010 }, { m: '6月', a: 1100, b: 1240 },
+  ];
+
+  // ---------- ① 見せるだけ ----------
+  new TssGrid(document.getElementById('g1'), {
+    readOnly: true, cursor: false,                            // ← 編集不可＋選択枠なし
+    headers: ['月', '東京', '大阪'],
+    columns: [{ data: 'm', width: 70 }, { data: 'a', width: 90, type: 'number', thousands: true }, { data: 'b', width: 90, type: 'number', thousands: true }],
+    data: sales.map(r => ({ ...r })),
+  });
+
+  // ---------- ② 一部だけ編集させない ----------
+  const msg2 = document.getElementById('msg2');
+  let g2;   // readOnly の関数は表を作っている最中にも呼ばれるので、先に宣言しておく（const だと作成中に参照できない）
+  g2 = new TssGrid(document.getElementById('g2'), {
+    headers: ['件名', '状態', '金額'],
+    columns: [
+      { data: 'title', width: 140 },
+      { data: 'st', width: 70, type: 'dropdown', options: ['未', '済'] },
+      { data: 'amt', width: 100, type: 'number', thousands: true,
+        readOnly: (v, cell) => g2 && g2.getValue(cell.r, 'st') === '済',               // ← 「済」の行はロック（行ごとの判定）
+        cellClass: (v, { row }) => row && row[1] === '済' ? 'done' : '' },
+    ],
+    data: [{ title: '交通費', st: '済', amt: 3200 }, { title: '会議費', st: '未', amt: 5400 }, { title: '消耗品', st: '未', amt: 1800 }],
+    onReadOnly: blocked => { msg2.textContent = '🔒 ' + blocked.length + ' セルはロックされているので変更できません'; setTimeout(() => { msg2.textContent = ''; }, 2500); },
+  });
+  let ro = false;
+  document.getElementById('b-ro').onclick = e => {
+    ro = !ro; g2.setReadOnly(ro);
+    e.target.textContent = ro ? '読み取り専用を解除する' : '表全体を読み取り専用にする'; e.target.classList.toggle('on', ro);
+  };
+  document.getElementById('b-lock').onclick = () => g2.setCellReadOnly(true);    // 選択範囲
+  document.getElementById('b-unlock').onclick = () => g2.setCellReadOnly(false);
+
+  // ---------- ③ 選べるセルを絞る ----------
+  const rows3 = [...sales.map(r => ({ ...r })), { m: '合計', a: 3650, b: 3230 }];
+  const TOTAL = rows3.length - 1;
+  const g3 = new TssGrid(document.getElementById('g3'), {
+    headers: ['月', '東京', '大阪'],
+    columns: [{ data: 'm', width: 70 }, { data: 'a', width: 90, type: 'number', thousands: true }, { data: 'b', width: 90, type: 'number', thousands: true }],
+    data: rows3,
+    cellClass: (r) => r === TOTAL ? 'total' : '',
+    onBeforeSelectionChange: ({ range }) => {                 // ← false で選択させない
+      if (document.getElementById('c-total').checked && range.r1 >= TOTAL) return false;
+      if (document.getElementById('c-single').checked && (range.r0 !== range.r1 || range.c0 !== range.c1)) return false;
+    },
+  });
+
+  // ---------- ④ ボタンから入力を始める ----------
+  const g4 = new TssGrid(document.getElementById('g4'), {
+    headers: ['品名', '数量'],
+    columns: [{ data: 'item', width: 160 }, { data: 'qty', width: 80, type: 'number' }],
+    data: [{ item: 'ボールペン', qty: 10 }, { item: 'ノート', qty: '' }, { item: 'クリップ', qty: 100 }],
+  });
+  document.getElementById('d-edit').onclick = () => { g4.setActive(2, 'qty'); g4.toEdit(); };
+  document.getElementById('d-new').onclick = () => {
+    const last = g4.getData().length - 1;
+    g4.insertRow(last, 'below'); g4.setActive(last + 1, 'item'); g4.toEdit();
+  };
+  document.getElementById('d-empty').onclick = () => {
+    const r = g4.getRows().findIndex(row => row.qty === '');
+    if (r >= 0) { g4.setActive(r, 'qty'); g4.toEdit(); }
+  };
+</script>
+</body>
+</html>
