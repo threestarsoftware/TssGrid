@@ -3,6 +3,43 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.47] - 2026-11-18
+
+### 追加
+- **列に `formatEmpty: true`**：セルが空でも関数 `format` を呼ぶ。値を持たず行から計算して見せる列（金額＝数量×単価 など）向け。既定は従来どおり空はそのまま空（`'¥' + v` が空の行に `¥0` を出さない）。これまでは `html: true` を付けて回避するしかなかった。
+- **列に `flex`・`minWidth`・`maxWidth`**：決めた列で表の幅を吸収する（置き場の幅に合わせて伸び縮み・最小に達したら横スクロール・置き場の幅が変わると自動で配り直す）。`stretchH` は伸ばすだけ・配る先は最後の列か全部の列だけだった。`minWidth`/`maxWidth` はドラッグ・自動調整・`setColWidth` でも効く。
+- **`onColumnWidthsChange(widths)` と `getColumnWidths()`**：実際に描く列幅（`stretchH`/`flex` の配分込み）が変わった時に知らせる／今の幅を返す。
+- **誤りを外から付ける `setInvalid` / `clearInvalid` / `validateAll`**：保存を押した時のチェック（触っていないセルも）やサーバーから返った誤りを、赤＋ホバーの理由で出す。行に紐づくので並べ替え・行の移動でも同じセルに付いたまま、描き直しても消えず、そのセルを打ち直すと消える。`invalidMode` に依らない。これまでは `keep` で打って確定したセルにしか出せず、`cellClass` と `title` の付け直しで回避するしかなかった。
+- **型の定義を同梱**：`tss-sum`・`tss-merge`・`tss-toggle`・`tss-sort`・`tss-filter`（`package.json` の `exports` に `types`）。TypeScript から import しても「型が分からない」にならない。
+
+### 改善（tss-sum）
+- **明細の行ヘッダの表示・幅（`rowHeaderLabel`・`rowHeaderWidth`）も写す**。従来は `rowHeaders` だけで、明細が `rowHeaderWidth: 24` だと合計の数字が 16px 右にずれ、`rowHeaderLabel: false` でも合計側に行番号が出ていた。
+- 明細に右端の🗑列（`rowDelete`）があれば、合計の表にも同じ幅の空き列を足して右端までそろえる。
+- **`opts.TssMerge` で TssMerge を渡せる**（`opts.TssGrid` と同じ形）。import（Vite など）で使うと `window.TssMerge` が無く、ラベルが横につながらなかった。
+- **合計の表は既定で選択の枠を出さない**（`cursor: false`・灰色にもしない）。`cursor: true` で従来どおり。
+- **明細の列幅が後から変わっても追いかける**（ドラッグ・`setColWidth`・置き場の幅・`flex`・列の表示切替）。写すのは実際に描かれている幅＝明細が `stretchH` の時に最初からずれていたのも直った。明細で隠した列は合計でも隠す。
+- **明細が横にスクロールすると合計の表も一緒に動く**（合計側にスクロールバーは出さない）。
+- **データの差し替え（`setData`）でも再計算**。Vue の `:data`・React の `data` を差し替えると合計が古いままだった。
+- **行の移動（`onAfterRowMove`）でも再計算**。空の行が途中に動く等、中身が変わる場合があった。`detach()` で元に戻す。
+
+### 改善（React アダプタ）
+- **親の `useEffect` で `ref.current` に grid が入っている**ように（表をブラウザでの描画前に作る＝layout effect・SSR では従来どおり何もしない）。従来は親の最初の `useEffect` では `null` で、`TssSum.attach(ref.current, …)` のような「付けたら終わり」の処理が書けなかった。
+
+### 改善（tss-running）
+- **行の移動でも累計を引き直す**。従来は「`onAfterRowMove` で `recompute()` を呼ぶこと」としていた。
+
+### 修正
+- **行の移動を Undo した時に `onAfterRowMove` が呼ばれていなかった**（Redo では呼ばれていた）。Undo で戻した後、合計・累計・並び順の保存が古いままになっていた。Undo では `(移動後の先頭, 元の先頭, 行数)` で呼ぶ。
+- `stretchH` で配った後に置き場が狭くなっても、配った幅が残ったままだったのを、元の幅へ戻すように。固定列（`frozenCols`）の位置も配った後の幅で合わせる。
+- **表を縦に並べると間に数 px の隙間が出る**のを解消（`.tg-wrap` に `vertical-align: top`＝inline-block の下に付く文字のベースライン余白）。明細＋合計（tss-sum）の組み合わせでほぼ必ず出ていた。
+
+### アップデート時の注意（見え方・動きが変わる点）
+- **tss-sum の合計の表は選択の枠を出さなくなる**（押しても緑の枠が出ない）。前の見た目にしたい時は `cursor: true`。
+- tss-sum の合計の表の行ヘッダは、明細の `rowHeaderWidth`・`rowHeaderLabel` に合わせる（明細に合わせて自前で書き換えていたコードは不要）。
+- 表の外枠（`.tg-wrap`）が `vertical-align: top` に。文字と同じ行に表を並べている画面では、表の縦の位置が文字の上端にそろう。
+- **`onAfterRowMove` が Undo でも呼ばれる**。行の並びを保存している処理は、Undo の後も保存し直すようになる（引数は `(移動後の先頭, 元の先頭, 行数)`）。
+- React: 表を作るのが描画前（layout effect）に。親の `useEffect` でも `ref.current` が使える。
+
 ## [0.1.46] - 2026-11-18
 
 ### 追加／改善（スマホ・タブレットの指操作）

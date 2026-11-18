@@ -219,6 +219,7 @@
       this.onAfterRowMove = opts.onAfterRowMove || null;   // (from, to) 行移動の確定後
       // 列ストレッチ: 'none'(既定) | 'last'(余白を最終列へ) | 'all'(全列で配分)。枠幅まで伸ばす。
       this.stretchH = opts.stretchH || 'none';
+      this.onColumnWidthsChange = opts.onColumnWidthsChange || null;   // (widths) 実際に描く列幅が変わった時（ドラッグ・setColWidth・stretchH・flex の伸び縮み・列の表示切替）
       // セル内折り返し（既定 nowrap）。grid 全体 or columns[c].wordWrap。
       this.wordWrap = !!opts.wordWrap;
       // 溢れた文字を … で省略（既定は切るだけ）。grid 全体 or columns[c].ellipsis。ホバーで全文を title 表示（見え方だけ・値/コピー/編集は不変）。
@@ -399,7 +400,7 @@
       for (let c = 0; c < this.COLS; c++) { const k = this._key(c); out[k != null ? k : this.headers[c]] = rows.map(row => row[c]); }
       return out;
     }
-    setData(rows) { this._align.clear(); this._cellRO.clear(); this._unsortedData = null; this._allRows = this._allSrc = this._meta = this._filterFn = null; this.dataComplete = true; this._pendingCount = 0; if (this.history) this.history.clear(); this._ingest(rows); this._padToMin(); this.buildTable(); const ic = this._resolveInitialCell(); this.setActive(ic[0], ic[1]); this._ensureSpare(); }
+    setData(rows) { this._align.clear(); this._cellRO.clear(); this._extErr = null; this._unsortedData = null; this._allRows = this._allSrc = this._meta = this._filterFn = null; this.dataComplete = true; this._pendingCount = 0; if (this.history) this.history.clear(); this._ingest(rows); this._padToMin(); this.buildTable(); const ic = this._resolveInitialCell(); this.setActive(ic[0], ic[1]); this._ensureSpare(); }
     // 見出し導出（constructor / setColumns で共用）: 明示 headers > columns の title/data 由来 > A,B,C。
     _deriveHeaders(headersOpt) {
       if (headersOpt) return headersOpt.slice();
@@ -1202,6 +1203,60 @@
       }
       return out;
     }
+    // ---- 外から渡す誤り（保存時のチェック・サーバーの誤り）----
+    // 行（data の行配列）に紐づけて持つ＝並べ替え・行の移動・絞り込み・行の挿入削除でも同じセルに付いたまま。
+    // 描き直しても消えない。そのセルの値が変わったら（打ち直し・貼り付け等）そのセルの誤りは消える。invalidMode に依らず効く。
+    _colTok(c) { return this.columns[c] || ('#' + c); }
+    _extErrAt(r, c) {
+      if (!this._extErr) return null;
+      const m = this._extErr.get(this.data[r]);
+      return m ? (m.get(this._colTok(c)) || null) : null;
+    }
+    _cellErr(r, c) {   // 赤＋理由を出すべきか（外から付けた誤りが優先）→ { message, level } | null
+      const e = this._extErrAt(r, c); if (e) return e;
+      if (this._marksInvalid) { const iv = this._coerceCell(r, c, this.data[r][c]); if (!iv.ok) return { message: iv.message || '入力値が不正です', level: iv.level || 'error' }; }
+      return null;
+    }
+    _dropExtErr(r, c) {
+      if (!this._extErr) return false;
+      const row = this.data[r], m = this._extErr.get(row); if (!m || !m.delete(this._colTok(c))) return false;
+      if (!m.size) this._extErr.delete(row);
+      if (!this._extErr.size) this._extErr = null;
+      return true;
+    }
+    // 誤りを付ける: [{ r, c(列番号 or data キー), message?, level? }]。赤＋ホバーの理由。付けたセル数を返す。
+    setInvalid(list, _origin) {
+      let n = 0; const touched = [];
+      for (const it of (list || [])) {
+        const r = it && it.r, c = it ? this._resolveCol(it.c) : -1;
+        if (!(r >= 0 && r < this.ROWS) || !(c >= 0 && c < this.COLS)) continue;
+        if (!this._extErr) this._extErr = new Map();
+        const row = this.data[r]; let m = this._extErr.get(row); if (!m) { m = new Map(); this._extErr.set(row, m); }
+        m.set(this._colTok(c), { message: it.message || '入力値が不正です', level: it.level || 'error', origin: _origin || 'set' });
+        touched.push([r, c]); n++;
+      }
+      touched.forEach(([r, c]) => this._renderCell(r, c));
+      return n;
+    }
+    // 誤りを消す: 引数なし＝全部／[{ r, c }]＝そのセルだけ。
+    clearInvalid(cells) {
+      if (!this._extErr) return;
+      if (!cells) { this._extErr = null; this.buildTable(); this.setActive(this.active.r, this.active.c); return; }
+      for (const it of cells) { const c = this._resolveCol(it.c); if (it.r >= 0 && it.r < this.ROWS && c >= 0 && this._dropExtErr(it.r, c)) this._renderCell(it.r, c); }
+    }
+    // 全セルを validator 等で検証して、誤りのセルに赤＋理由を付ける（触っていないセルも）。結果は getInvalidCells() と同じ形で返す。
+    // 前回の validateAll の印は付け直す（setInvalid で付けた誤り＝サーバーの誤り等は残す）。
+    validateAll() {
+      if (this._extErr) for (const [row, m] of [...this._extErr]) {
+        for (const [k, e] of [...m]) if (e.origin === 'validate') m.delete(k);
+        if (!m.size) this._extErr.delete(row);
+      }
+      if (this._extErr && !this._extErr.size) this._extErr = null;
+      const list = this.getInvalidCells();
+      this.setInvalid(list.map(e => ({ r: e.r, c: e.c, message: e.message, level: e.level })), 'validate');
+      this.buildTable(); this.setActive(this.active.r, this.active.c);   // 消えた印も描き直す
+      return list;
+    }
     // ネイティブ入力(date/time ピッカー)を使う列か。使わない=テキスト入力。
     _nativeInputType(c) {
       const cfg = this.colCfg(c), t = cfg.type;
@@ -1221,7 +1276,11 @@
     // 保存値 → セル表示文字列（format 適用）。getData は保存値のまま。
     _displayValue(r, c) {
       const cfg = this.colCfg(c), v = this.data[r][c];
-      if (v === '') return v;
+      if (v === '') {
+        // formatEmpty:true = 空でも関数 format を呼ぶ（値を持たず行から計算して見せる列＝数量×単価 など）。既定は空を素通し＝既存の '¥'+v 等が空行に '¥0' を出さない。
+        if (cfg.formatEmpty && typeof cfg.format === 'function') { try { const out = cfg.format(v, { r, c }, this.data[r]); return out == null ? '' : String(out); } catch (_) { return v; } }
+        return v;
+      }
       if (typeof cfg.format === 'function') {
         try { const out = cfg.format(v, { r, c }, this.data[r]); return out == null ? '' : String(out); } catch (_) { return v; }   // 第3引数=その行の値配列（options と同形）
       }
@@ -1333,11 +1392,11 @@
       if (this.colType(c) === 'checkbox' || ((this.colCfg(c).html || this.colCfg(c).multiline) && ph == null)) td.innerHTML = this._cellHTML(r, c);
       else td.textContent = ph != null ? ph : this._displayValue(r, c);
       td.classList.toggle('tg-placeholder', ph != null);
-      if (this._marksInvalid) {
-        const res = this._coerceCell(r, c, this.data[r][c]);
-        td.classList.toggle('tg-invalid', !res.ok);
-        if (!res.ok) td.dataset.errLevel = res.level || 'error'; else delete td.dataset.errLevel;   // CSS で level 別トーン可
-        if (this.invalidTitle) { if (!res.ok) td.title = res.message || '入力値が不正です'; else td.removeAttribute('title'); }
+      if (this._marksInvalid || this._extErr || td.classList.contains('tg-invalid')) {   // keep モードの検証結果 ／ setInvalid・validateAll で外から付けた誤り
+        const err = this._cellErr(r, c);
+        td.classList.toggle('tg-invalid', !!err);
+        if (err) td.dataset.errLevel = err.level; else delete td.dataset.errLevel;   // CSS で level 別トーン可
+        if (this.invalidTitle) { if (err) td.title = err.message; else td.removeAttribute('title'); }
       }
       if (this.cellClass || this.colCfg(c).cellClass) this._applyCellClass(td, r, c);   // 条件付き書式
       if (this.cellStyle || this.colCfg(c).cellStyle) this._applyCellStyle(td, r, c);   // セル単位インラインスタイル
@@ -1455,7 +1514,7 @@
           if (th) th.style.left = left + 'px';
           this.table.querySelectorAll('td[data-c="' + c + '"]').forEach(td => td.style.left = left + 'px');
         }
-        left += this._colWidth(c);
+        left += this._effColW(c);   // stretchH / flex で配った後の実際の幅
       }
       // ネストヘッダ: 固定範囲のグループ見出しも先頭列のオフセットで sticky-left に
       this.table.querySelectorAll('thead th.tg-grouphdr.tg-frozen').forEach(th => {
@@ -1548,7 +1607,7 @@
         const al = this._cellAlign(r, c);   // 整列（列既定＋セル上書き）
         if (al.h) cls.push('tg-h-' + al.h); if (al.v) cls.push('tg-v-' + al.v);
         let titleAttr = '';
-        if (this._marksInvalid) { const _iv = this._coerceCell(r, c, this.data[r][c]); if (!_iv.ok) { cls.push('tg-invalid'); titleAttr = ' data-err-level="' + TssGrid.esc(_iv.level || 'error') + '"'; if (this.invalidTitle) titleAttr += ' title="' + TssGrid.esc(_iv.message || '入力値が不正です') + '"'; } }
+        if (this._marksInvalid || this._extErr) { const _iv = this._cellErr(r, c); if (_iv) { cls.push('tg-invalid'); titleAttr = ' data-err-level="' + TssGrid.esc(_iv.level) + '"'; if (this.invalidTitle) titleAttr += ' title="' + TssGrid.esc(_iv.message) + '"'; } }
         const ed = this.colCfg(c).editor;   // カスタムエディタが icon を申告していれば右端に表示
         const ico = (ed && ed.icon) ? ' data-ico="' + TssGrid.esc(ed.icon) + '"' : '';
         if (ico) cls.push('tg-haspicker');
@@ -1778,27 +1837,75 @@
       this.setColumnChecked(c, this._columnCheckState(c) !== 'all');
     }
     // 列ストレッチ: 余白を埋めるよう col 幅を伸ばす（枠に幅制約がある時だけ効く）。colW は変えない。
+    // 列幅の配り直し（stretchH の余白配分 ／ flex 列の伸び縮み）。実際に描く幅を this._effW に持ち、変わったら onColumnWidthsChange で知らせる。
+    // flex 列がある表は flex を優先: 置き場との差（足りなくても）を flex 列が minWidth〜maxWidth の範囲で吸収し、吸収しきれない分は横スクロール。
+    _hasFlex() { for (let c = 0; c < this.COLS; c++) if (!this._isHidden(c) && this.colCfg(c).flex) return true; return false; }
+    _flexAvail() {   // flex が使える幅（置き場の内寸）。width 指定あり=枠の内寸／無し=親要素(root)の幅から枠の罫線・縦スクロールバーぶんを引く
+      if (!this.wrap) return 0;
+      if (this.width) return this.wrap.clientWidth;
+      const rw = this.root ? this.root.clientWidth : 0; if (!rw) return 0;
+      return rw - (this.wrap.offsetWidth - this.wrap.clientWidth);
+    }
+    _colMin(c) { const m = this.colCfg(c).minWidth; return Math.max(this.minColW, m > 0 ? m : 0); }
+    _colMax(c) { const m = this.colCfg(c).maxWidth; return m > 0 ? m : Infinity; }
     _applyStretch() {
-      if (this.stretchH === 'none' || !this.stretchH) return;
-      const avail = this.wrap ? this.wrap.clientWidth : 0;
-      if (!avail) return;
-      const base = this._rhW() + this._delW(), widths = [];   // 削除列は固定幅＝ストレッチ対象外（余白計算から差し引く）
+      const base = this._rhW() + this._delW(), widths = [];   // 削除列は固定幅＝配分対象外
       // 隠し列は幅0のまま＝配分の対象にも合計にも入れない（入れると隠した列が空の列として現れる）。
-      const vis = this._visCols(); if (!vis.length) return;
+      const vis = this._visCols();
       let sum = 0;
       for (let c = 0; c < this.COLS; c++) { const wd = this._isHidden(c) ? 0 : this._colWidth(c); widths.push(wd); sum += wd; }
-      const extra = avail - base - sum;
-      if (extra <= 0) return;   // 余白なし → 通常（_applyTableWidth のまま）
-      const last = vis[vis.length - 1];
-      if (this.stretchH === 'last') widths[last] += extra;
-      else { // 'all': 見えている列へほぼ均等に配分し、端数は最後の表示列へ
-        const add = Math.floor(extra / vis.length);
-        for (const c of vis) widths[c] += add;
-        widths[last] += extra - add * vis.length;
+      const flex = vis.filter(c => this.colCfg(c).flex);
+      let tableW = null;
+      if (flex.length && this.table) {
+        if (!this.width && this.wrap) { this.wrap.style.maxWidth = '100%'; this.wrap.style.boxSizing = 'border-box'; }   // 縮めて最小に達したら枠の中で横スクロール（罫線込みで置き場に収める＝ページをはみ出さない）
+        const avail = this._flexAvail();
+        if (avail > 0) {
+          let rem = avail - base - sum, act = flex.slice();
+          for (let it = 0; it < 8 && act.length && Math.abs(rem) >= 1; it++) {
+            const wt = c => { const f = this.colCfg(c).flex; return typeof f === 'number' && f > 0 ? f : 1; };   // flex: 数値=配分の重み
+            const tw = act.reduce((a, c) => a + wt(c), 0), next = [];
+            let used = 0, given = 0;
+            act.forEach((c, i) => {
+              const share = i === act.length - 1 ? Math.round(rem) - given : Math.round(rem * wt(c) / tw);
+              given += share;
+              const want = widths[c] + share, got = Math.min(this._colMax(c), Math.max(this._colMin(c), want));
+              used += got - widths[c]; widths[c] = got;
+              if (got === want) next.push(c);   // 上限/下限に当たった列は次の配分から外す
+            });
+            rem -= used;
+            if (next.length === act.length) break;
+            act = next;
+          }
+          tableW = base + widths.reduce((a, b) => a + b, 0);
+        }
+      } else if (this.stretchH && this.stretchH !== 'none' && vis.length && this.table) {
+        const avail = this.wrap ? this.wrap.clientWidth : 0;
+        const extra = avail - base - sum;
+        if (avail && extra > 0) {
+          const last = vis[vis.length - 1];
+          if (this.stretchH === 'last') widths[last] += extra;
+          else { // 'all': 見えている列へほぼ均等に配分し、端数は最後の表示列へ
+            const add = Math.floor(extra / vis.length);
+            for (const c of vis) widths[c] += add;
+            widths[last] += extra - add * vis.length;
+          }
+          tableW = avail;
+        } else if (this._effW && this._effW.some((w, c) => w !== widths[c])) tableW = base + sum;   // 余白が無くなった＝配った幅を元へ戻す
       }
-      for (let c = 0; c < this.COLS; c++) { const col = this.table.querySelector('colgroup col[data-c="' + c + '"]'); if (col) col.style.width = widths[c] + 'px'; }
-      this.table.style.width = avail + 'px';
+      if (tableW != null) {
+        for (let c = 0; c < this.COLS; c++) { const col = this.table.querySelector('colgroup col[data-c="' + c + '"]'); if (col) col.style.width = widths[c] + 'px'; }
+        this.table.style.width = tableW + 'px';
+      }
+      const key = widths.join(','), changed = key !== this._effKey;
+      this._effW = widths; this._effKey = key;
+      if (changed) {
+        if (tableW != null) this._applyFrozen();   // 固定列の left は実際の幅で
+        if (this.onColumnWidthsChange) { try { this.onColumnWidthsChange(widths.slice()); } catch (_) {} }
+      }
     }
+    // 実際に描いている列幅（stretchH / flex の配分込み・隠し列は 0）。
+    getColumnWidths() { if (!this._effW || this._effW.length !== this.COLS) this._applyStretch(); return this._effW.slice(); }
+    _effColW(c) { return (this._effW && this._effW.length === this.COLS) ? this._effW[c] : (this._isHidden(c) ? 0 : this._colWidth(c)); }
 
     // セル(r,c)の幾何を「overlay 座標系（wrap padding box 基準・スクロール込みの content 座標）」で返す唯一の窓口。
     // place/placeRect/コピー枠/フィル枠 すべてここを通す＝座標変換式を一元化（散らばると frozen/overlay のズレ温床）。
@@ -2314,7 +2421,7 @@
     getSelectedRows() { return this._headerSel === 'row' ? [...this._selRows].sort((a, b) => a - b) : []; }
     // ---- 列幅 / 行高 のリサイズ ----
     setColWidth(c, w) {
-      w = Math.max(this.minColW, Math.round(w)); this.colW[c] = w;
+      w = Math.min(this._colMax(c), Math.max(this._colMin(c), Math.round(w))); this.colW[c] = w;   // 列の minWidth / maxWidth（ドラッグ・自動調整でも効く）
       const col = this.table.querySelector('colgroup col[data-c="' + c + '"]');
       if (col) col.style.width = w + 'px';
       this._applyTableWidth();   // 合計幅も更新（圧縮防止）
@@ -2462,7 +2569,7 @@
       this.history.push({
         label: this.name,
         apply() { doMove(); fire(); },                                       // redo
-        revert() { grid._applyRowOrder(inv); grid.focusAndSelect(selBefore); }, // undo
+        revert() { grid._applyRowOrder(inv); grid.focusAndSelect(selBefore); if (typeof grid.onAfterRowMove === 'function') { try { grid.onAfterRowMove(ins, r0, n); } catch (_) {} } }, // undo（戻した移動も知らせる＝合計/累計/並び順の保存が追従）
       });
       fire();
     }
@@ -2513,6 +2620,7 @@
     setCell(r, c, val, changes) {
       if (this.data[r][c] === val) return;
       changes.push({ r, c, old: this.data[r][c], neu: val });
+      if (this._extErr) this._dropExtErr(r, c);   // 値が変わったセルは外から付けた誤りを外す（打ち直した＝直したはず）
       this.data[r][c] = val; this._renderCell(r, c);
     }
     _applyCells(changes, key, source) {
@@ -3431,7 +3539,7 @@
     // スクロール / リサイズでセル位置が動いた時、エディタと選択枠を貼り直す
     _reflow() {
       this._remeasureHead();   // display:none 中ビルドでヘッダ高が0固着→表示時に測り直して自己修復
-      if (this.stretchH !== 'none') this._applyStretch();   // 枠幅が変わったら余白を再配分
+      if ((this.stretchH && this.stretchH !== 'none') || this._hasFlex()) this._applyStretch();   // 枠幅が変わったら余白を再配分（flex は伸び縮み）
       this._buildGeomCache();   // 幅/枠が変わったので実測幾何を取り直す（リサイズ/ResizeObserver/window resize）
       if (this.virtual) this._renderWindow(this._vWindow(), false);   // 枠高が変われば窓行数も変わる＝窓を同期
       const td = this.activeTd(); if (!td) return;
@@ -3635,6 +3743,7 @@
       if (typeof ResizeObserver !== 'undefined') {
         this._ro = new ResizeObserver(() => this._reflow());
         this._ro.observe(this.table); this._ro.observe(this.wrap);
+        if (this.root) this._ro.observe(this.root);   // 置き場（親）の幅の変化＝flex 列の配り直し（枠が中身に合わせて縮む時は wrap だけでは気づけない）
       } else if (typeof window !== 'undefined' && window.addEventListener) {
         this._on(window, 'resize', () => this._reflow());
       }

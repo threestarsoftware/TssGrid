@@ -73,6 +73,13 @@ export interface ColumnDef {
   hidden?: boolean;
   /** 列ごとの初期幅(px)。列定義に同居＝並べ替え/コピペで幅が追従。 */
   width?: number;
+  /** この列で表の幅を吸収する（置き場の幅に合わせて伸び縮み）。`width` が出発点で、`minWidth`〜`maxWidth` の範囲。
+   *  縮めて最小に達したらそこからは横スクロール。数値は配分の重み（flex 列が複数の時）。flex 列がある表では stretchH より優先。 */
+  flex?: boolean | number;
+  /** 列の最小幅(px)。flex の伸び縮み・ドラッグ・自動調整で効く。 */
+  minWidth?: number;
+  /** 列の最大幅(px)。flex の伸び縮み・ドラッグ・自動調整で効く。 */
+  maxWidth?: number;
   /** false でこの列だけリサイズ禁止。 */
   resizable?: boolean;
   /** 列既定の水平/垂直整列。 */
@@ -90,6 +97,9 @@ export interface ColumnDef {
    *  関数は `(value, { r, c }, row)`＝第3引数 `row` はその行の値配列（`grid.data[r]`・options と同形）。
    *  html:true 併用でセル内にボタン/アイコン等の HTML を描ける（空セルでも実行される）。 */
   format?: string | object | ((value: any, cell: CellCoord, row: any[]) => string);
+  /** true で、セルが空でも関数 `format` を呼ぶ（既定 false＝空はそのまま空）。
+   *  値を持たず行から計算して見せる列（金額＝数量×単価 など）に。例 `{ readOnly:true, formatEmpty:true, format:(v,{r},row)=>… }` */
+  formatEmpty?: boolean;
   /** 数値型: 千区切り表示。 */
   thousands?: boolean;
   /** 数値型: 接頭辞（例 '¥'）。 */
@@ -165,6 +175,8 @@ export interface TssGridOptions {
   /** false で選択カーソルを非表示（表示専用グリッド向け・内部選択は保持）。 */
   cursor?: boolean;
   stretchH?: 'none' | 'last' | 'all';
+  /** 実際に描く列幅が変わった時（ドラッグ・setColWidth・stretchH・flex の伸び縮み・列の表示切替）。widths は列ごと（隠し列は 0）。 */
+  onColumnWidthsChange?: (widths: number[]) => void;
   /** 長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。既定 false＝1行で切る。 */
   headerWrap?: boolean;
   rowHeaders?: boolean;
@@ -222,7 +234,7 @@ export interface TssGridOptions {
   hidePickerOnReadOnly?: boolean;
   /** Tab/Enter の送りで読み取り専用セルを飛ばす（伝票入力向け＝編集する所だけ移動）。既定 false。 */
   navSkipReadOnly?: boolean;
-  /** 行ドラッグ移動の確定後（from=元の先頭行, to=新しい先頭行, count=行数）。 */
+  /** 行の移動の確定後（from=元の先頭行, to=新しい先頭行, count=行数）。Undo/Redo で戻した・やり直した時も呼ぶ。 */
   onAfterRowMove?: (from: number, to: number, count: number) => void;
   /** 非破壊フィルタ（filter / clearFilter）の適用・解除の後。count=見えている行数, total=全行数, cleared=解除した時 true。 */
   onFilter?: (info: { count: number; total: number; cleared?: boolean }) => void;
@@ -528,6 +540,8 @@ export declare class TssGrid {
   /** checkbox 列を全 ON/OFF（readOnly 行はスキップ・1 undo）。 */
   setColumnChecked(c: number, flag: boolean): void;
   setColWidth(c: number, px: number): void;
+  /** 実際に描いている列幅（stretchH / flex の配分込み・隠し列は 0）。 */
+  getColumnWidths(): number[];
   autoSizeColumn(c: number): void;
   autoSizeAllColumns(): void;
   freezeCols(n: number): void;
@@ -540,6 +554,13 @@ export declare class TssGrid {
   setCellReadOnly(flag: boolean, range?: SelectionRange): void;
   /** 今の全セルを検証し、NG を一覧で返す（保存前チェック等）。 */
   getInvalidCells(): Rejection[];
+  /** セルに誤りを付ける（赤＋ホバーの理由）。保存時のチェックやサーバーから返った誤りに。
+   *  行に紐づくので並べ替え・行の移動でも同じセルに付いたまま。描き直しても消えず、そのセルの値が変わると消える。invalidMode に依らない。付けたセル数を返す。 */
+  setInvalid(cells: { r: number; c: number | string; message?: string; level?: 'error' | 'warning' | string }[]): number;
+  /** 付けた誤りを消す（引数なし＝全部／[{r,c}]＝そのセルだけ）。 */
+  clearInvalid(cells?: { r: number; c: number | string }[]): void;
+  /** 全セルを検証し、誤りのセルに赤＋理由を付ける（触っていないセルも）。返り値は getInvalidCells() と同じ。前回の validateAll の印は付け直し、setInvalid の誤りは残す。 */
+  validateAll(): Rejection[];
 
   // ---- 出力 / 再描画 / 破棄 ----------------------------------------------
   toCSV(opts?: CsvOptions): string;

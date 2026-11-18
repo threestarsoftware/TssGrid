@@ -6,7 +6,10 @@
  *
  *  ソースグリッドと「同一の列構成」の readonly 集計グリッドを作るので、金額列の幾何を共有し
  *  画面でも印刷でも値が縦にピッタリ揃う。各合計行は宣言で（条件＋対象）または派生で定義する。
- *  ソースの onAfterChange / onStructureChange を包んで自動で再計算する。
+ *  ソースの onAfterChange / onStructureChange / onAfterRowMove / setData を包んで自動で再計算する。
+ *  行ヘッダ（表示・幅・番号の有無）と右端の🗑列の幅もソースに合わせる＝数字の列が縦にそろう。
+ *  列幅は「実際に描かれている幅」（stretchH / flex の配分込み）を写し、後から変わっても（ドラッグ・setColWidth・
+ *  置き場の幅・列の表示切替）追いかける。明細が横にスクロールしたら合計の表も一緒に動く。
  *
  *  使い方:
  *    const sum = TssSum.attach(grid, document.getElementById('sumgrid'), {
@@ -32,9 +35,10 @@
  *    { label:'消費税（10%）', when: r => tax(r)==='10%', of: r => Math.round(amount(r)*0.10) }                 // 行ごと（旧来式）
  *  105円×2行@10% で after あり=¥21 / 行ごと=¥20 と1円ずれる。when で税率ごとに行が分かれるので複数税率でも正しい。
  *  opts: rows(必須) / valueCol(既定=最終列) / sumCol(of 省略時に合計する列) / format / rowHeight(既定28)
- *        / onCompute(vals) / name / TssGrid(モジュール利用時にコンストラクタを注入)
+ *        / onCompute(vals) / name / TssGrid・TssMerge(モジュール利用時に注入＝import では window に載らないため)
+ *        / cursor(既定 false＝見せるだけの表なので選択枠を出さない。true で出す)
  *  返り値: { grid, refresh, detach }
- *  注意: ラベルの横結合に window.TssMerge を使う（無ければラベルは先頭列のみ）。集計グリッドは表示専用。
+ *  注意: ラベルの横結合に opts.TssMerge か window.TssMerge を使う（無ければラベルは先頭列のみ）。集計グリッドは表示専用。
  */
 (function (root) {
   'use strict';
@@ -51,29 +55,68 @@
     var fmt = opts.format || function (v) { return v; };
 
     // ソースと同じ列幅・行ヘッダ・全体幅でミラー（＝金額列が揃う）。全セル readonly。
-    var columns = [];
+    var srcW = function () { return (typeof source.getColumnWidths === 'function') ? source.getColumnWidths() : null; };
+    var w0 = srcW();
+    var columns = [], hidden = [];
     for (var c = 0; c < COLS; c++) {
-      var col = { width: source._colWidth(c), readOnly: true };
+      var col = { width: (w0 && w0[c]) ? w0[c] : source._colWidth(c), readOnly: true };
+      if (w0 && w0[c] === 0) hidden.push(c);   // 明細で隠した列は合計でも隠す
       if (c === valueCol) { col.align = 'right'; col.format = fmt; }
       columns.push(col);
     }
+    // ソースに右端の🗑列（rowDelete）があれば、同じ幅の空き列を足して右端もそろえる
+    var delW = (typeof source._delW === 'function') ? source._delW() : 0;
+    if (delW) columns.push({ width: delW, readOnly: true });
+    var NC = columns.length;
     var data = rows.map(function (spec) {
-      var r = new Array(COLS).fill('');
+      var r = new Array(NC).fill('');
       r[0] = (spec.label != null) ? spec.label : '';   // ラベルは先頭列（アンカー）
       return r;
     });
     var plugins = [];
-    if (root.TssMerge && valueCol > 1) {   // ラベルを valueCol の手前まで横結合
-      plugins.push(root.TssMerge.plugin({
+    var Merge = opts.TssMerge || root.TssMerge;   // import 利用時は window に載らない＝opts で渡せる（TssGrid と同じ形）
+    if (Merge && valueCol > 1) {   // ラベルを valueCol の手前まで横結合
+      plugins.push(Merge.plugin({
         merges: rows.map(function (_, r) { return { r: r, c: 0, colspan: valueCol }; }),
       }));
     }
     var tg = new Grid(mountEl, {
       name: opts.name || (source.name ? source.name + '-sum' : 'sum'),
       width: source.width, defaultRowHeight: opts.rowHeight || 28,   // 本体のオプション名は defaultRowHeight（rowHeight は本体が読まない＝以前は指定が効いていなかった）
-      rowHeaders: source.rowHeaders, colHeaders: false,
-      columns: columns, data: data, plugins: plugins,
+      rowHeaders: source.rowHeaders, rowHeaderWidth: source.rowHeaderW, rowHeaderLabel: source.rowHeaderLabel,   // 行ヘッダの表示・幅・番号の有無も写す（幅違いで数字が横にずれない）
+      colHeaders: false,
+      readOnly: true, cursor: opts.cursor === true,   // 見せるだけの表＝選択枠を出さない・灰色にしない（tg-view）
+      columns: columns, data: data, plugins: plugins, hiddenColumns: hidden,
     });
+
+    // 明細の列幅が変わったら写す（隠し列も合わせる）。合計の表は数行なので作り直しで十分軽い。
+    function mirrorWidths(w) {
+      w = w || srcW(); if (!w) return;
+      var same = true;
+      for (var c = 0; c < COLS; c++) {
+        var hid = w[c] === 0;
+        if (hid !== tg.hiddenCols.has(c)) { same = false; if (hid) tg.hiddenCols.add(c); else tg.hiddenCols.delete(c); }
+        if (!hid && tg.colW[c] !== w[c]) { same = false; tg.colW[c] = w[c]; }
+      }
+      if (!same) tg.buildTable();
+      syncScroll();
+    }
+    // 明細が横にスクロールする時は、合計の表を明細の見えている幅に合わせ、横位置を明細に連動させる（合計側のスクロールバーは出さない）
+    function syncScroll() {
+      var sw = source.wrap, tw = tg.wrap; if (!sw || !tw) return;
+      if (sw.scrollWidth > sw.clientWidth + 1) {
+        tw.style.boxSizing = 'content-box'; tw.style.width = sw.clientWidth + 'px';   // 見えている幅（内寸）を明細とそろえる＝右端まで送っても同じ位置
+        tw.style.overflowX = 'hidden';
+        tw.scrollLeft = sw.scrollLeft;
+      } else if (tw.style.overflowX === 'hidden') {
+        tw.style.width = source.width || ''; tw.style.overflowX = ''; tw.scrollLeft = 0;
+      }
+    }
+    var origCW = source.onColumnWidthsChange;
+    source.onColumnWidthsChange = function (w) { if (origCW) { try { origCW.apply(this, arguments); } catch (e) {} } mirrorWidths(w); };
+    if (source.wrap) source.wrap.addEventListener('scroll', syncScroll);
+    var ro = (typeof ResizeObserver !== 'undefined' && source.wrap) ? new ResizeObserver(function () { syncScroll(); }) : null;
+    if (ro) ro.observe(source.wrap);
 
     function num(v) { return Number(v) || 0; }
     function refresh() {
@@ -104,16 +147,25 @@
     }
 
     // ソースの変更フックを包んで自動再計算（既存ハンドラは温存）
-    var origAC = source.onAfterChange, origSC = source.onStructureChange;
+    var origAC = source.onAfterChange, origSC = source.onStructureChange, origRM = source.onAfterRowMove;
     source.onAfterChange = function () { if (origAC) origAC.apply(this, arguments); refresh(); };
     source.onStructureChange = function () { if (origSC) origSC.apply(this, arguments); refresh(); };
+    source.onAfterRowMove = function () { if (origRM) origRM.apply(this, arguments); refresh(); };
+    // setData（データの差し替え＝Vue の :data / React の data プロップ変更もこれ）でも再計算。tss-running / tss-totals と同じ包み方
+    var hadOwnSetData = Object.prototype.hasOwnProperty.call(source, 'setData'), origSetData = source.setData;
+    source.setData = function () { var ret = origSetData.apply(source, arguments); refresh(); return ret; };   // rowReorder で空の行が途中に動く等、中身が変わる場合がある
     refresh();
+    mirrorWidths();
 
     return {
       grid: tg,
       refresh: refresh,
       detach: function () {
-        source.onAfterChange = origAC; source.onStructureChange = origSC;
+        source.onAfterChange = origAC; source.onStructureChange = origSC; source.onAfterRowMove = origRM;
+        source.onColumnWidthsChange = origCW;
+        if (hadOwnSetData) source.setData = origSetData; else delete source.setData;
+        if (source.wrap) source.wrap.removeEventListener('scroll', syncScroll);
+        if (ro) ro.disconnect();
         if (tg.destroy) tg.destroy();
       },
     };

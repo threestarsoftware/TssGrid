@@ -279,7 +279,7 @@ new TssGrid(el, {
 ```js
 new TssGrid(el, {
   rowReorder: true,                              // 行ヘッダにつまみを表示
-  onAfterRowMove: (from, to, count) => { /* … */ },// 確定後（from=元の先頭, to=新しい先頭, count=行数）
+  onAfterRowMove: (from, to, count) => { /* … */ },// 確定後（from=元の先頭, to=新しい先頭, count=行数）。Undo/Redo で戻した・やり直した時も呼ぶ
 });
 grid.moveRow(from, to);                           // 1行（to は 0..ROWS の挿入境界）
 grid.moveRows(r0, r1, to);                        // 連続する複数行をまとめて移動
@@ -695,7 +695,15 @@ const sum = TssSum.attach(grid, document.getElementById('sumgrid'), {
 ```
 - 行は **`{label, when?, of, after?}`**（`when` 一致行で `of(row)` を合計＝SUMIF）または **`{label, total}`**（既出行の値から派生）。`row` は内部配列（列index）で受ける。
 - **`after(sum)`＝集めた合計に対して最後に1回だけ**走る（行ごとではない）。**適格請求書の消費税は「税率ごとに1回だけ」端数処理する**のが要件で、`of` の中で丸めると**明細行ごと**になってしまうため（`105円×2行@10%`: `after`＝`端数処理(210×0.10)=¥21` / 行ごと＝`floor(10.5)×2=¥20` で**1円ずれる**）。`when` で税率ごとに行が分かれるので、`after` は**その税率の合計**に対して走る（請求書全体で1回ではない）。`after` の結果は後続の `total(vals)` にも渡る＝**合計（税込）が丸め後の税額を見る**。
-- ソースの **`onAfterChange`/`onStructureChange` を自動で包んで再計算**＝編集・行追加削除・Undo すべてに追従。集計グリッドは**表示専用**（同一列幅で `金額` 列が揃う）。
+- ソースの **`onAfterChange`/`onStructureChange`/`onAfterRowMove`/`setData` を自動で包んで再計算**＝編集・行追加削除・行の移動・データの差し替え（Vue の `:data`・React の `data`）・Undo すべてに追従。
+- 集計グリッドは**表示専用**（選択の枠も出さない・`cursor:true` で出す）。明細の**列幅・行ヘッダ（表示/幅/`rowHeaderLabel`）・右端の🗑列の幅**を写すので、`金額` 列が縦にそろう。列幅は**実際に描かれている幅**（`stretchH`/`flex` の配分込み）で、後から変わっても（ドラッグ・`setColWidth`・置き場の幅・列の表示切替）追いかける。明細が横にスクロールすると合計の表も一緒に動く。
+- **import（Vite など）で使う時**は `window` に載らないので、`TssGrid`・`TssMerge` を opts で渡す（型の定義も同梱）。
+  ```js
+  import { TssGrid } from '@threestarsoftware/tssgrid';
+  import TssMerge from '@threestarsoftware/tssgrid/plugins/tss-merge.js';
+  import TssSum from '@threestarsoftware/tssgrid/plugins/tss-sum.js';
+  TssSum.attach(grid, el, { TssGrid, TssMerge, valueCol: 4, rows: [ /* … */ ] });
+  ```
 
 ### 同梱プラグイン: 残高／累計（running total・縦の連鎖）
 
@@ -716,7 +724,7 @@ new TssGrid(el, {
 ```
 - 編集・行の挿入/削除・`setData`（＋それらの Undo/Redo）で**上から全部引き直し**。書き込みは履歴に積まない。
 - `column`(残高列) / `initial`(前残) / `delta` か `step` / `skipEmpty`(全列空の行は連鎖を進めず空表示、既定true)。
-- **行ドラッグ移動(rowReorder)併用時**は順序が変わるので `onAfterRowMove` で `handle.recompute()` を呼ぶ。
+- **行の移動（rowReorder・`moveRows`）とその Undo/Redo にも自動で追従**（順序が変わると累計が変わるため）。
 
 > 「**行＝formula／列＝totals／縦＝running**」の3点が揃う。いずれも `setValueRaw`＋`onAfterChange` ラップで動く**プラグイン**。
 
@@ -1035,8 +1043,11 @@ new TssGrid(el, { columns: [{ data: 'id', hidden: true }, …] });   // 列定�
 | `resizeCols` / `resizeRows` | `boolean` | `true` | 列幅/行高のリサイズ可否（全体）。`false` でグリップを出さない |
 | `cursor` | `boolean` | `true` | 選択カーソル（青の選択枠/範囲/セルハイライト/フィルハンドル）を表示するか。`false` で**表示専用グリッド向けに非表示**＋セルカーソルも既定に（内部の選択は保持＝コピーは可）。合計表・サマリ等に。`readOnly:true` と併用すると読み取り専用の灰色を付けず普通の色で表示（見せるだけの表） |
 | `columns[c].width` | `number` | — | 列ごとの初期幅(px)。**列定義に同居するので並べ替え・コピペで幅が一緒に動く**（`colWidths` より壊れにくい）。実行時リサイズ・明示 `colWidths` があればそちらが優先 |
+| `columns[c].flex` | `boolean\|number` | — | **この列で表の幅を吸収**（置き場の幅に合わせて伸び縮み）。`width` が出発点・`minWidth`〜`maxWidth` の範囲で、縮めて最小に達したらそこからは横スクロール。置き場の幅が変わると自動で配り直す。数値は flex 列が複数の時の配分の重み。flex 列がある表では `stretchH` より優先。例 `{ data:'reason', width:90, flex:true, minWidth:60, maxWidth:90 }` |
+| `columns[c].minWidth` / `maxWidth` | `number` | — | 列の最小／最大の幅(px)。flex の伸び縮み・ドラッグ・自動調整・`setColWidth` で効く |
 | `columns[c].resizable` | `boolean` | `true` | 列ごとの幅ロック。`false` でその列だけリサイズ禁止 |
-| `stretchH` | `'none'\|'last'\|'all'` | `'none'` | 列を枠幅まで伸ばす。`'last'`=余りを最終列へ / `'all'`=全列で配分（`width` 指定時に効く・隠し列は対象外） |
+| `stretchH` | `'none'\|'last'\|'all'` | `'none'` | 列を枠幅まで伸ばす。`'last'`=余りを最終列へ / `'all'`=全列で配分（`width` 指定時に効く・隠し列は対象外）。決めた列で伸び縮みさせたい時は列の `flex` |
+| `onColumnWidthsChange` | `(widths)=>void` | — | 実際に描く列幅が変わった時（ドラッグ・`setColWidth`・`stretchH`・`flex`・列の表示切替）。今の幅は `getColumnWidths()`（隠し列は 0） |
 | `headerWrap` | `boolean` | `false` | 長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。既定は1行で切る |
 | `rowHeaders` / `colHeaders` | `boolean` | `true` | 行番号列 / ヘッダ行の表示。`false` で隠す |
 | `hiddenColumns` | `(number\|string)[]` | `[]` | 初期で隠す列（番号か data キー）。列定義の `columns[c].hidden: true` でも可。実行時は `hideColumn`/`showColumn`/`toggleColumn`（→ [列の表示/非表示](#列の表示非表示)） |
@@ -1187,6 +1198,13 @@ new TssGrid(el, {
   - `'keep'`: **入力値を残してセルを赤く**警告（`td.tg-invalid`）。値を直せば赤は自動で消えます。フォームのように「後でまとめて直す」運用向き。`getData()` には不正値も入るので、保存前に再検証してください。
   - `keep` 時は**赤セルにホバーで理由（`title`＝validator のメッセージ）**が出ます。`invalidTitle:false` でOFF。
 - どちらのモードでも確定時に `onInvalid(rejections, source)` が呼ばれます（`rejections=[{r,c,value,message}]`）。
+- **誤りを外から付ける**（保存を押した時のチェック・サーバーから返った誤り）: `invalidMode` に関係なく、赤＋ホバーの理由が付く。行に紐づくので**並べ替え・行の移動でも同じセルに付いたまま**、描き直しても消えず、**そのセルを打ち直すと消える**。
+  ```js
+  grid.validateAll();   // 全セルを validator で検証して赤＋理由（触っていないセルも）。返り値は getInvalidCells() と同じ
+  grid.setInvalid([{ r: 0, c: 'quantity', message: '入力してください' }]);   // サーバーの誤りなど（c は列番号か data キー）
+  grid.clearInvalid();  // 全部消す（[{ r, c }] でそのセルだけ）
+  ```
+  空の行（`minSpareRows`）を誤りにしないよう、validator は「行が空なら `true`」と書く。`validateAll()` をもう一度呼ぶと前回の印は付け直す（`setInvalid` の誤りは残る）。
 - **全エラーをまとめて取得**: `grid.getInvalidCells()` → `[{r,c,key,value,code,level,message}]`（今の値を全セル検証）。保存前チェックや**エラー一覧パネル**の表示に → 動く例: [`examples/validation.html`](https://tssgrid.threestarsoftware.co.jp/examples/validation.html)（赤＋ホバー＋一覧パネルがライブ更新）。
 
 #### エラーを コード / レベル / 共通メッセージ で管理（messages カタログ）
@@ -1261,6 +1279,12 @@ columns: [
 - 数値列は**右寄せ**（`td.tg-num`）。
 - **日付パターン**（`type:'date'` に**文字列**の `format`）: トークン `yyyy` `yy` `mm` `m` `dd` `d`。`parse` は組込のまま（`20260630` 等で入力可）。
 - これらは内部で `parse`/`format` の上に薄く乗っているだけなので、関数版の `format`/`parse` を渡せば従来どおり完全カスタムにできます（関数が優先）。
+- **空のセルでは `format` を呼びません**（`'¥' + v` が空の行に `¥0` を出さないため）。**値を持たず行から計算して見せる列**（金額＝数量×単価 など）は `formatEmpty: true` を付けると空でも呼ばれます。
+  ```js
+  { data: 'amount', readOnly: true, formatEmpty: true, align: 'right',
+    format: (_v, _cell, row) => { const a = (+row[1] || 0) * (+row[2] || 0); return a ? a.toLocaleString('ja-JP') : ''; } }
+  ```
+  `onAfterChange` の中で `redraw()` してもかまいません（その場で更新した値で描かれます）。`format` が読む値を後から（非同期に）作る場合だけ、描き直しはその後に。
 
 ### 条件付き書式（cellClass）
 

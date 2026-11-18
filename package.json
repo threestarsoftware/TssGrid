@@ -1,6 +1,6 @@
 {
   "name": "@threestarsoftware/tssgrid",
-  "version": "0.1.46",
+  "version": "0.1.47",
   "description": "軽量・ノービルド・日本語IME堅牢な編集グリッド（vanilla JS / 依存なし / MIT）。Excel ライクな入力画面を <script> タグ1本で。",
   "license": "MIT",
   "author": "ThreeStarSoftware (https://www.threestarsoftware.co.jp/)",
@@ -66,6 +66,26 @@
     "./plugins/tss-comment.js": {
       "types": "./plugins/tss-comment.d.ts",
       "default": "./plugins/tss-comment.js"
+    },
+    "./plugins/tss-sum.js": {
+      "types": "./plugins/tss-sum.d.ts",
+      "default": "./plugins/tss-sum.js"
+    },
+    "./plugins/tss-merge.js": {
+      "types": "./plugins/tss-merge.d.ts",
+      "default": "./plugins/tss-merge.js"
+    },
+    "./plugins/tss-toggle.js": {
+      "types": "./plugins/tss-toggle.d.ts",
+      "default": "./plugins/tss-toggle.js"
+    },
+    "./plugins/tss-sort.js": {
+      "types": "./plugins/tss-sort.d.ts",
+      "default": "./plugins/tss-sort.js"
+    },
+    "./plugins/tss-filter.js": {
+      "types": "./plugins/tss-filter.d.ts",
+      "default": "./plugins/tss-filter.js"
     },
     "./react": {
       "types": "./react/index.d.ts",

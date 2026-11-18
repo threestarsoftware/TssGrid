@@ -21,8 +21,7 @@
  *    skipEmpty: 全列が空の行は連鎖を進めず残高セルも空に（既定 true。末尾の予備空行対策）。
  *
  *  handle: recompute() / destroy()。formula と併用するなら plugins:[TssFormula, TssRunningTotal(...)]（派生列の後に累計）。
- *  自動追従するのは 編集 / 行の挿入・削除 / setData（＋それらの Undo/Redo）。
- *  ※ 行ドラッグ移動(rowReorder)を併用するときは順序が変わるので onAfterRowMove で handle.recompute() を呼ぶこと。
+ *  自動追従するのは 編集 / 行の挿入・削除 / 行の移動(rowReorder・moveRows) / setData（＋それらの Undo/Redo）。
  */
 (function (root) {
   'use strict';
@@ -67,13 +66,15 @@
       grid.setData = function (rows) { prevSetData(rows); compute(); };
       var prevStruct = grid.onStructureChange;
       grid.onStructureChange = function (info) { if (prevStruct) { try { prevStruct.call(grid, info); } catch (e) {} } compute(); };
+      var prevMove = grid.onAfterRowMove;   // 行の移動で順序が変わる＝累計が変わる
+      grid.onAfterRowMove = function () { if (prevMove) { try { prevMove.apply(grid, arguments); } catch (e) {} } compute(); };
 
       compute();   // 初期計算
 
       return {
         name: 'running',
         recompute: compute,
-        destroy: function () { grid.onAfterChange = prevAfter; grid.setData = prevSetData; grid.onStructureChange = prevStruct; },
+        destroy: function () { grid.onAfterChange = prevAfter; grid.setData = prevSetData; grid.onStructureChange = prevStruct; grid.onAfterRowMove = prevMove; },
       };
     };
   }

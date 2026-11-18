@@ -20,7 +20,7 @@
  *  注意:
  *   - data は「参照が変わった時だけ」setData されます（毎レンダー新配列を渡すと毎回リセット＝カーソルも飛ぶ）。
  *     頻繁な更新は ref の命令API（setValue/ appendRows 等）を使うのが定石。columns も同じく参照で判定（useMemo 推奨）。
- *   - 構築は useEffect（クライアント専用）なので SSR/Next でもそのまま（サーバでは空 div）。
+ *   - 構築はブラウザでだけ走る effect（描画前の layout effect＝親の useEffect では ref.current に grid がある）なので SSR/Next でもそのまま（サーバでは空 div）。
  */
 (function (root, factory) {
   if (typeof module !== 'undefined' && module.exports) {
@@ -51,6 +51,9 @@
     return o;
   }
 
+  // ブラウザでは useLayoutEffect（描画前・親の useEffect より先）、サーバー（SSR）では useEffect（警告を出さない・サーバーでは何もしない）。
+  var useIsoLayoutEffect = (typeof window !== 'undefined' && React.useLayoutEffect) ? React.useLayoutEffect : React.useEffect;
+
   // 依存が「前回と変わった時だけ」fn を呼ぶ effect。初回は生成時の値を使うので呼ばない。
   // 前回値と比べる＝StrictMode の effect 二重実行（同じ値）では呼ばない（setData の余計な実行で履歴が消えない）。
   function useUpdateEffect(fn, deps, gridRef) {
@@ -70,7 +73,9 @@
     propsRef.current = props;
     var readyState = React.useState(0);                           // grid 生成後に ref（命令API）を更新させるためのバンプ
 
-    React.useEffect(function () {                                  // 生成は1回（アンコントロールド）。StrictMode 二重でも destroy が冪等。
+    // 生成は1回（アンコントロールド）。StrictMode 二重でも destroy が冪等。
+    // layout effect で作る＝親の useEffect が走る時には ref.current に grid がある（親の effect で TssSum.attach 等をそのまま書ける）。
+    useIsoLayoutEffect(function () {
       var grid = new TssGrid(hostRef.current, buildOptions(propsRef));
       gridRef.current = grid;
       readyState[1](function (n) { return n + 1; });              // ref.current = grid 本体 に更新（useImperativeHandle を再評価）

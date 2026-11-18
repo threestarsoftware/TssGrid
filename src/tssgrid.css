@@ -34,7 +34,7 @@
 }
 
 .tssgrid .tg-wrap {
-  position: relative; display: inline-block;
+  position: relative; display: inline-block; vertical-align: top;   /* inline-block の下に付く文字のベースライン余白（数px）を出さない＝表を縦に並べても隙間が出ない */
   border: 1px solid var(--tg-wrap-border); overflow: auto; max-height: 60vh; user-select: none;
   -webkit-user-select: none; -webkit-touch-callout: none;
   touch-action: manipulation;   /* ダブルタップ拡大を無効化（スクロール/ピンチは可）＝素早い2回タップ（Excel流プルダウン等）を取りこぼさない・タップ遅延も無し */   /* iOS Safari: 長押しで文字選択/コピー吹き出しを出さない（自前の長押しメニューを優先） */
