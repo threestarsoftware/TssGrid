@@ -1448,6 +1448,32 @@ grid.redraw();
 `push(cmd)` / `undo()` / `redo()` / `canUndo()` / `canRedo()` / `clear()` / `onChange`。
 command は `{ apply(), revert(), label }`。
 
+## 変更の追跡（保存していない直しの印と一覧）
+
+「一覧で直しても画面の中で変わるだけ。［保存］を押した時に、直した所だけまとめて送る」画面に。`trackChanges: true` で有効（既定は無効＝使わない画面には何も足さない）。
+
+```js
+const grid = new TssGrid(el, { trackChanges: true, columns, data });
+
+grid.isDirty();          // 保存していない直しがあるか
+grid.getChangedRows();   // [{ type:'updated'|'added'|'removed', r, row, old, src, changes:[{c,key,oldValue,newValue}] }]
+grid.getChanges();       // セル単位 [{ type, r, c, key, oldValue, newValue }]
+grid.commitChanges();    // 保存が済んだ＝今の値を「元」にして印を消す（[行番号 / getChangedRows の要素] でその行だけ）
+grid.revertChanges();    // 直しを全部捨てて元に戻す
+```
+
+- **比べるのは「最後に `commitChanges` / `setData` した時の値」**。打ち直して同じ値に戻した・Ctrl+Z で戻した時は印が消える。`codeField` のように別の列へ書く部品も、両方の列が「変えた」になる。
+- **行に付く**（番号でなく行そのもの）＝並べ替え・行の移動・絞り込みでもずれない。絞り込みで隠れている行も返す（`r` は `null`）。`src` は元のレコード（id 等の隠れた項目）＝サーバーへ送る時の目印に。
+- 空の行（`minSpareRows` の行）に打つと `added`、行を消すと `removed`。空のままの行は数えない。`appendRows` / `fillRows` で読み込んだ行は「元」。
+- 計算で出す列は `columns[c].trackChanges: false` で比べる対象から外す（例 金額・残高）。
+- 印＝セルの左上の小さな三角（`td.tg-changed`・背景の模様で描く＝全部描いても軽い）と行の左端の線（`tr.tg-row-changed`）。背景色を使わないので、選択・読み取り専用の灰色・誤りの赤・`rowClass` の色と重なっても見分けがつく。色は `--tg-changed`（`transparent` で消せる）。
+- 控えは**行を初めて変える直前にだけ取る**＝読み込み時の費用は無く、メモリは変えた行の分だけ。
+- **まだ保存していない直しを持ったまま入れ直す**（日の切り替え等で `setData` し直す画面）は `setData(今の値, { original: 元の値 })`。`original[i]` が `rows[i]` の元の値（オブジェクト／配列）・`null` の行は「足した行」。印と一覧はそのまま続き、**元に戻す履歴には積まれず `onAfterChange` も呼ばれない**（元の値で `setData` → `setCells` で書き戻す方法だと、書き戻しが Ctrl+Z の対象になり、直しが消える）。
+  ```js
+  // curRows＝直しを含む今の値、origRows＝サーバーから読んだ元の値（同じ並び・まだ無い行は null）
+  grid.setData(curRows, { original: origRows });
+  ```
+
 ## キーボード / マウス
 
 | 操作 | 動作 |

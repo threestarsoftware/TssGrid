@@ -39,6 +39,18 @@ export type ClassValue = string | string[] | null | undefined | false;
 export type StyleValue = string | Partial<CSSStyleDeclaration> | Record<string, string> | null | undefined;
 export interface SelectionInfo { range: SelectionRange; active: CellCoord; extent: CellCoord; }
 
+/** 変更の追跡（trackChanges）: 変えたセル。 */
+export interface CellChangeRecord { type: 'updated' | 'added'; r: number | null; c: number; key: string | null; oldValue: any; newValue: any; }
+/** 変更の追跡（trackChanges）: 変えた行。row＝今の値・old＝元の値（オブジェクト）・src＝元のレコード（id 等の隠れた項目も）。 */
+export interface ChangedRow {
+  type: 'updated' | 'added' | 'removed';
+  r: number | null;
+  row: Record<string, any> | null;
+  old: Record<string, any> | null;
+  src: Record<string, any> | null;
+  changes: { c: number; key: string | null; oldValue: any; newValue: any }[];
+}
+
 /** validator が弾いたセル（onInvalid / getInvalidCells）。 */
 export interface Rejection { r: number; c: number; value: any; code?: string; level?: string; message?: string; }
 /** 読み取り専用セルへの変更を弾いた時（onReadOnly）。 */
@@ -100,6 +112,8 @@ export interface ColumnDef {
   /** true で、セルが空でも関数 `format` を呼ぶ（既定 false＝空はそのまま空）。
    *  値を持たず行から計算して見せる列（金額＝数量×単価 など）に。例 `{ readOnly:true, formatEmpty:true, format:(v,{r},row)=>… }` */
   formatEmpty?: boolean;
+  /** false でこの列を変更の追跡（trackChanges）の対象から外す（計算で出す列など）。 */
+  trackChanges?: boolean;
   /** 数値型: 千区切り表示。 */
   thousands?: boolean;
   /** 数値型: 接頭辞（例 '¥'）。 */
@@ -177,6 +191,9 @@ export interface TssGridOptions {
   stretchH?: 'none' | 'last' | 'all';
   /** 実際に描く列幅が変わった時（ドラッグ・setColWidth・stretchH・flex の伸び縮み・列の表示切替）。widths は列ごと（隠し列は 0）。 */
   onColumnWidthsChange?: (widths: number[]) => void;
+  /** 変えたセルを覚える（既定 false）。最後に commitChanges / setData した時の値と比べる＝Undo・同じ値に戻したら印が消える。
+   *  印＝セルに tg-changed（左上の小さな三角）・行に tg-row-changed（左端の線）。色は CSS 変数 --tg-changed。 */
+  trackChanges?: boolean;
   /** 長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。既定 false＝1行で切る。 */
   headerWrap?: boolean;
   rowHeaders?: boolean;
@@ -427,7 +444,8 @@ export declare class TssGrid {
   /** 1セルの値を取得（c は index か data キー）。 */
   getValue(r: number, cOrKey: number | string): any;
   /** データを差し替え（履歴・フィルタ・整列状態はリセット）。 */
-  setData(rows: any[][] | Record<string, any>[]): void;
+  /** opts.original: rows[i] の元の値（null＝足した行）。trackChanges 時、まだ保存していない直しを持ったまま入れ直す。履歴・onAfterChange は動かない */
+  setData(rows: any[][] | Record<string, any>[], opts?: { original?: (any[] | Record<string, any> | null)[] }): void;
   /** 実行時に列定義を差し替える（Vue の `:columns` 変更等）。`headers` 省略時は columns から再導出。
    *  object モードは元レコード(`_src`)から新 columns で再展開、配列モードは各行を新 COLS に詰める。
    *  列構造が変わるので整列/セル単位 readOnly はクリア、frozen/選択は範囲内へクランプ。 */
@@ -561,6 +579,16 @@ export declare class TssGrid {
   clearInvalid(cells?: { r: number; c: number | string }[]): void;
   /** 全セルを検証し、誤りのセルに赤＋理由を付ける（触っていないセルも）。返り値は getInvalidCells() と同じ。前回の validateAll の印は付け直し、setInvalid の誤りは残す。 */
   validateAll(): Rejection[];
+  /** 保存していない直しがあるか（trackChanges）。 */
+  isDirty(): boolean;
+  /** 変えたセル（足した行のセルも）。 */
+  getChanges(): CellChangeRecord[];
+  /** 変えた行（足した行・消した行も）。r は今の表示の行番号（絞り込みで隠れている・消した行は null）。 */
+  getChangedRows(): ChangedRow[];
+  /** 保存が済んだ＝今の値を「元」にして印を消す。引数なし＝全部／行番号か getChangedRows の要素＝その行だけ。 */
+  commitChanges(rows?: Array<number | ChangedRow>): void;
+  /** 直しを全部捨てて、最後に commitChanges / setData した時の状態に戻す（足した行は消え、消した行は戻る）。 */
+  revertChanges(): void;
 
   // ---- 出力 / 再描画 / 破棄 ----------------------------------------------
   toCSV(opts?: CsvOptions): string;

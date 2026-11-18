@@ -219,7 +219,8 @@
       this.onAfterRowMove = opts.onAfterRowMove || null;   // (from, to) 行移動の確定後
       // 列ストレッチ: 'none'(既定) | 'last'(余白を最終列へ) | 'all'(全列で配分)。枠幅まで伸ばす。
       this.stretchH = opts.stretchH || 'none';
-      this.onColumnWidthsChange = opts.onColumnWidthsChange || null;   // (widths) 実際に描く列幅が変わった時（ドラッグ・setColWidth・stretchH・flex の伸び縮み・列の表示切替）
+      this.onColumnWidthsChange = opts.onColumnWidthsChange || null;
+      this.trackChanges = !!opts.trackChanges;   // 変えたセルを覚える（最後に commitChanges / setData した時の値と比べる）＝印＋getChanges／getChangedRows   // (widths) 実際に描く列幅が変わった時（ドラッグ・setColWidth・stretchH・flex の伸び縮み・列の表示切替）
       // セル内折り返し（既定 nowrap）。grid 全体 or columns[c].wordWrap。
       this.wordWrap = !!opts.wordWrap;
       // 溢れた文字を … で省略（既定は切るだけ）。grid 全体 or columns[c].ellipsis。ホバーで全文を title 表示（見え方だけ・値/コピー/編集は不変）。
@@ -319,6 +320,8 @@
       this._ensureSpare();     // minSpareRows を確保
       if (this.autoColumnSize) this.autoSizeAllColumns();
       (opts.plugins || []).forEach(p => this.usePlugin(p));   // プラグイン初期化（全構築後）
+      this._tcReset();         // 変更の追跡: 今の行をすべて「元」に（プラグインが初期化で書いた計算列も元に含める）
+      if (this._tc) this._tcRepaint();
     }
 
     // ---- データモデル（配列 / オブジェクト配列の両対応） ----
@@ -400,7 +403,7 @@
       for (let c = 0; c < this.COLS; c++) { const k = this._key(c); out[k != null ? k : this.headers[c]] = rows.map(row => row[c]); }
       return out;
     }
-    setData(rows) { this._align.clear(); this._cellRO.clear(); this._extErr = null; this._unsortedData = null; this._allRows = this._allSrc = this._meta = this._filterFn = null; this.dataComplete = true; this._pendingCount = 0; if (this.history) this.history.clear(); this._ingest(rows); this._padToMin(); this.buildTable(); const ic = this._resolveInitialCell(); this.setActive(ic[0], ic[1]); this._ensureSpare(); }
+    setData(rows, opts) { this._align.clear(); this._cellRO.clear(); this._extErr = null; this._unsortedData = null; this._allRows = this._allSrc = this._meta = this._filterFn = null; this.dataComplete = true; this._pendingCount = 0; if (this.history) this.history.clear(); this._ingest(rows); this._padToMin(); this._tcReset(); if (opts && opts.original) this._tcApplyOriginal(opts.original); this.buildTable(); const ic = this._resolveInitialCell(); this.setActive(ic[0], ic[1]); this._ensureSpare(); }
     // 見出し導出（constructor / setColumns で共用）: 明示 headers > columns の title/data 由来 > A,B,C。
     _deriveHeaders(headersOpt) {
       if (headersOpt) return headersOpt.slice();
@@ -462,6 +465,7 @@
         this.data.push(rowArr);
         this.rowH.push(undefined);
         if (this._src) this._src.push(srcObj);
+        if (this._tc) this._tcAddOrig(rowArr, srcObj);   // 読み込んだ行＝「元」（足した行ではない）
         if (this._meta) this._meta.set(rowArr, { a: new Map(), ro: new Set(), h: undefined });   // フィルタが張った per-row メタも用意
         if (this._allRows) { this._allRows.push(rowArr); if (this._allSrc) this._allSrc.push(srcObj); }   // フィルタ中はマスタも同期
       }
@@ -515,6 +519,7 @@
         if (this.data[r] === TssGrid.PENDING) this._pendingCount--;   // PENDING→実データ（既に実データの再fill は count 不変）
         this.data[r] = rowArr;
         if (this._src) this._src[r] = srcObj;
+        if (this._tc) this._tcAddOrig(rowArr, srcObj);   // 読み込んだ行＝「元」
         if (this._meta) this._meta.set(rowArr, { a: new Map(), ro: new Set(), h: undefined });
       }
       if (this._pendingCount < 0) this._pendingCount = 0;
@@ -1203,10 +1208,167 @@
       }
       return out;
     }
+    // ---- 変更の追跡（trackChanges）----
+    // 「最後に commitChanges / setData した時の値」と今の値を比べる（イベントで覚えない＝Undo・同じ値に戻した・
+    // codeField 等の別経路の書き込みも自然に正しい）。控えは行ごと・その行を初めて変える直前にだけ取る＝変えた行の分だけ。
+    // 行に紐づく（番号でなく行そのもの）＝並べ替え・行の移動・絞り込み・行の挿入削除でもずれない。
+    // setValueRaw（計算列などの派生値）だけでは控えを作らない＝読み込み直後の再計算で「変えた」にならない。
+    _tcReset() {
+      if (!this.trackChanges) { this._tc = null; return; }
+      const P = TssGrid.PENDING, master = this._allRows || this.data, msrc = this._allRows ? this._allSrc : this._src;
+      const orig = new Set(), list = [], src = new Map();
+      for (let i = 0; i < master.length; i++) {
+        const row = master[i], so = msrc ? msrc[i] : null; if (row === P) continue;
+        if (TssGrid._tcBlank(row, so)) continue;   // 空の行（minSpareRows / minRows の行）は「元」に数えない＝打ったら「足した行」
+        orig.add(row); list.push(row); if (so) src.set(row, so);
+      }
+      this._tc = { orig, list, src, snap: new Map() };
+    }
+    // setData(rows, { original }) : original[i] ＝ rows[i] の元の値（オブジェクト／配列）。null ＝ 足した行。
+    // まだ保存していない直しを持ったまま入れ直す用（日の切り替え等）。履歴には積まない・onAfterChange も呼ばない。
+    _tcApplyOriginal(original) {
+      const t = this._tc; if (!t || !Array.isArray(original)) return;
+      const tok = this._tcCols().tok, n = Math.min(original.length, this.data.length);
+      for (let i = 0; i < n; i++) {
+        const row = this.data[i], o = original[i];
+        if (o == null) {   // 足した行（まだ保存していない新しい行）
+          if (t.orig.has(row)) { t.orig.delete(row); t.src.delete(row); t.list = t.list.filter(x => x !== row); }
+          continue;
+        }
+        const vals = Array.isArray(o) ? o : this._objToRow(o);
+        if (!t.orig.has(row)) { t.orig.add(row); t.list.push(row); if (this._src && this._src[i]) t.src.set(row, this._src[i]); }   // 今は空でも元があった行
+        let diff = false;
+        for (let c = 0; c < this.COLS; c++) if (!TssGrid._tcEq(vals[c], row[c])) { diff = true; break; }
+        if (!diff) continue;   // 同じなら控えは作らない（変えた行の分だけ）
+        const m = new Map(); for (let c = 0; c < this.COLS; c++) m.set(tok[c], vals[c] == null ? '' : vals[c]);
+        t.snap.set(row, m);
+      }
+    }
+    static _tcBlank(row, so) {   // 値が全部空で、元のレコード（id 等の隠れた項目）も無い行
+      for (let c = 0; c < row.length; c++) if (row[c] !== '' && row[c] != null) return false;
+      return !(so && Object.keys(so).length);
+    }
+    _tcAddOrig(row, srcObj) {
+      const t = this._tc; if (!t || !row || row === TssGrid.PENDING || t.orig.has(row)) return;
+      t.orig.add(row); t.list.push(row); if (srcObj) t.src.set(row, srcObj);
+    }
+    _tcCols() {   // 列の目印と「比べない列」をまとめて控える（描くたびにセルごとに作らない）。列の差し替え・挿入削除で作り直す
+      const k = this._tcColsK;
+      if (k && k.cols === this.columns && k.n === this.COLS) return k;
+      const tok = [], skip = [];
+      for (let c = 0; c < this.COLS; c++) { tok.push(this._colTok(c)); skip.push(this.colCfg(c).trackChanges === false); }
+      return (this._tcColsK = { cols: this.columns, n: this.COLS, tok, skip });
+    }
+    _tcTouch(row) {
+      const t = this._tc; if (!t || !row || t.snap.has(row) || !t.orig.has(row)) return;   // 足した行は控え不要（全部が新しい）
+      const tok = this._tcCols().tok, m = new Map(); for (let c = 0; c < this.COLS; c++) m.set(tok[c], row[c]);
+      t.snap.set(row, m);
+    }
+    static _tcEq(a, b) { return (a == null ? '' : String(a)) === (b == null ? '' : String(b)); }
+    _tcOld(row, c, m) {
+      const t = this._tc; if (m === undefined) m = t.snap.get(row);
+      if (!m) return t.orig.has(row) ? row[c] : '';
+      const k = this._tcCols().tok[c]; return m.has(k) ? m.get(k) : '';
+    }
+    _tcMaybeDirty(row) { const t = this._tc; return !!(t && row && row !== TssGrid.PENDING && (t.snap.has(row) || !t.orig.has(row))); }
+    _tcCellDirtyRow(row, c) {
+      if (this._tcCols().skip[c]) return false;   // 計算で出す列などは比べない
+      return !TssGrid._tcEq(this._tcOld(row, c), row[c]);
+    }
+    _rowDirtyRow(row) { return !!this._tcDirtyCols(row); }
+    // 行のどの列が変わったか（1回でまとめて比べる）→ 真偽の配列。1つも無ければ null。
+    _tcDirtyCols(row) {
+      const t = this._tc, K = this._tcCols(), m = t.snap.get(row), added = !t.orig.has(row);
+      let out = null;
+      for (let c = 0; c < this.COLS; c++) {
+        if (K.skip[c]) continue;
+        const old = m ? (m.has(K.tok[c]) ? m.get(K.tok[c]) : '') : (added ? '' : row[c]);
+        if (!TssGrid._tcEq(old, row[c])) { if (!out) out = new Array(this.COLS).fill(false); out[c] = true; }
+      }
+      return out;
+    }
+    _tcRowObj(row, srcObj, vals) {
+      const o = srcObj ? Object.assign({}, srcObj) : {};
+      for (let c = 0; c < this.COLS; c++) { const k = this._key(c); if (k != null) this._setPathCOW(o, k, vals ? vals(c) : row[c]); }
+      return o;
+    }
+    // 変えた行: [{ type:'updated'|'added'|'removed', r, row, old, src, changes:[{c,key,oldValue,newValue}] }]
+    //  r＝今の表示の行番号（絞り込みで隠れている・消した行は null）。row＝今の値（オブジェクト）・old＝元の値・src＝元のレコード。
+    getChangedRows() {
+      const t = this._tc; if (!t) return [];
+      const P = TssGrid.PENDING, master = this._allRows || this.data, view = new Map(), cur = new Set(), out = [];
+      for (let r = 0; r < this.data.length; r++) view.set(this.data[r], r);
+      const ms = this._allRows ? this._allSrc : this._src;
+      const mk = (type, row, changes, i) => {
+        const src = t.src.get(row) || (ms && i != null ? ms[i] : null) || null;
+        const e = { type, r: view.has(row) ? view.get(row) : null, row: type === 'removed' ? null : this._tcRowObj(row, src),
+          old: type === 'added' ? null : this._tcRowObj(row, src, c => this._tcOld(row, c)), src, changes };
+        Object.defineProperty(e, '_ref', { value: row });   // commitChanges([entry]) 用（列挙されない）
+        return e;
+      };
+      for (let i = 0; i < master.length; i++) {
+        const row = master[i]; if (row === P) continue; cur.add(row);
+        const added = !t.orig.has(row);
+        if (!added && !t.snap.has(row)) continue;   // 控えが無い＝一度も変えていない
+        const ch = [], d = this._tcDirtyCols(row);
+        if (d) for (let c = 0; c < this.COLS; c++) if (d[c]) ch.push({ c, key: this._key(c), oldValue: added ? '' : this._tcOld(row, c), newValue: row[c] });
+        if (!ch.length) { if (!added) t.snap.delete(row); continue; }   // 元に戻った（控えも捨てる）／空の足した行（minSpareRows 等）は数えない
+        out.push(mk(added ? 'added' : 'updated', row, ch, i));
+      }
+      for (const row of t.list) if (!cur.has(row)) out.push(mk('removed', row, [], null));
+      return out;
+    }
+    // 変えたセル（足した行のセルも）: [{ type, r, c, key, oldValue, newValue }]
+    getChanges() {
+      const out = [];
+      for (const e of this.getChangedRows()) for (const ch of e.changes) out.push({ type: e.type, r: e.r, c: ch.c, key: ch.key, oldValue: ch.oldValue, newValue: ch.newValue });
+      return out;
+    }
+    isDirty() {
+      const t = this._tc; if (!t) return false;
+      for (const row of t.snap.keys()) if (this._tcDirtyCols(row)) return true;   // 速い道: 控えのある行で値が違えば即 true（大半はここで決まる）
+      const P = TssGrid.PENDING, master = this._allRows || this.data, cur = new Set();
+      for (const row of master) { if (row === P) continue; cur.add(row); if (!t.orig.has(row) && this._tcDirtyCols(row)) return true; }   // 足した行
+      for (const row of t.list) if (!cur.has(row)) return true;   // 消した行
+      return false;
+    }
+    // 保存が済んだ: 今の値を「元」にして印を消す。引数なし＝全部／[行番号 or getChangedRows の要素]＝その行だけ（一部だけ保存できた時）。
+    commitChanges(rows) {
+      const t = this._tc; if (!t) return;
+      if (rows == null) { this._tcReset(); this._tcRepaint(); return; }
+      const listDel = new Set();
+      for (const it of rows) {
+        const row = (typeof it === 'number') ? this.data[it] : (it && it._ref);
+        if (!row || row === TssGrid.PENDING) continue;
+        t.snap.delete(row);
+        if (it && it.type === 'removed') { t.orig.delete(row); t.src.delete(row); listDel.add(row); }
+        else this._tcAddOrig(row, (typeof it === 'number') ? (this._src ? this._src[it] : null) : (it.src || null));
+      }
+      if (listDel.size) t.list = t.list.filter(row => !listDel.has(row));
+      this._tcRepaint();
+    }
+    // 直しを全部捨てて、最後に commitChanges / setData した時の状態に戻す（足した行は消え、消した行は戻る・並びも元に）。
+    revertChanges() {
+      const t = this._tc; if (!t) return;
+      const rows = t.list.map(row => {
+        if (this._objectMode) return this._tcRowObj(row, t.src.get(row) || null, c => this._tcOld(row, c));
+        const a = []; for (let c = 0; c < this.COLS; c++) a.push(this._tcOld(row, c)); return a;
+      });
+      this.setData(rows);
+    }
+    _tcRepaint() {   // 描いている行の印だけ付け直す（値は描き直さない）
+      if (!this.table) return;
+      this.table.querySelectorAll('tbody tr[data-r]').forEach(tr => {
+        const r = +tr.dataset.r, row = this.data[r], maybe = !!this._tc && this._tcMaybeDirty(row);
+        tr.classList.toggle('tg-row-changed', maybe && this._rowDirtyRow(row));
+        tr.querySelectorAll('td[data-c]').forEach(td => td.classList.toggle('tg-changed', maybe && this._tcCellDirtyRow(row, +td.dataset.c)));
+      });
+    }
+
     // ---- 外から渡す誤り（保存時のチェック・サーバーの誤り）----
     // 行（data の行配列）に紐づけて持つ＝並べ替え・行の移動・絞り込み・行の挿入削除でも同じセルに付いたまま。
     // 描き直しても消えない。そのセルの値が変わったら（打ち直し・貼り付け等）そのセルの誤りは消える。invalidMode に依らず効く。
-    _colTok(c) { return this.columns[c] || ('#' + c); }
+    _colTok(c) { const cfg = this.columns[c]; if (cfg && cfg.data != null) return 'k:' + cfg.data; return cfg || ('#' + c); }   // 列の目印（data キー優先＝setColumns・列の挿入でもずれない）
     _extErrAt(r, c) {
       if (!this._extErr) return null;
       const m = this._extErr.get(this.data[r]);
@@ -1401,6 +1563,11 @@
       if (this.cellClass || this.colCfg(c).cellClass) this._applyCellClass(td, r, c);   // 条件付き書式
       if (this.cellStyle || this.colCfg(c).cellStyle) this._applyCellStyle(td, r, c);   // セル単位インラインスタイル
       if (this.rowClass) this._applyRowClass(r);   // 行クラス（編集で行の色付けが即追従）
+      if (this._tc) {   // 変更の追跡: セルの印と行の印
+        const row = this.data[r], maybe = this._tcMaybeDirty(row);
+        td.classList.toggle('tg-changed', maybe && this._tcCellDirtyRow(row, c));
+        const tr = td.parentElement; if (tr) tr.classList.toggle('tg-row-changed', maybe && this._rowDirtyRow(row));
+      }
     }
 
     _colWidth(c) { return this.colW[c] != null ? this.colW[c] : this.defColW; }
@@ -1587,7 +1754,9 @@
       const rhCls = (canMove && this.rowReorderWhole) ? ' tg-rowmove-cell' : '';   // 'header'=行ヘッダーセル全体を掴み手に（grab カーソル）。番号/⠿の表示は独立
       const rcls = (r < this.frozenRows) ? (' tg-frozen-row' + (r === this.frozenRows - 1 ? ' tg-frozen-row-edge' : '')) : '';   // 行固定
       const rowc = this.rowClass ? this._rowClassStr(r) : '';   // 行クラス（rowClass）＝<tr> に付与
-      let html = '<tr data-r="' + r + '" class="tg-row' + rcls + (rowc ? ' ' + rowc : '') + '"' + (rowc ? ' data-rcls="' + TssGrid.esc(rowc) + '"' : '') + ' style="height:' + this._rowHeight(r) + 'px">' + (rh ? '<th class="rowhead' + rhCls + '" data-r="' + r + '">' + inner + rgrip + '</th>' : '');
+      const _tcD = (this._tc && this._tcMaybeDirty(this.data[r])) ? this._tcDirtyCols(this.data[r]) : null;   // 変更の追跡（控えがある／足した行だけ・1回で比べる）
+      const tcc = _tcD ? ' tg-row-changed' : '';
+      let html = '<tr data-r="' + r + '" class="tg-row' + rcls + tcc + (rowc ? ' ' + rowc : '') + '"' + (rowc ? ' data-rcls="' + TssGrid.esc(rowc) + '"' : '') + ' style="height:' + this._rowHeight(r) + 'px">' + (rh ? '<th class="rowhead' + rhCls + '" data-r="' + r + '">' + inner + rgrip + '</th>' : '');
       for (let c = 0; c < this.COLS; c++) {
         if (this._merges && this._isCovered(r, c)) continue;   // 結合に覆われた従属セルは td を出さない（アンカーが colspan で覆う）
         const cs = this._merges ? this._colspanAt(r, c) : 1;   // 結合アンカーは colspan で従属列ぶんを覆う
@@ -1598,6 +1767,7 @@
         if (this._isHidden(c)) cls.push('tg-hidden');   // 非表示列
         if (this.colType(c) === 'dropdown') cls.push('tg-dropdown');  // ▾ キャレット表示用
         if (this.colType(c) === 'number') cls.push('tg-num');  // 数値は右寄せ
+        if (_tcD && _tcD[c]) cls.push('tg-changed');   // 変更の追跡: 保存していない直し
         if (this._isReadOnly(r, c)) cls.push('tg-readonly');  // 読み取り専用（淡色＋カーソル既定）
         if (this.colCfg(c).wordWrap) cls.push('tg-wrap-cell');  // 列単位の折り返し
         if (this.colCfg(c).ellipsis) cls.push('tg-ellip-cell');  // 列単位の … 省略
@@ -2621,10 +2791,15 @@
       if (this.data[r][c] === val) return;
       changes.push({ r, c, old: this.data[r][c], neu: val });
       if (this._extErr) this._dropExtErr(r, c);   // 値が変わったセルは外から付けた誤りを外す（打ち直した＝直したはず）
+      if (this._tc) this._tcTouch(this.data[r]);   // 変更の追跡: この行を初めて変える直前に元の値を控える（変えた行の分だけ）
       this.data[r][c] = val; this._renderCell(r, c);
     }
     _applyCells(changes, key, source) {
-      for (const ch of changes) { this.data[ch.r][ch.c] = ch[key]; this._renderCell(ch.r, ch.c); }
+      // 大量（大きな貼り付けの Undo 等）は1セルずつ描かず、最後に表を1回描く（1セルずつ＝1万行×10列で100秒超かかっていた）
+      const big = !this._renderPaused && changes.length >= 200 && changes.length * 10 >= this.ROWS;
+      if (big) this._renderPaused = true;
+      try { for (const ch of changes) { if (this._tc) this._tcTouch(this.data[ch.r]); this.data[ch.r][ch.c] = ch[key]; this._renderCell(ch.r, ch.c); } }
+      finally { if (big) { this._renderPaused = false; this._renderDirty = false; this.buildTable(); } }
       this._syncHeaderCheckboxes();   // undo/redo でもヘッダ全選択を同期
       this.renderDump();
       if (source && this.onAfterChange) {

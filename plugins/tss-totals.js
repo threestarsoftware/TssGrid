@@ -73,7 +73,7 @@
       var prevAfter = grid.onAfterChange;
       grid.onAfterChange = function (ch, src) { if (prevAfter) { try { prevAfter.call(grid, ch, src); } catch (e) {} } compute(); };
       var prevSetData = grid.setData.bind(grid);
-      grid.setData = function (rows) { prevSetData(rows); compute(); };
+      grid.setData = function (rows, opts) { prevSetData(rows, opts); compute(); };
       var prevStruct = grid.onStructureChange;
       grid.onStructureChange = function (info) { if (prevStruct) { try { prevStruct.call(grid, info); } catch (e) {} } compute(); };
 

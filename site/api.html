@@ -87,7 +87,7 @@
 <h1>API リファレンス</h1>
 <p class="lead">公開API（オプション・イベント・メソッド）の一覧。<b><code>src/tssgrid.d.ts</code> を正本に自動生成</b>しています。使い方・サンプルは <a href="docs.html">ドキュメント（ガイド）</a> をどうぞ。</p>
 <h2 id="options">グリッド オプション</h2>
-<p>83 項目（<code>new TssGrid(el, options)</code>）。</p>
+<p>84 項目（<code>new TssGrid(el, options)</code>）。</p>
 <table>
 <thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
 <tbody>
@@ -127,6 +127,8 @@
 <tr><td><code>resizeRows</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>cursor</code></td><td><code class="ty">boolean</code></td><td>false で選択カーソルを非表示（表示専用グリッド向け・内部選択は保持）。</td></tr>
 <tr><td><code>stretchH</code></td><td><code class="ty">'none' | 'last' | 'all'</code></td><td></td></tr>
+<tr><td><code>trackChanges</code></td><td><code class="ty">boolean</code></td><td>変えたセルを覚える（既定 false）。最後に commitChanges / setData した時の値と比べる＝Undo・同じ値に戻したら印が消える。
+印＝セルに tg-changed（左上の小さな三角）・行に tg-row-changed（左端の線）。色は CSS 変数 --tg-changed。</td></tr>
 <tr><td><code>headerWrap</code></td><td><code class="ty">boolean</code></td><td>長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。既定 false＝1行で切る。</td></tr>
 <tr><td><code>rowHeaders</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>rowHeaderWidth</code></td><td><code class="ty">number</code></td><td>行番号列の幅(px)。既定 40。大量行で桁数が増える時に広げる。</td></tr>
@@ -257,6 +259,7 @@ true にすると autocomplete='new-password' に切り替えて確実に止め�
 html:true 併用でセル内にボタン/アイコン等の HTML を描ける（空セルでも実行される）。</td></tr>
 <tr><td><code>formatEmpty</code></td><td><code class="ty">boolean</code></td><td>true で、セルが空でも関数 `format` を呼ぶ（既定 false＝空はそのまま空）。
 値を持たず行から計算して見せる列（金額＝数量×単価 など）に。例 `{ readOnly:true, formatEmpty:true, format:(v,{r},row)=&gt;… }`</td></tr>
+<tr><td><code>trackChanges</code></td><td><code class="ty">boolean</code></td><td>false でこの列を変更の追跡（trackChanges）の対象から外す（計算で出す列など）。</td></tr>
 <tr><td><code>thousands</code></td><td><code class="ty">boolean</code></td><td>数値型: 千区切り表示。</td></tr>
 <tr><td><code>prefix</code></td><td><code class="ty">string</code></td><td>数値型: 接頭辞（例 '¥'）。</td></tr>
 <tr><td><code>cellClass</code></td><td><code class="ty">(value: any, cell: CellClassCtx) =&gt; ClassValue</code></td><td>値/行を見てセルに付与する CSS クラス（条件付き書式）。**引数は `(value, { r, c, row, src })`**（第1引数がそのセルの値）。
@@ -270,7 +273,7 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 </tbody>
 </table>
 <h2 id="methods">メソッド</h2>
-<p>公開メソッド 86 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
+<p>公開メソッド 91 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
 <h3 id="m-0">データ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
@@ -280,7 +283,7 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 <div class="api-m"><code class="sig">getColumn(cOrKey: number | string): any[] | undefined</code><p>列を縦に取得（index か data キー）。</p></div>
 <div class="api-m"><code class="sig">getColumns(): any[][]</code><p>全列を配列の配列で取得。</p></div>
 <div class="api-m"><code class="sig">getValue(r: number, cOrKey: number | string): any</code><p>1セルの値を取得（c は index か data キー）。</p></div>
-<div class="api-m"><code class="sig">setData(rows: any[][] | Record&lt;string, any&gt;[]): void</code><p>データを差し替え（履歴・フィルタ・整列状態はリセット）。</p></div>
+<div class="api-m"><code class="sig">setData(rows: any[][] | Record&lt;string, any&gt;[], opts?: { original?: (any[] | Record&lt;string, any&gt; | null)[] }): void</code><p>opts.original: rows[i] の元の値（null＝足した行）。trackChanges 時、まだ保存していない直しを持ったまま入れ直す。履歴・onAfterChange は動かない</p></div>
 <div class="api-m"><code class="sig">setColumns(columns: ColumnDef[], headers?: (string | { label?: string })[]): void</code><p>実行時に列定義を差し替える（Vue の `:columns` 変更等）。`headers` 省略時は columns から再導出。
 object モードは元レコード(`_src`)から新 columns で再展開、配列モードは各行を新 COLS に詰める。
 列構造が変わるので整列/セル単位 readOnly はクリア、frozen/選択は範囲内へクランプ。</p></div>
@@ -370,6 +373,11 @@ setData で解除。AG Grid の Infinite Row Model 相当を push プリミテ�
 行に紐づくので並べ替え・行の移動でも同じセルに付いたまま。描き直しても消えず、そのセルの値が変わると消える。invalidMode に依らない。付けたセル数を返す。</p></div>
 <div class="api-m"><code class="sig">clearInvalid(cells?: { r: number; c: number | string }[]): void</code><p>付けた誤りを消す（引数なし＝全部／[{r,c}]＝そのセルだけ）。</p></div>
 <div class="api-m"><code class="sig">validateAll(): Rejection[]</code><p>全セルを検証し、誤りのセルに赤＋理由を付ける（触っていないセルも）。返り値は getInvalidCells() と同じ。前回の validateAll の印は付け直し、setInvalid の誤りは残す。</p></div>
+<div class="api-m"><code class="sig">isDirty(): boolean</code><p>保存していない直しがあるか（trackChanges）。</p></div>
+<div class="api-m"><code class="sig">getChanges(): CellChangeRecord[]</code><p>変えたセル（足した行のセルも）。</p></div>
+<div class="api-m"><code class="sig">getChangedRows(): ChangedRow[]</code><p>変えた行（足した行・消した行も）。r は今の表示の行番号（絞り込みで隠れている・消した行は null）。</p></div>
+<div class="api-m"><code class="sig">commitChanges(rows?: Array&lt;number | ChangedRow&gt;): void</code><p>保存が済んだ＝今の値を「元」にして印を消す。引数なし＝全部／行番号か getChangedRows の要素＝その行だけ。</p></div>
+<div class="api-m"><code class="sig">revertChanges(): void</code><p>直しを全部捨てて、最後に commitChanges / setData した時の状態に戻す（足した行は消え、消した行は戻る）。</p></div>
 </div>
 <h3 id="m-6">出力 / 再描画 / 破棄</h3>
 <div class="api-list">

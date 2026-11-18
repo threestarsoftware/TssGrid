@@ -38,6 +38,10 @@
  *    codeField   : コードの書き戻し先の列（data キー or index）。指定時はモード(2)。省略でモード(1)。
  *    separator   : 値セルに入れるパスの区切り（既定 ' / '）。pathFormat と合わせると良い。
  *    otherPlaceholder : 「その他」入力欄のプレースホルダ（既定 '自由入力'）。
+ *  開いた時: 今の選択の所までたどってカーソルを置く。「その他」で打った文字があれば、その「その他」に
+ *    「その他…（通院）」と添え、選ぶと入力欄にその文字を入れて開く（少し直すだけで済む）。
+ *    モード(2)は codeField のコード＝その「その他」の value で判定（枝ごとの「その他」を取り違えない）。
+ *    モード(1)は値がふつうの葉のどれでもない時に「その他」の文字とみなす（「その他」が複数あればどれにも入れる）。
  *    openOnClick : 既定 true（プルダウン同様シングルクリックで開く）。
  *    icon        : セル右の目印（既定 '▾'／'' で消す）。
  *    className   : ポップアップに付ける任意クラス。
@@ -50,6 +54,22 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function leafVal(n) { return n.value !== undefined ? n.value : n.label; }
   function isBranch(n) { return !n.other && n.children && n.children.length; }
+
+  // 条件に合う葉（その他を含む）までの index の道筋 [i0, i1, …]。見つからなければ null。
+  function nodePath(nodes, pred, trail) {
+    trail = trail || [];
+    for (var i = 0; i < (nodes || []).length; i++) {
+      var n = nodes[i], t = trail.concat(i);
+      if (isBranch(n)) { var r = nodePath(n.children, pred, t); if (r) return r; }
+      else if (pred(n)) return t;
+    }
+    return null;
+  }
+  function allPaths(nodes, pred, trail, out) {
+    out = out || []; trail = trail || [];
+    (nodes || []).forEach(function (n, i) { var t = trail.concat(i); if (isBranch(n)) allPaths(n.children, pred, t, out); else if (pred(n)) out.push(t); });
+    return out;
+  }
 
   // 値 → ラベルのパス配列（[大, 中, 小]）。見つからなければ null。
   function findPath(nodes, value, trail) {
@@ -72,6 +92,27 @@
     var panels = [];              // 開いているパネル(div)。panels[0]=root, [1]=sub, …
     var chosen = [];              // chosen[d] = 深さ d で降りた枝ノード（葉のパス復元に使う）
     var ctxRef = null, done = false, onDoc = null, onKey = null, composing = false;
+    // 開いた時の「今の選択」: curPath＝今の葉までの道筋（開いた時にそこへカーソル）／curOther(n)＝その「その他」に前に打った文字が入っているか
+    var curPath = null, curOther = null, curText = '';
+    function readCurrent(ctx) {
+      curPath = null; curOther = null; curText = ctx.value == null ? '' : String(ctx.value);
+      if (codeField != null) {
+        // モード(2): codeField のコードで判定（その他は枝ごとにコードが違う＝開いた「その他」自身の value と比べる）
+        var code = (ctx.grid && ctx.r != null) ? ctx.grid.getValue(ctx.r, codeField) : null;
+        if (code == null || code === '') return;
+        curPath = nodePath(roots, function (n) { return String(leafVal(n)) === String(code); });
+        curOther = function (n) { return !!n.other && String(leafVal(n)) === String(code); };
+      } else if (curText !== '') {
+        // モード(1): 値がふつうの葉のどれでもなければ「その他」で打った文字
+        curPath = nodePath(roots, function (n) { return !n.other && String(leafVal(n)) === curText; });
+        if (!curPath) {
+          var others = allPaths(roots, function (n) { return !!n.other; });
+          if (others.length === 1) curPath = others[0];   // 「その他」が1つならそこへカーソル（複数ならどれか分からない＝カーソルは置かず、どの「その他」にも文字を入れる）
+          curOther = function (n) { return !!n.other; };
+        }
+      }
+    }
+    function otherText(n) { return (curOther && curOther(n) && curText !== '') ? curText : ''; }
 
     function teardown() {
       panels.forEach(function (p) { if (p.parentNode) p.parentNode.removeChild(p); });
@@ -129,6 +170,7 @@
       position(pop, anchor, depth + 1);
 
       var input = pop.querySelector('.tg-casc-input');
+      input.value = otherText(n);   // 前に打った文字を入れて開く（少し直すだけで済む）
       function back() { closeFrom(depth + 1); var pp = panels[depth]; if (pp && pp._active != null && pp._items[pp._active]) pp._items[pp._active].focus(); }
       input.addEventListener('compositionstart', function () { composing = true; });
       input.addEventListener('compositionend', function () { composing = false; });
@@ -150,7 +192,7 @@
       pop.innerHTML = nodes.map(function (n, i) {
         var branch = isBranch(n), other = !!n.other;
         return '<div class="tg-casc-item' + (branch ? ' branch' : '') + (other ? ' tg-casc-other' : '') + '" data-i="' + i + '" role="menuitem" tabindex="-1">' +
-          '<span class="tg-casc-label">' + esc(n.label) + (other ? '…' : '') + '</span>' + (branch ? '<span class="tg-casc-arrow">▸</span>' : '') + '</div>';
+          '<span class="tg-casc-label">' + esc(n.label) + (other ? '…' : '') + (other && otherText(n) ? '<span class="tg-casc-cur">（' + esc(otherText(n)) + '）</span>' : '') + '</span>' + (branch ? '<span class="tg-casc-arrow">▸</span>' : '') + '</div>';
       }).join('');
       document.body.appendChild(pop);
       panels[depth] = pop;
@@ -198,12 +240,22 @@
       icon: opts.icon != null ? opts.icon : '▾',
       open: function (ctx) {
         ctxRef = ctx; done = false;
+        readCurrent(ctx);
         openPanel(roots, 0, ctx.td.getBoundingClientRect());
         onDoc = function (e) { for (var i = 0; i < panels.length; i++) if (panels[i].contains(e.target)) return; doCancel(); };
         onKey = handleKey;
         document.addEventListener('pointerdown', onDoc, true);
         document.addEventListener('keydown', onKey, true);
-        var f = panels[0]._items[0]; if (f) { panels[0]._activate(0); f.focus(); }
+        // 今の選択の所までたどってカーソルを置く（有給 ▸ その他（通院）なら そこが光った状態で開く）。無ければ先頭。
+        var placed = false;
+        if (curPath) {
+          for (var d = 0; d < curPath.length; d++) {
+            var pp = panels[d], i = curPath[d]; if (!pp || !pp._items[i]) break;
+            if (d < curPath.length - 1) pp._enter(i, false);
+            else { pp._activate(i); pp._items[i].focus(); placed = true; }
+          }
+        }
+        if (!placed) { closeFrom(1); var f = panels[0]._items[0]; if (f) { panels[0]._activate(0); f.focus(); } }
       },
       close: function () { teardown(); },
     };

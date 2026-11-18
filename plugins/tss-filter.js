@@ -180,7 +180,7 @@
       // setData は _allRows を落としてフィルタを解除する（コア仕様）。
       // 行を入れ替えても条件は残したいので、直後に現 active を再適用する（jimu は承認/差戻しのたびに読み直す）。
       const origSetData = grid.setData.bind(grid);
-      grid.setData = function (rows) { origSetData(rows); if (Object.keys(active).some(c => active[c])) apply(); };
+      grid.setData = function (rows, opts) { origSetData(rows, opts); if (Object.keys(active).some(c => active[c])) apply(); };
 
       grid.table.addEventListener('mousedown', onHeadClick, true);   // sort等より先に拾う（capture）
       document.addEventListener('pointerdown', onDocDown);

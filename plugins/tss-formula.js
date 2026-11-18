@@ -67,7 +67,7 @@
     };
     // setData（全入替）後は全行再計算。
     var prevSetData = grid.setData.bind(grid);
-    grid.setData = function (rows) { prevSetData(rows); recalcAll(); };
+    grid.setData = function (rows, opts) { prevSetData(rows, opts); recalcAll(); };
     // 行/列の挿入・削除後も全行再計算（新規行の formula を埋める）。
     var prevStruct = grid.onStructureChange;
     grid.onStructureChange = function (info) { recalcAll(); if (prevStruct) { try { prevStruct.call(grid, info); } catch (e) {} } };
