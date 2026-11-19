@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TssGrid 例 — フィルタUI（サンプル）</title>
+<title>TssGrid 例 — フィルタ（旧方式・setData 差し替え）</title>
 <link rel="stylesheet" href="../src/tssgrid.css">
 <style>
   body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; }
@@ -19,10 +19,17 @@
 </style>
 </head>
 <body>
-<h1>TssGrid 例: フィルタUI <span class="pill">サンプル（コア非搭載）</span></h1>
+<h1>TssGrid 例: フィルタ <span class="pill">旧方式（setData 差し替え）</span></h1>
+
+<div class="note" style="background:#fff8e6;border-color:#f0d58c">
+<b style="color:#8a5a00">このページは古いやり方です。</b>今は本体に絞り込みがあるので、次の2つを使ってください。<br>
+・<a href="filter-live.html">非破壊フィルタ（本体の <code>filter()</code> / <code>clearFilter()</code>）</a>＝全行を持ったまま絞り込む。絞り込み中に直した値もそのまま残る（自分で書き戻す処理は要らない）<br>
+・<a href="filter-ui.html">フィルタUI（tss-filter プラグイン）</a>＝ヘッダの漏斗から Excel 風に絞り込む<br>
+下は、本体に絞り込みが無かった頃の「自分で全件を持ち、<code>setData</code> で差し替え、編集を書き戻す」例です（参考に残しています）。
+</div>
 
 <div class="note">
-フィルタは<b>コアに入れず</b>、並べ替え同様「<b>サンプル＋既存フック</b>」で作ります。仕組みは <b>①マスタ配列をアプリ側に保持 ②絞り込んだ部分集合を <code>setData</code> で表示 ③<code>onAfterChange</code> で編集をマスタへ同期</b>。これで<b>フィルタ中でも編集が効き、解除すると全件＋編集が残ります</b>。<br>
+旧方式の仕組みは <b>①マスタ配列をアプリ側に保持 ②絞り込んだ部分集合を <code>setData</code> で表示 ③<code>onAfterChange</code> で編集をマスタへ同期</b>。これで<b>フィルタ中でも編集が効き、解除すると全件＋編集が残ります</b>。<br>
 下の<b>検索（全列横断）</b>と<b>部署 / 状態の絞り込み</b>を組み合わせてください。
 </div>
 

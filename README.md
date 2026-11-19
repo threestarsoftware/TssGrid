@@ -56,13 +56,14 @@ import '@threestarsoftware/tssgrid/tssgrid.css';
 ```
 **型定義 (`.d.ts`) 同梱**なので TypeScript ではそのまま補完が効きます（APIリファレンス → [tssgrid…/api](https://tssgrid.threestarsoftware.co.jp/api.html)）。
 
-**プラグインの型（TypeScript）**: エディタ系プラグインは **`.d.ts` 同梱で `import` するだけで型が効きます**（`.js` 付きで import）:
+**プラグインの型（TypeScript）**: 主なプラグインは **`.d.ts` 同梱で `import` するだけで型が効きます**（`.js` 付きで import）:
 ```ts
 import TssCombo from '@threestarsoftware/tssgrid/plugins/tss-combo.js';   // ← 型が効く
-// 対応: tss-combo / tss-autocomplete / tss-cascade / tss-calendar / tss-datetime / tss-time / tss-comment
+// 対応: tss-combo / tss-autocomplete / tss-cascade / tss-calendar / tss-datetime / tss-time / tss-comment / tss-hyperlink
+//       tss-filter / tss-sort / tss-merge / tss-sum / tss-toggle（usePlugin 系も）
 columns: [{ data: 'pay', editor: TssCombo({ options: [{ code: '01', label: '現金' }], other: { code: '99', label: 'その他' }, codeField: 'payCode' }) }];
 ```
-それ以外のプラグイン（`usePlugin` 系・`format` ヘルパ系）は型定義がまだ無いので、必要なら5行のアンビエント宣言で補えます（`editor.open/close` を持つ戻り値は `EditorDef`）:
+上に無いプラグイン（`format` ヘルパ系など）は型定義がまだ無いので、必要なら5行のアンビエント宣言で補えます（`editor.open/close` を持つ戻り値は `EditorDef`）:
 ```ts
 import type { EditorDef } from '@threestarsoftware/tssgrid';
 declare function TssXxx(opts: any): EditorDef;   // 未同梱プラグインの暫定宣言
@@ -371,7 +372,7 @@ grid.getAllRows();                     // マスタ全行（フィルタ中で�
 - **フィルタ中の行挿入/削除OK**（マスタへ追従＋**Undo対応**／同一フィルタ内）。**ソートはビュー内**で有効。
 - **選択/ナビ/結合/幾何はビューのまま無改変**＝フィルタ未使用なら一切コスト無し。
 - 制限（v1）: フィルタ中は **列の挿入削除・行移動・セル結合**はロック（解除してから）。`filter`/`clearFilter` は**Undo履歴をクリア**（ビューindex基準の履歴が境界を跨ぐと不整合になるため）。
-- **フィルタUI**（ヘッダの絞り込み等）はコアに入れず**プラグイン** `tss-filter`（下記）で。素朴な `setData` 差し替え方式の旧サンプルは [`examples/filter.html`](https://tssgrid.threestarsoftware.co.jp/examples/filter.html)。
+- **フィルタUI**（ヘッダの絞り込み等）はコアに入れず**プラグイン** `tss-filter`（下記）で。
 
 ### 仮想スクロール（`virtual: true`）
 

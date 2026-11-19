@@ -98,16 +98,16 @@
 
     <tr class="grp"><td colspan="7">大規模・高度（他社が強い領域 ＝ TssGrid の伸びしろ）</td></tr>
     <tr><th>行固定（フリーズ行）</th><td class="me ok">✅ frozenRows</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
-    <tr><th>フィルタUI</th><td class="me pt">⚠️ サンプルあり<span class="sub">setData+編集同期</span></td><td class="ok">✅ 強力<span class="sub">ヘッダフィルタ</span></td><td class="ok">✅</td><td class="ok">✅ 強力</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>フィルタUI</th><td class="me ok">✅ 本体＋プラグイン<span class="sub">filter()（非破壊）／tss-filter（ヘッダの漏斗）</span></td><td class="ok">✅ 強力<span class="sub">ヘッダフィルタ</span></td><td class="ok">✅</td><td class="ok">✅ 強力</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
     <tr><th>仮想スクロール（大量行）</th><td class="me pt">⚠️ 対応<span class="sub">virtual:true（窓描画・opt-in）／実測10万行で初期45ms。一部割り切りあり</span></td><td class="ok">✅ 仮想DOM</td><td class="ok">✅</td><td class="ok">✅ 最強</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
     <tr><th>セル結合（merge）</th><td class="me ok">✅ 横/縦/矩形<span class="sub">tss-merge＋ヘッダ結合</span></td><td class="no">❌<span class="sub">ヘッダ列グループのみ・データ結合なし</span></td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td><td class="ok">✅</td></tr>
     <tr><th>条件付き書式</th><td class="me ok">✅ cellClass<span class="sub">値/行でクラス付与</span></td><td class="ok">✅<span class="sub">formatter/rowFormatter</span></td><td class="ok">✅</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
-    <tr><th>数式</th><td class="me no">❌ <span class="sub">方針として非搭載</span></td><td class="no">❌<span class="sub">数式エンジンなし（集計行は別途）</span></td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td><td class="ok">✅ Excel級</td></tr>
+    <tr><th>数式</th><td class="me pt">⚠️ 行の計算列<span class="sub">tss-formula（金額＝数量×単価 等）。Excel の数式エンジンは方針として非搭載</span></td><td class="no">❌<span class="sub">数式エンジンなし（集計行は別途）</span></td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td><td class="ok">✅ Excel級</td></tr>
     <tr><th>Excelファイル入出力（xlsx）</th><td class="me no">❌ コア非搭載<span class="sub">ExcelJS 併用で可（入出力サンプルあり）</span></td><td class="pt">⚠️<span class="sub">SheetJS連携</span></td><td class="yen">💲／外部</td><td class="yen">💲 Enterprise</td><td class="pt">⚠️</td><td class="ok">✅ 完全</td></tr>
     <tr><th>CSV出力／入力</th><td class="me pt">✅ 出力 / ❌ 入力<span class="sub">出力はコア。入力は貼付で代替／CSVファイルは PapaParse 併用（サンプル）</span></td><td class="ok">✅ / ⚠️<span class="sub">出力native/入力import</span></td><td class="ok">✅ / ✅</td><td class="ok">✅ / ⚠️</td><td class="ok">✅ / ✅</td><td class="ok">✅ / ✅</td></tr>
-    <tr><th>ピボット／集計</th><td class="me no">❌</td><td class="pt">⚠️<span class="sub">グループ+集計行</span></td><td class="pt">⚠️</td><td class="yen">💲 Enterprise</td><td class="no">❌</td><td class="ok">✅</td></tr>
-    <tr><th>グラフ</th><td class="me no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="yen">💲 Enterprise</td><td class="no">❌</td><td class="ok">✅</td></tr>
-    <tr><th>モバイル／タッチ操作</th><td class="me no">❌ <span class="sub">将来（参考収集済）</span></td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>ピボット／集計</th><td class="me pt">⚠️ 合計の行<span class="sub">tss-sum / tss-totals（合計・累計）。ピボットは無し</span></td><td class="pt">⚠️<span class="sub">グループ+集計行</span></td><td class="pt">⚠️</td><td class="yen">💲 Enterprise</td><td class="no">❌</td><td class="ok">✅</td></tr>
+    <tr><th>グラフ</th><td class="me pt">⚠️ セル内の小さなグラフ<span class="sub">tss-bar / tss-sparkline / tss-heatmap</span></td><td class="no">❌</td><td class="no">❌</td><td class="yen">💲 Enterprise</td><td class="no">❌</td><td class="ok">✅</td></tr>
+    <tr><th>モバイル／タッチ操作</th><td class="me ok">✅ 対応<span class="sub">指で範囲選択（四辺の丸）・長押しメニュー・iPad でも開く自前の一覧</span></td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
   </tbody>
 </table>
 </div>
@@ -117,12 +117,12 @@
 <ul class="road">
   <li><b>仮想スクロール（AG Grid / SpreadJS が強い）</b> → <b>対応済み</b>（<a href="virtual.html">virtual.html</a>・<code>virtual:true</code> でopt-in）。可視窓だけ描画する窓方式で、実測10万行＝初期45ms。フィルタの基盤とも共用。割り切り: 全機能フル対応の「100点」ではなく、まだ一部制約あり（インデックスマッパ整備は継続）。</li>
   <li><b>セル結合 merge</b> → <b>対応済み</b>。データセルの<b>横/縦/矩形結合</b>（<a href="merge.html">merge.html</a>・<code>plugins/tss-merge.js</code>）＝アンカー=左上が値/編集/選択、Undo対応・行列の挿入削除で座標追従。ヘッダ結合（<code>nestedHeaders</code>）も別途あり。割り切り: ソートは結合中ロック・縦結合中は行移動不可（分断回避）。</li>
-  <li><b>フィルタUI（各社）</b> → <b>サンプルで対応済み</b>（<a href="filter.html">filter.html</a>：マスタ保持＋setData＋編集同期）。本体は太らせない方針。完全な非破壊フィルタ＋構造変更両立は行インデックスマッパとセット（将来）。</li>
+  <li><b>フィルタUI（各社）</b> → <b>対応済み</b>。本体の非破壊フィルタ <code>filter()</code> / <code>clearFilter()</code>（<a href="filter-live.html">filter-live.html</a>：全行は保持・絞り込み中の編集もそのまま残る）と、ヘッダの漏斗から絞り込むプラグイン <code>tss-filter</code>（<a href="filter-ui.html">filter-ui.html</a>：Excel 風・複数列 AND）。割り切り: 絞り込み中は列の挿入削除・行移動・セル結合をロック。</li>
   <li><b>条件付き書式</b> → <b>対応済み</b>（<code>cellClass</code> で値/行を見てクラス付与＋編集で即追従。見た目は業務側CSS）。Excel風の「ルール設定UI」は将来。</li>
   <li><b>行固定 frozen rows</b> → <b>対応済み</b>（<code>frozenRows</code>。列固定 <code>frozenCols</code> と併用で四隅固定）。</li>
   <li><b>xlsx 入出力（SpreadJS が完全）</b> → CSV出力は対応済み。xlsx は<b>外部ライブラリ連携</b>を想定（本体非搭載の方針）。</li>
-  <li><b>モバイル／タッチ（AG Grid / SpreadJS）</b> → 選択ハンドル・長押しメニュー等の<b>参考を収集済み</b>。pointer イベント一般化で対応予定。</li>
-  <li><b>数式（Handsontable / SpreadJS）</b> → <b>あえて非搭載の方針</b>。「Excelを再現」ではなく「入力業務を軽く確実に」に集中。必要なら計算は業務コード側で。</li>
+  <li><b>モバイル／タッチ（AG Grid / SpreadJS）</b> → <b>対応済み</b>。選択枠の四辺の丸を指で引いて範囲選択（<code>touchSelect</code>・端の丸の出し分け <code>touchSelectEdge</code>）、長押しで右クリックメニュー、iPad でも確実に開く自前の選択一覧。スマホ向けの「1件ずつカードで入力」は将来候補。</li>
+  <li><b>数式（Handsontable / SpreadJS）</b> → Excel の数式エンジンは<b>あえて非搭載の方針</b>。「Excelを再現」ではなく「入力業務を軽く確実に」に集中。業務でよく使う計算は、行の計算列（<code>tss-formula</code>）・合計の行（<code>tss-sum</code> / <code>tss-totals</code>）・累計（<code>tss-running</code>）のプラグインで。</li>
 </ul>
 
 <h2>用途別おすすめ（正直版）</h2>
@@ -138,7 +138,7 @@
 
 <p style="margin-top:30px; font-size:13px; color:#667;">
   <a href="showcase.html">導入事例 / Used by</a><br>
-  動くデモ: <a href="attendance.html">勤怠表</a> ／ <a href="inventory.html">在庫管理</a> ／ <a href="number-input.html">数値入力（全角→半角・エラー化）</a> ／ <a href="conditional-format.html">条件付き書式</a> ／ <a href="html-cells.html">画像/SVG/HTMLセル</a> ／ <a href="frozen-rows.html">行固定</a> ／ <a href="nested-headers.html">ヘッダ結合</a> ／ <a href="row-reorder.html">行ドラッグ移動</a> ／ <a href="excel-export.html">Excel出力</a> ／ <a href="excel-import.html">Excel読込</a> ／ <a href="calendar.html">休日カレンダー</a> ／ <a href="time.html">時刻ピッカー</a> ／ <a href="sort.html">並べ替え</a> ／ <a href="filter.html">フィルタ</a> ／ <a href="virtual.html">仮想スクロール</a>
+  動くデモ: <a href="attendance.html">勤怠表</a> ／ <a href="inventory.html">在庫管理</a> ／ <a href="number-input.html">数値入力（全角→半角・エラー化）</a> ／ <a href="conditional-format.html">条件付き書式</a> ／ <a href="html-cells.html">画像/SVG/HTMLセル</a> ／ <a href="frozen-rows.html">行固定</a> ／ <a href="nested-headers.html">ヘッダ結合</a> ／ <a href="row-reorder.html">行ドラッグ移動</a> ／ <a href="excel-export.html">Excel出力</a> ／ <a href="excel-import.html">Excel読込</a> ／ <a href="calendar.html">休日カレンダー</a> ／ <a href="time.html">時刻ピッカー</a> ／ <a href="sort.html">並べ替え</a> ／ <a href="filter-ui.html">フィルタ</a> ／ <a href="virtual.html">仮想スクロール</a>
 </p>
 
 </div>
