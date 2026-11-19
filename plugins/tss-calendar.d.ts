@@ -57,6 +57,6 @@ declare namespace TssCalendar {
   /** グリッドの `editor` として使えるほか、単体で `openAt` を呼べる。 */
   interface Editor extends EditorDef {
     /** アンカー要素の下に開き、日付選択で `onPick(iso)` を呼ぶ（単体ピッカー用）。 */
-    openAt(anchorEl: Element, isoValue: string, onPick: (iso: string) => void): void;
+    openAt(anchorEl: Element, isoValue: string, onPick: (iso: string) => void, onCancel?: () => void): void;
   }
 }

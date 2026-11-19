@@ -12,6 +12,64 @@
  */
 (function (root) {
   'use strict';
+  // ---- 小窓の置き場所（tss-calendar / time / datetime / cascade / combo / autocomplete で同じ中身。直す時は全部）----
+  // anchor の下（入らなければ上・どちらにも入らなければ広いほう）。見えている範囲（visualViewport＝スマホのキーボードを
+  // 除いた所）に収め、ページ/表のスクロール・画面の向き・キーボードの出入り・小窓の大きさの変化に付いていく。
+  // o.side:'right'＝右へ（多段の子）。o.fit＝入らない時は高さを縮めて中をスクロール（一覧向け＝欄に重ならない）。
+  // o.onLost＝anchor が見える範囲から外れた時（単体で開いた時に閉じる用）。anchor は要素か、要素を返す関数。戻り値 { update, destroy }。
+  function tssPlace(pop, anchor, o) {
+    o = o || {};
+    var W = window, vv = W.visualViewport, raf = 0, alive = true, ro = null, first = true;
+    function place() {
+      raf = 0; if (!alive || !pop.isConnected) return;
+      var a = typeof anchor === 'function' ? anchor() : anchor;
+      if (!a || !a.isConnected) return;
+      var b = a.getBoundingClientRect(), m = 6, g = o.gap != null ? o.gap : 2;
+      var V = vv ? { l: vv.offsetLeft, t: vv.offsetTop, w: vv.width, h: vv.height } : { l: 0, t: 0, w: W.innerWidth, h: W.innerHeight };
+      if (o.onLost && !first && (b.bottom <= V.t || b.top >= V.t + V.h)) { o.onLost(); return; }   // 開いた瞬間は閉じない（開いた側の処理の途中で消えないように）
+      var T = V.t + m, B = V.t + V.h - m, L = V.l + m, R = V.l + V.w - m;
+      var st = pop.scrollTop; if (o.fit) pop.style.maxHeight = '';
+      var w = pop.offsetWidth, h = pop.offsetHeight, top, left;
+      if (o.side === 'right') {
+        left = b.right - 2; if (left + w > R) left = b.left - w + 2;
+        top = b.top - 4;
+      } else {
+        var below = B - b.bottom - g, above = b.top - g - T, down = h <= below || (h > above && below >= above);
+        if (o.fit && h > (down ? below : above)) { pop.style.maxHeight = Math.max(60, down ? below : above) + 'px'; h = pop.offsetHeight; }
+        top = down ? b.bottom + g : b.top - g - h;
+        left = b.left; if (left + w > R) left = R - w;
+      }
+      pop.style.top = Math.max(T, Math.min(top, B - h)) + 'px';
+      pop.style.left = Math.max(L, left) + 'px';
+      if (o.fit && st) pop.scrollTop = st;
+    }
+    function req(e) {
+      if (e && e.type === 'scroll' && e.target && e.target.nodeType === 1 && pop.contains(e.target)) return;   // 小窓の中のスクロールは無関係
+      if (!raf) raf = W.requestAnimationFrame(place);
+    }
+    W.addEventListener('scroll', req, true); W.addEventListener('resize', req);
+    if (vv) { vv.addEventListener('resize', req); vv.addEventListener('scroll', req); }
+    if (W.ResizeObserver) { ro = new W.ResizeObserver(function () { req(); }); ro.observe(pop); }   // 中身が変わって大きさが変わった（月送り・候補の絞り込み等）
+    place(); first = false;
+    return {
+      update: place,
+      destroy: function () {
+        alive = false; if (raf) W.cancelAnimationFrame(raf); raf = 0; if (ro) ro.disconnect();
+        W.removeEventListener('scroll', req, true); W.removeEventListener('resize', req);
+        if (vv) { vv.removeEventListener('resize', req); vv.removeEventListener('scroll', req); }
+      }
+    };
+  }
+  // 表の中で開いた時の anchor＝今のセル（表のスクロール・描き直しでセルの要素が替わっても追う）。単体の時は渡された要素。
+  function tssAnchor(el, ctx) {
+    if (!(ctx && ctx.grid && ctx.grid.cellEl && ctx.r != null)) return el;
+    return function () { var t = null; try { t = ctx.grid.cellEl(ctx.r, ctx.c); } catch (e) {} return (t && t.isConnected) ? t : el; };
+  }
+  // 単体で開く時: ほかの文字欄のキーボードを閉じる（出たままだと小窓がキーボードの裏に開く）。
+  function tssBlurOther(el) {
+    var ae = document.activeElement;
+    if (ae && ae !== el && !(el && el.contains && el.contains(ae)) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) { try { ae.blur(); } catch (e) {} }
+  }
   function pad(n) { return String(n).padStart(2, '0'); }
   function iso(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
   function parseISO(s) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
@@ -70,6 +128,7 @@
       if (disable.indexOf('weekend') >= 0 && weekend.indexOf(d.getDay()) >= 0) return true;
       return false;
     }
+    var placer = null;   // 小窓の置き場所（tssPlace）
     function render() {
       var y = view.getFullYear(), m = view.getMonth();
       var start = new Date(y, m, 1).getDay(), today = new Date();
@@ -114,13 +173,6 @@
         d.setDate(d.getDate() + 1);
       }
       pop.innerHTML = html + '</div>';
-    }
-    function place(anchor) {
-      var r = anchor.getBoundingClientRect();
-      pop.style.left = Math.max(2, Math.min(r.left, window.innerWidth - pop.offsetWidth - 6)) + 'px';
-      var top = r.bottom + 2;
-      if (top + pop.offsetHeight > window.innerHeight) top = Math.max(2, r.top - pop.offsetHeight - 2);
-      pop.style.top = top + 'px';
     }
     function onClick(e) {
       // 「範囲で選ぶ」トグル: ネイティブ checkbox の toggle/フォーカスには頼らず click で反転（フォーカス不動＝inline でも閉じない）。
@@ -179,18 +231,18 @@
       pop.addEventListener('change', onChange);
       pop.addEventListener('keydown', onKey);
       if (rc) pop.addEventListener('mouseover', onOver);
-      render(); place(anchor);
+      render(); placer = tssPlace(pop, tssAnchor(anchor, ctx), { onLost: ctx ? null : cancel });   // 単体で開いた時は欄が見えなくなったら閉じる
       ref = { pick: onPick, cancel: onCancel };
       // inline は「外側クリック/フォーカス」を本体（_commitActive / blur）が持つ＝二重に閉じない・共有 input から
       // フォーカスを奪わない（＝打ち続けられる）。矢印/Enter/Esc も本体の既定に返す（onKey は pop 未フォーカスなので発火しない）。
       // ★ ポップアップを本体に登録＝年/月の <select> へフォーカスが移っても編集を閉じない（②）。
-      if (inline) { if (ictx && ictx.inline && ictx.setPopup) ictx.setPopup(pop); return; }
+      if (inline && ictx && ictx.inline) { if (ictx.setPopup) ictx.setPopup(pop); return; }   // 表の中の inline だけ本体に任せる（openAt＝単体は下で自分で外側を見る）
       // 外側クリックで閉じる。ただしアンカー（開いた元セル）は除外＝再クリックはグリッド側でトグル処理させる
       outside = function (e) { if (pop && !pop.contains(e.target) && !(anchor && anchor.contains && anchor.contains(e.target))) cancel(); };
       setTimeout(function () { document.addEventListener('pointerdown', outside, true); }, 0);
       pop.focus();
     }
-    function teardown() { clearTip(); if (outside) { document.removeEventListener('pointerdown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } ictx = null; }
+    function teardown() { if (placer) { placer.destroy(); placer = null; } clearTip(); if (outside) { document.removeEventListener('pointerdown', outside, true); outside = null; } if (pop) { pop.remove(); pop = null; } ictx = null; }
     function pick(d) {
       if (done) return;
       if (rc && rangeActive) {   // トグル ON＝2クリック範囲
@@ -229,7 +281,7 @@
         sel = d; focus = new Date(d); view = new Date(d.getFullYear(), d.getMonth(), 1); render();
       } : undefined,
       // 単体ウィジェット: 任意要素にアンカーして開く
-      openAt: function (anchorEl, value, onPick) { show(anchorEl, value, function (v) { onPick(v); }, null); },
+      openAt: function (anchorEl, value, onPick, onCancel) { tssBlurOther(anchorEl); show(anchorEl, value, function (v) { onPick(v); }, onCancel || null); },
     };
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = TssCalendar;

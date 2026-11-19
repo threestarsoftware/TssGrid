@@ -24,6 +24,6 @@ declare namespace TssTime {
 
   interface Editor extends EditorDef {
     /** アンカー要素の下に開き、選択で `onPick('HH:MM')` を呼ぶ（単体用）。 */
-    openAt(anchorEl: Element, value: string, onPick: (value: string) => void): void;
+    openAt(anchorEl: Element, value: string, onPick: (value: string) => void, onCancel?: () => void): void;
   }
 }

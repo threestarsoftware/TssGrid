@@ -24,3 +24,5 @@
   padding: 3px 12px; font: inherit; cursor: pointer; border-radius: 5px; border: 1px solid #c4ccd6; background: #f5f7fa;
 }
 .tg-combo .tg-combo-actions .tg-combo-ok { background: var(--tg-accent, #1573c0); color: #fff; border-color: transparent; }
+/* 指で操作する端末: 入力欄の文字を 16px に（iPhone は 16px 未満の欄に触れると画面を拡大してしまう） */
+@media (pointer: coarse) { .tg-combo .tg-combo-input { font-size: 16px; } }

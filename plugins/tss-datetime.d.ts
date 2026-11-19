@@ -34,7 +34,7 @@ declare namespace TssDatetime {
 
   interface Editor extends EditorDef {
     /** アンカー要素の下に開き、選択で `onPick('YYYY-MM-DDTHH:MM')` を呼ぶ（単体用）。 */
-    openAt(anchorEl: Element, value: string, onPick: (value: string) => void): void;
+    openAt(anchorEl: Element, value: string, onPick: (value: string) => void, onCancel?: () => void): void;
   }
 
   /** 列 format 用: 保存値 'YYYY-MM-DDTHH:MM' を表示整形。 */

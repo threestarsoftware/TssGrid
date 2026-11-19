@@ -28,3 +28,14 @@
   padding: 3px 12px; font: inherit; cursor: pointer; border-radius: 5px; border: 1px solid #c4ccd6; background: #f5f7fa;
 }
 .tg-cascade .tg-casc-actions .tg-casc-ok { background: var(--tg-accent, #1573c0); color: #fff; border-color: transparent; }
+/* スマホ（layout:'drill'／'auto' の狭い画面）: 1枚の中で段を入れ替える。指で押しやすい行の高さ・上に「‹ 親」の戻る行 */
+.tg-cascade.tg-casc-drill { max-width: calc(100vw - 12px); max-height: 70vh; font-size: 15px; }
+.tg-cascade.tg-casc-drill .tg-casc-item { padding: 11px 12px; white-space: normal; }
+.tg-cascade.tg-casc-drill .tg-casc-arrow { font-size: 16px; }
+.tg-cascade .tg-casc-dback {
+  padding: 10px 12px; margin-bottom: 4px; border-bottom: 1px solid #e3e8ee;
+  color: var(--tg-accent, #1573c0); font-weight: 600; cursor: pointer; outline: none;
+}
+.tg-cascade.tg-casc-drill .tg-casc-actions button { padding: 8px 16px; }
+/* 指で操作する端末: 入力欄の文字を 16px に（iPhone は 16px 未満の欄に触れると画面を拡大してしまう） */
+@media (pointer: coarse) { .tg-cascade .tg-casc-input { font-size: 16px; } }

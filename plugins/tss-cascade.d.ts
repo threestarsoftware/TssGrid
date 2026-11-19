@@ -4,7 +4,7 @@ import { EditorDef } from '../src/tssgrid';
 export = TssCascade;
 export as namespace TssCascade;
 
-declare function TssCascade(opts: TssCascade.Options): EditorDef;
+declare function TssCascade(opts: TssCascade.Options): TssCascade.Editor;
 
 declare namespace TssCascade {
   /** ノード。枝は `children`、葉は `value`（未指定なら `label` を保存）。
@@ -29,6 +29,20 @@ declare namespace TssCascade {
     icon?: string;
     /** ポップアップに付ける任意クラス。 */
     className?: string;
+    /** 表示の仕方。'auto'（既定）＝指で操作する幅600px未満の画面（スマホ）は 'drill'、ほかは 'flyout'。
+     *  'flyout'＝右へ横に開く（PC）／'drill'＝1枚の中で段を入れ替え、上の「‹ 親」で戻る（スマホ）。 */
+    layout?: 'auto' | 'flyout' | 'drill';
+  }
+
+  /** openAt で選んだ結果。value＝値セルに入れるのと同じもの（codeField あり＝パス「有給 / 私用」かその他の文字／なし＝葉の value）。
+   *  code＝葉（その他ノード）の value。other＝「その他」で入れたか。 */
+  interface PickResult { value: string; code: string | number; other: boolean; }
+
+  /** グリッドの `editor` として使えるほか、表の外（スマホのカード入力など）から単体で `openAt` を呼べる。 */
+  interface Editor extends EditorDef {
+    /** 欄の要素の下（入らなければ上）に開く。current＝今の値（文字）か { value, code }（codeField を使う定義なら code も）。
+     *  今の選択の所にカーソル・「その他」は前の文字を入れて開く。スクロール・キーボードに付いていき、欄が画面から外れる／外側を押すと閉じて `onCancel`。 */
+    openAt(anchorEl: Element, current: string | { value?: string; code?: string | number | null }, onPick: (r: PickResult) => void, onCancel?: () => void): void;
   }
 
   /** 列 format 用: 値 → 「大 / 中 / 小」のパス文字列を返す関数。 */

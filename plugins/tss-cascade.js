@@ -1,4 +1,4 @@
-/*! TssCascade — 多段（フライアウト）プルダウン。TssGrid カスタムエディタ（ポップアップ型）。
+/*! TssCascade — 多段プルダウン（PC は横に開く／スマホは1枚の中で段を入れ替える）。TssGrid カスタムエディタ（ポップアップ型）。
  *
  *  メニューのように「大分類 ▸ 中分類 ▸ 小分類」とフライアウトで開き、葉を選ぶとセルに確定。
  *  葉に `other:true` を付けると、その葉は「その他」＝選ぶと入力欄に切替わり、打った文字をセルに確定。
@@ -45,12 +45,79 @@
  *    openOnClick : 既定 true（プルダウン同様シングルクリックで開く）。
  *    icon        : セル右の目印（既定 '▾'／'' で消す）。
  *    className   : ポップアップに付ける任意クラス。
+ *    layout      : 'auto'（既定）＝指で操作する狭い画面（幅600px未満のスマホ）では「1枚の中で段を入れ替える」表示、
+ *                  ほかは右へ横に開く表示／'flyout'＝いつも横に開く／'drill'＝いつも1枚で入れ替える。
+ *                  1枚の表示は、枝を押すと次の段に入れ替わり、上の「‹ 有給」で戻る（横に開く場所が無いスマホ向け）。
+ *  単体で開く（表の外＝スマホのカード入力など。一覧と同じ定義をそのまま使える）:
+ *    const kubun = TssCascade({ options: OPTS, codeField: 'categoryCode' });
+ *    kubun.openAt(欄の要素, { value: '通院', code: 'paid:other' }, function (r) {
+ *      // r = { value: '通院', code: 'paid:other', other: true }／普通の葉なら { value: '有給 / 私用', code: 'paid:personal', other: false }
+ *    }, onCancel?);
+ *    // codeField を使わない定義なら openAt(el, '私用', fn) と文字だけで渡せる（r.value＝葉の value）。欄が画面から外れたら閉じる。
  *  静的:
  *    TssCascade.pathFormat(options, { separator }) => (value)=>string   // 列 format 用（モード1の表示）
  *    TssCascade.pathOf(options, value, sep?) => string
  */
 (function (root) {
   'use strict';
+  // ---- 小窓の置き場所（tss-calendar / time / datetime / cascade / combo / autocomplete で同じ中身。直す時は全部）----
+  // anchor の下（入らなければ上・どちらにも入らなければ広いほう）。見えている範囲（visualViewport＝スマホのキーボードを
+  // 除いた所）に収め、ページ/表のスクロール・画面の向き・キーボードの出入り・小窓の大きさの変化に付いていく。
+  // o.side:'right'＝右へ（多段の子）。o.fit＝入らない時は高さを縮めて中をスクロール（一覧向け＝欄に重ならない）。
+  // o.onLost＝anchor が見える範囲から外れた時（単体で開いた時に閉じる用）。anchor は要素か、要素を返す関数。戻り値 { update, destroy }。
+  function tssPlace(pop, anchor, o) {
+    o = o || {};
+    var W = window, vv = W.visualViewport, raf = 0, alive = true, ro = null, first = true;
+    function place() {
+      raf = 0; if (!alive || !pop.isConnected) return;
+      var a = typeof anchor === 'function' ? anchor() : anchor;
+      if (!a || !a.isConnected) return;
+      var b = a.getBoundingClientRect(), m = 6, g = o.gap != null ? o.gap : 2;
+      var V = vv ? { l: vv.offsetLeft, t: vv.offsetTop, w: vv.width, h: vv.height } : { l: 0, t: 0, w: W.innerWidth, h: W.innerHeight };
+      if (o.onLost && !first && (b.bottom <= V.t || b.top >= V.t + V.h)) { o.onLost(); return; }   // 開いた瞬間は閉じない（開いた側の処理の途中で消えないように）
+      var T = V.t + m, B = V.t + V.h - m, L = V.l + m, R = V.l + V.w - m;
+      var st = pop.scrollTop; if (o.fit) pop.style.maxHeight = '';
+      var w = pop.offsetWidth, h = pop.offsetHeight, top, left;
+      if (o.side === 'right') {
+        left = b.right - 2; if (left + w > R) left = b.left - w + 2;
+        top = b.top - 4;
+      } else {
+        var below = B - b.bottom - g, above = b.top - g - T, down = h <= below || (h > above && below >= above);
+        if (o.fit && h > (down ? below : above)) { pop.style.maxHeight = Math.max(60, down ? below : above) + 'px'; h = pop.offsetHeight; }
+        top = down ? b.bottom + g : b.top - g - h;
+        left = b.left; if (left + w > R) left = R - w;
+      }
+      pop.style.top = Math.max(T, Math.min(top, B - h)) + 'px';
+      pop.style.left = Math.max(L, left) + 'px';
+      if (o.fit && st) pop.scrollTop = st;
+    }
+    function req(e) {
+      if (e && e.type === 'scroll' && e.target && e.target.nodeType === 1 && pop.contains(e.target)) return;   // 小窓の中のスクロールは無関係
+      if (!raf) raf = W.requestAnimationFrame(place);
+    }
+    W.addEventListener('scroll', req, true); W.addEventListener('resize', req);
+    if (vv) { vv.addEventListener('resize', req); vv.addEventListener('scroll', req); }
+    if (W.ResizeObserver) { ro = new W.ResizeObserver(function () { req(); }); ro.observe(pop); }   // 中身が変わって大きさが変わった（月送り・候補の絞り込み等）
+    place(); first = false;
+    return {
+      update: place,
+      destroy: function () {
+        alive = false; if (raf) W.cancelAnimationFrame(raf); raf = 0; if (ro) ro.disconnect();
+        W.removeEventListener('scroll', req, true); W.removeEventListener('resize', req);
+        if (vv) { vv.removeEventListener('resize', req); vv.removeEventListener('scroll', req); }
+      }
+    };
+  }
+  // 表の中で開いた時の anchor＝今のセル（表のスクロール・描き直しでセルの要素が替わっても追う）。単体の時は渡された要素。
+  function tssAnchor(el, ctx) {
+    if (!(ctx && ctx.grid && ctx.grid.cellEl && ctx.r != null)) return el;
+    return function () { var t = null; try { t = ctx.grid.cellEl(ctx.r, ctx.c); } catch (e) {} return (t && t.isConnected) ? t : el; };
+  }
+  // 単体で開く時: ほかの文字欄のキーボードを閉じる（出たままだと小窓がキーボードの裏に開く）。
+  function tssBlurOther(el) {
+    var ae = document.activeElement;
+    if (ae && ae !== el && !(el && el.contains && el.contains(ae)) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) { try { ae.blur(); } catch (e) {} }
+  }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function leafVal(n) { return n.value !== undefined ? n.value : n.label; }
   function isBranch(n) { return !n.other && n.children && n.children.length; }
@@ -88,17 +155,18 @@
     var codeField = opts.codeField;
     var sep = opts.separator || ' / ';
     var placeholder = opts.otherPlaceholder != null ? opts.otherPlaceholder : '自由入力';
+    var layoutOpt = opts.layout || 'auto';
 
-    var panels = [];              // 開いているパネル(div)。panels[0]=root, [1]=sub, …
+    var panels = [];              // flyout: 開いているパネル(div)。panels[0]=root, [1]=sub, …／drill: panels[0] だけ
     var chosen = [];              // chosen[d] = 深さ d で降りた枝ノード（葉のパス復元に使う）
-    var ctxRef = null, done = false, onDoc = null, onKey = null, composing = false;
+    var ctxRef = null, done = false, onDoc = null, onKey = null, composing = false, drill = false, standalone = false;
     // 開いた時の「今の選択」: curPath＝今の葉までの道筋（開いた時にそこへカーソル）／curOther(n)＝その「その他」に前に打った文字が入っているか
     var curPath = null, curOther = null, curText = '';
     function readCurrent(ctx) {
       curPath = null; curOther = null; curText = ctx.value == null ? '' : String(ctx.value);
       if (codeField != null) {
         // モード(2): codeField のコードで判定（その他は枝ごとにコードが違う＝開いた「その他」自身の value と比べる）
-        var code = (ctx.grid && ctx.r != null) ? ctx.grid.getValue(ctx.r, codeField) : null;
+        var code = ctx.code !== undefined ? ctx.code : ((ctx.grid && ctx.r != null) ? ctx.grid.getValue(ctx.r, codeField) : null);
         if (code == null || code === '') return;
         curPath = nodePath(roots, function (n) { return String(leafVal(n)) === String(code); });
         curOther = function (n) { return !!n.other && String(leafVal(n)) === String(code); };
@@ -114,104 +182,105 @@
     }
     function otherText(n) { return (curOther && curOther(n) && curText !== '') ? curText : ''; }
 
+    // 表示の仕方: 'flyout'＝右へ横に開く（PC）／'drill'＝1枚の中で段を入れ替える（スマホ）／'auto'＝指で操作する狭い画面だけ drill
+    function useDrill() {
+      if (layoutOpt === 'drill') return true;
+      if (layoutOpt !== 'auto') return false;
+      var coarse = false; try { coarse = window.matchMedia('(pointer: coarse)').matches; } catch (e) {}
+      return coarse && Math.min(window.innerWidth, document.documentElement.clientWidth || window.innerWidth) < 600;
+    }
+
+    function killPanel(p) { if (p._placer) { p._placer.destroy(); p._placer = null; } if (p.parentNode) p.parentNode.removeChild(p); }
     function teardown() {
-      panels.forEach(function (p) { if (p.parentNode) p.parentNode.removeChild(p); });
+      panels.forEach(killPanel);
       panels = []; chosen = [];
       if (onDoc) document.removeEventListener('pointerdown', onDoc, true);
       if (onKey) document.removeEventListener('keydown', onKey, true);
       onDoc = onKey = null; composing = false;
     }
-    function closeFrom(depth) { while (panels.length > depth) { var p = panels.pop(); if (p.parentNode) p.parentNode.removeChild(p); } if (chosen.length > depth) chosen.length = depth; }
-    function doCancel() { if (done) return; done = true; var c = ctxRef; teardown(); c.cancel(); }
+    function closeFrom(depth) { while (panels.length > depth) killPanel(panels.pop()); if (chosen.length > depth) chosen.length = depth; }
+    function doCancel() { if (done) return; done = true; var c = ctxRef; teardown(); if (c.cancel) c.cancel(); }
 
-    // 書き戻し: 値セルは commit（履歴に積む）、codeField は別列へ setValueRaw（readOnly 貫通・独立undoを作らない）。
-    function writeCode(code) {
-      var c = ctxRef;
-      if (codeField != null && c.grid && c.r != null) { try { c.grid.setValueRaw(c.r, codeField, code); } catch (e) {} }
-    }
-    // 普通の葉を確定。モード(2)は値＝パス／code＝葉value、モード(1)は値＝葉value（従来）。
-    function commitLeaf(n, depth) {
-      if (done) return; done = true;
-      var c = ctxRef;
-      var path = chosen.slice(0, depth).map(function (x) { return x.label; }).concat(n.label).join(sep);
-      teardown();
-      if (codeField != null) { c.commit(path); writeCode(leafVal(n)); }
-      else c.commit(leafVal(n));
-    }
-    // 「その他」を確定。値＝打った文字／code＝その他ノードの value（枝ごとに違うコード）。
-    function commitOther(n, text) {
+    // 確定。表の中: 値セルは commit（履歴に積む）、codeField は別列へ setValueRaw（readOnly 貫通・独立undoを作らない）。
+    // 単体（openAt）: onPick({ value, code, other })。
+    function finish(value, code, isOther) {
       if (done) return; done = true;
       var c = ctxRef; teardown();
-      c.commit(text);
-      if (codeField != null) writeCode(leafVal(n));
+      if (c.pick) { c.pick({ value: value, code: code, other: !!isOther }); return; }
+      c.commit(value);
+      if (codeField != null && c.grid && c.r != null) { try { c.grid.setValueRaw(c.r, codeField, code); } catch (e) {} }
     }
-
-    function position(pop, anchor, depth) {
-      var pw = pop.offsetWidth, ph = pop.offsetHeight, vw = window.innerWidth, vh = window.innerHeight, left, top;
-      if (depth === 0) { left = anchor.left; top = anchor.bottom + 2; }
-      else { left = anchor.right - 2; top = anchor.top - 4; }               // 親アイテムの右へフライアウト
-      if (left + pw > vw - 6) left = depth === 0 ? Math.max(6, vw - pw - 6) : Math.max(6, anchor.left - pw + 2);  // 右端で左へフリップ
-      if (top + ph > vh - 6) top = Math.max(6, vh - ph - 6);
-      pop.style.left = Math.max(6, left) + 'px'; pop.style.top = top + 'px';
+    // 普通の葉。モード(2)は値＝パス／code＝葉value、モード(1)は値＝葉value（従来）。
+    function commitLeaf(n, depth) {
+      var path = chosen.slice(0, depth).map(function (x) { return x.label; }).concat(n.label).join(sep);
+      finish(codeField != null ? path : leafVal(n), leafVal(n), false);
     }
+    // 「その他」。値＝打った文字／code＝その他ノードの value（枝ごとに違うコード）。
+    function commitOther(n, text) { finish(text, leafVal(n), true); }
 
-    // 「その他」の入力パネル（submenu 相当・panels[depth+1] に積む＝外側クリックで閉じない）。
-    function openInput(n, depth, anchor) {
-      closeFrom(depth + 1);
+    function newPop(extra) {
       var pop = document.createElement('div');
-      pop.className = 'tg-cascade tg-casc-inputpop' + (opts.className ? ' ' + opts.className : '');
-      pop._isInput = true; pop._depth = depth + 1;
-      pop.innerHTML = '<div class="tg-casc-inputwrap">' +
+      pop.className = 'tg-cascade' + (extra ? ' ' + extra : '') + (opts.className ? ' ' + opts.className : '');
+      document.body.appendChild(pop);
+      return pop;
+    }
+    function itemHTML(n, i) {
+      var branch = isBranch(n), other = !!n.other;
+      return '<div class="tg-casc-item' + (branch ? ' branch' : '') + (other ? ' tg-casc-other' : '') + '" data-i="' + i + '" role="menuitem" tabindex="-1">' +
+        '<span class="tg-casc-label">' + esc(n.label) + (other ? '…' : '') + (other && otherText(n) ? '<span class="tg-casc-cur">（' + esc(otherText(n)) + '）</span>' : '') + '</span>' + (branch ? '<span class="tg-casc-arrow">' + (drill ? '›' : '▸') + '</span>' : '') + '</div>';
+    }
+    // 「その他」の入力欄（共通）。wrap に入れて、確定/戻るを結ぶ。
+    function buildInput(wrap, n, onBack) {
+      wrap.innerHTML += '<div class="tg-casc-inputwrap">' +
         '<input class="tg-casc-input" type="text" placeholder="' + esc(placeholder) + '">' +
         '<div class="tg-casc-actions"><button type="button" class="tg-casc-ok">確定</button>' +
         '<button type="button" class="tg-casc-back">戻る</button></div></div>';
-      document.body.appendChild(pop);
-      panels[depth + 1] = pop;
-      position(pop, anchor, depth + 1);
-
-      var input = pop.querySelector('.tg-casc-input');
+      var input = wrap.querySelector('.tg-casc-input');
       input.value = otherText(n);   // 前に打った文字を入れて開く（少し直すだけで済む）
-      function back() { closeFrom(depth + 1); var pp = panels[depth]; if (pp && pp._active != null && pp._items[pp._active]) pp._items[pp._active].focus(); }
       input.addEventListener('compositionstart', function () { composing = true; });
       input.addEventListener('compositionend', function () { composing = false; });
       input.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { if (composing || e.isComposing || e.keyCode === 229) return; e.preventDefault(); commitOther(n, input.value); }
-        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); back(); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onBack(); }
       });
-      pop.querySelector('.tg-casc-ok').addEventListener('mousedown', function (e) { e.preventDefault(); commitOther(n, input.value); });
-      pop.querySelector('.tg-casc-back').addEventListener('mousedown', function (e) { e.preventDefault(); back(); });
+      wrap.querySelector('.tg-casc-ok').addEventListener('mousedown', function (e) { e.preventDefault(); commitOther(n, input.value); });
+      wrap.querySelector('.tg-casc-back').addEventListener('mousedown', function (e) { e.preventDefault(); onBack(); });
       setTimeout(function () { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }, 0);
-      return pop;
     }
 
-    function openPanel(nodes, depth, anchor) {
-      closeFrom(depth);
-      var pop = document.createElement('div');
-      pop.className = 'tg-cascade' + (opts.className ? ' ' + opts.className : '');
-      pop.setAttribute('role', 'menu');
-      pop.innerHTML = nodes.map(function (n, i) {
-        var branch = isBranch(n), other = !!n.other;
-        return '<div class="tg-casc-item' + (branch ? ' branch' : '') + (other ? ' tg-casc-other' : '') + '" data-i="' + i + '" role="menuitem" tabindex="-1">' +
-          '<span class="tg-casc-label">' + esc(n.label) + (other ? '…' : '') + (other && otherText(n) ? '<span class="tg-casc-cur">（' + esc(otherText(n)) + '）</span>' : '') + '</span>' + (branch ? '<span class="tg-casc-arrow">▸</span>' : '') + '</div>';
-      }).join('');
-      document.body.appendChild(pop);
-      panels[depth] = pop;
-      position(pop, anchor, depth);
-
+    // ---- flyout（PC）: 右へ横に開く ----
+    function openInput(n, depth, anchorEl) {
+      closeFrom(depth + 1);
+      var pop = newPop('tg-casc-inputpop');
+      pop._isInput = true; pop._depth = depth + 1;
+      panels[depth + 1] = pop;
+      buildInput(pop, n, function () { closeFrom(depth + 1); var pp = panels[depth]; if (pp && pp._active != null && pp._items[pp._active]) pp._items[pp._active].focus(); });
+      pop._placer = tssPlace(pop, anchorEl, { side: 'right' });
+      return pop;
+    }
+    function bindItems(pop, nodes, depth) {
       var items = pop.querySelectorAll('.tg-casc-item');
       pop._items = items; pop._active = null; pop._depth = depth;
-      pop._activate = function (idx) { Array.prototype.forEach.call(items, function (el, k) { el.classList.toggle('active', k === idx); }); pop._active = idx; };
+      pop._activate = function (idx) { Array.prototype.forEach.call(items, function (el, k) { el.classList.toggle('active', k === idx); }); pop._active = idx; if (items[idx] && items[idx].scrollIntoView) items[idx].scrollIntoView({ block: 'nearest' }); };
+      return items;
+    }
+    function openPanel(nodes, depth, anchor) {
+      closeFrom(depth);
+      var pop = newPop(); pop.setAttribute('role', 'menu');
+      pop.innerHTML = nodes.map(itemHTML).join('');
+      panels[depth] = pop;
+      var items = bindItems(pop, nodes, depth);
       pop._enter = function (idx, viaKey) {          // ホバー/→: 枝なら submenu を開く。葉/その他はそれ以上開かない。
         var n = nodes[idx]; if (!n) return; pop._activate(idx);
         if (isBranch(n)) {
           chosen[depth] = n;
-          openPanel(n.children, depth + 1, items[idx].getBoundingClientRect());
+          openPanel(n.children, depth + 1, items[idx]);
           if (viaKey) { var sub = panels[depth + 1], f = sub._items[0]; if (f) { sub._activate(0); f.focus(); } }
         } else closeFrom(depth + 1);
       };
       pop._choose = function (idx) {                 // クリック/Enter: 枝→開く／その他→入力へ／葉→確定
         var n = nodes[idx]; if (!n) return;
-        if (n.other) { pop._activate(idx); openInput(n, depth, items[idx].getBoundingClientRect()); }
+        if (n.other) { pop._activate(idx); openInput(n, depth, items[idx]); }
         else if (isBranch(n)) pop._enter(idx, true);
         else commitLeaf(n, depth);
       };
@@ -220,7 +289,42 @@
         el.addEventListener('mouseenter', function () { pop._enter(idx, false); });
         el.addEventListener('click', function (e) { e.stopPropagation(); pop._choose(idx); });
       });
+      pop._placer = depth === 0 ? tssPlace(pop, anchor, { fit: true, onLost: standalone ? doCancel : null }) : tssPlace(pop, anchor, { side: 'right' });
       return pop;
+    }
+
+    // ---- drill（スマホ）: 1枚の中で段を入れ替える。上に「‹ 親」の戻る行 ----
+    var dpop = null, dNodes = null, dDepth = 0;
+    function drillNodesAt(depth) { var ns = roots; for (var d = 0; d < depth; d++) ns = chosen[d].children; return ns; }
+    function drillBackRow(label) { return '<div class="tg-casc-dback" role="button" tabindex="-1">‹ ' + esc(label) + '</div>'; }
+    function drillBack() { if (dDepth > 0) { var from = chosen[dDepth - 1]; drillShow(dDepth - 1, from); } }
+    function drillShow(depth, highlightNode) {
+      dDepth = depth; chosen.length = depth; dNodes = drillNodesAt(depth);
+      dpop._isInput = false;
+      dpop.innerHTML = (depth > 0 ? drillBackRow(chosen[depth - 1].label) : '') + dNodes.map(itemHTML).join('');
+      var items = bindItems(dpop, dNodes, depth);
+      var back = dpop.querySelector('.tg-casc-dback');
+      if (back) back.addEventListener('click', function (e) { e.stopPropagation(); drillBack(); });
+      dpop._enter = function (idx) { var n = dNodes[idx]; if (n && isBranch(n)) { chosen[depth] = n; drillShow(depth + 1); } };
+      dpop._choose = function (idx) {
+        var n = dNodes[idx]; if (!n) return;
+        if (n.other) drillInput(n, depth);
+        else if (isBranch(n)) dpop._enter(idx);
+        else commitLeaf(n, depth);
+      };
+      Array.prototype.forEach.call(items, function (el) {
+        var idx = +el.dataset.i;
+        el.addEventListener('click', function (e) { e.stopPropagation(); dpop._choose(idx); });
+      });
+      var k = highlightNode ? dNodes.indexOf(highlightNode) : 0;
+      if (items.length) { dpop._activate(k >= 0 ? k : 0); }
+      dpop.scrollTop = 0; if (k > 0 && items[k]) items[k].scrollIntoView({ block: 'nearest' });
+    }
+    function drillInput(n, depth) {
+      dpop._isInput = true;
+      dpop.innerHTML = drillBackRow(depth > 0 ? chosen[depth - 1].label : '戻る');
+      buildInput(dpop, n, function () { drillShow(depth, n); });   // ↑ innerHTML += するので、戻る行の listener はこの後で付ける
+      dpop.querySelector('.tg-casc-dback').addEventListener('click', function (e) { e.stopPropagation(); drillShow(depth, n); });
     }
 
     function handleKey(e) {
@@ -230,32 +334,63 @@
       if (e.key === 'ArrowDown') { e.preventDefault(); n = (idx + 1) % items.length; pop._activate(n); items[n].focus(); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); n = (idx - 1 + items.length) % items.length; pop._activate(n); items[n].focus(); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); if (idx >= 0) pop._enter(idx, true); }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); if (panels.length > 1) { closeFrom(panels.length - 1); var pp = panels[panels.length - 1]; if (pp._active != null) pp._items[pp._active].focus(); } }
+      else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (drill) { drillBack(); var f = dpop._items[dpop._active]; if (f) f.focus(); }
+        else if (panels.length > 1) { closeFrom(panels.length - 1); var pp = panels[panels.length - 1]; if (pp._active != null) pp._items[pp._active].focus(); }
+      }
       else if (e.key === 'Enter') { e.preventDefault(); if (idx >= 0) pop._choose(idx); }
-      else if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
+      else if (e.key === 'Escape') { e.preventDefault(); if (drill && dDepth > 0) drillBack(); else doCancel(); }
+    }
+
+    // 開く（表の中・単体の共通）。anchor＝置き場所の基準（要素 or 要素を返す関数）。
+    function start(ctx, anchor, isStandalone) {
+      if (panels.length) teardown();
+      ctxRef = ctx; done = false; standalone = !!isStandalone; drill = useDrill();
+      readCurrent(ctx);
+      if (drill) {
+        dpop = newPop('tg-casc-drill'); dpop.setAttribute('role', 'menu');
+        panels[0] = dpop;
+        var aw = typeof anchor === 'function' ? anchor() : anchor;
+        if (aw) dpop.style.minWidth = Math.max(aw.getBoundingClientRect().width, 220) + 'px';
+        // 今の選択の所まで降りて開く（有給 ▸ その他（通院）なら「‹ 有給」の段で その他 が光る）
+        var depth = 0, hl = null;
+        if (curPath) {
+          var ns = roots;
+          for (var d = 0; d < curPath.length - 1; d++) { var b = ns[curPath[d]]; if (!b || !isBranch(b)) break; chosen[d] = b; ns = b.children; depth = d + 1; }
+          if (depth === curPath.length - 1) hl = ns[curPath[depth]];
+        }
+        drillShow(depth, hl);
+        dpop._placer = tssPlace(dpop, anchor, { fit: true, onLost: standalone ? doCancel : null });
+        var f0 = dpop._items[dpop._active]; if (f0) f0.focus({ preventScroll: true });
+      } else {
+        openPanel(roots, 0, anchor);
+        // 今の選択の所までたどってカーソルを置く（有給 ▸ その他（通院）なら そこが光った状態で開く）。無ければ先頭。
+        var placed = false;
+        if (curPath) {
+          for (var dd = 0; dd < curPath.length; dd++) {
+            var pp = panels[dd], i = curPath[dd]; if (!pp || !pp._items[i]) break;
+            if (dd < curPath.length - 1) pp._enter(i, false);
+            else { pp._activate(i); pp._items[i].focus(); placed = true; }
+          }
+        }
+        if (!placed) { closeFrom(1); var f = panels[0]._items[0]; if (f) { panels[0]._activate(0); f.focus(); } }
+      }
+      onDoc = function (e) { for (var i = 0; i < panels.length; i++) if (panels[i].contains(e.target)) return; doCancel(); };
+      onKey = handleKey;
+      document.addEventListener('pointerdown', onDoc, true);
+      document.addEventListener('keydown', onKey, true);
     }
 
     return {
       openOnClick: opts.openOnClick !== false,
       icon: opts.icon != null ? opts.icon : '▾',
-      open: function (ctx) {
-        ctxRef = ctx; done = false;
-        readCurrent(ctx);
-        openPanel(roots, 0, ctx.td.getBoundingClientRect());
-        onDoc = function (e) { for (var i = 0; i < panels.length; i++) if (panels[i].contains(e.target)) return; doCancel(); };
-        onKey = handleKey;
-        document.addEventListener('pointerdown', onDoc, true);
-        document.addEventListener('keydown', onKey, true);
-        // 今の選択の所までたどってカーソルを置く（有給 ▸ その他（通院）なら そこが光った状態で開く）。無ければ先頭。
-        var placed = false;
-        if (curPath) {
-          for (var d = 0; d < curPath.length; d++) {
-            var pp = panels[d], i = curPath[d]; if (!pp || !pp._items[i]) break;
-            if (d < curPath.length - 1) pp._enter(i, false);
-            else { pp._activate(i); pp._items[i].focus(); placed = true; }
-          }
-        }
-        if (!placed) { closeFrom(1); var f = panels[0]._items[0]; if (f) { panels[0]._activate(0); f.focus(); } }
+      open: function (ctx) { start(ctx, tssAnchor(ctx.td, ctx), false); },
+      // 単体で開く: current＝今の値（文字）か { value, code }（codeField を使う定義なら code も渡す）。onPick({ value, code, other })。
+      openAt: function (anchorEl, current, onPick, onCancel) {
+        tssBlurOther(anchorEl);
+        var cur = (current && typeof current === 'object') ? current : { value: current };
+        start({ value: cur.value == null ? '' : cur.value, code: cur.code === undefined ? null : cur.code, td: anchorEl, pick: onPick, cancel: onCancel || function () {} }, anchorEl, true);
       },
       close: function () { teardown(); },
     };

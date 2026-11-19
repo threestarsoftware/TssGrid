@@ -5,7 +5,7 @@ import { EditorDef } from '../src/tssgrid';
 export = TssCombo;
 export as namespace TssCombo;
 
-declare function TssCombo(opts: TssCombo.Options): EditorDef;
+declare function TssCombo(opts: TssCombo.Options): TssCombo.Editor;
 
 declare namespace TssCombo {
   /** 選択肢1件。`code`（別名 `value`）と表示 `label`。文字列を渡すと code=label。 */
@@ -26,6 +26,16 @@ declare namespace TssCombo {
     icon?: string;
     /** ポップアップに付ける任意クラス。 */
     className?: string;
+  }
+
+  /** openAt で選んだ結果。value＝表示の文字（その他は打った文字）・code＝コード・other＝「その他」で入れたか。 */
+  interface PickResult { value: string; code: string; other: boolean; }
+
+  /** グリッドの `editor` として使えるほか、表の外（スマホのカード入力など）から単体で `openAt` を呼べる。 */
+  interface Editor extends EditorDef {
+    /** 欄の要素の下（入らなければ上）に開く。current＝今の値（文字）か { value, code }。
+     *  スクロール・キーボードの出入りに付いていき、欄が画面から外れる／外側を押すと閉じて `onCancel`。 */
+    openAt(anchorEl: Element, current: string | { value?: string; code?: string | number }, onPick: (r: PickResult) => void, onCancel?: () => void): void;
   }
 
   /**

@@ -583,7 +583,7 @@ new TssGrid(el, { columns: [{ type: 'date', editor: cal, format: 'yyyy/mm/dd' }]
 - セル右端に **📅** が出て**シングルクリックで開閉**（再クリックで閉じる＝トグル）、開いている間も**フィルハンドルで下へコピー可**（ドロップダウンと同じ操作感）。**年・月はプルダウン**で直接ジャンプ。祝日は赤＋**名称ツールチップ**、土日は色分け。保存値は ISO のまま。
 - **打つ人はそのまま打てます**（既定 `inline`）: セルに `6/20` と打ち始めればそのまま編集開始（**1文字目も落ちない・IME 直打ちも効く**）、カレンダーは打った日へ追従。確定は Enter か日をクリック。**矢印はセル移動のまま**（カレンダーは奪いません）。
   - 矢印/PageUp・Down でカレンダー内を移動する旧型が要るなら `inline: false`（→ [`editor.inline`](#editorinline-打鍵ime-直打ちを殺さないエディタサジェスト向け)）。**セルに直接打ち始める操作は失われます**。
-- 見た目は CSS 変数（`--cal-accent` など）と `tss-cal-*` クラスで自由に（依存ゼロ）。グリッド外でも `cal.openAt(anchorEl, isoValue, onPick)` で単体利用可。
+- 見た目は CSS 変数（`--cal-accent` など）と `tss-cal-*` クラスで自由に（依存ゼロ）。グリッド外でも `cal.openAt(anchorEl, isoValue, onPick, onCancel?)` で単体利用可（→「表の外で同じ部品を使う」）。
 - `opts`: `icon`(既定 `'📅'`, `''` で消す) / `openOnClick`(既定 true) / `yearMin`・`yearMax`(年プルダウンの範囲) も。
 - 仕組み: カスタムエディタが **`icon` / `openOnClick` を申告**すると、グリッドが右端アイコン表示＋シングルクリック起動を行います（自作エディタでも同様に使えます）。
 
@@ -803,6 +803,58 @@ columns: [
 - undo/redo・貼付で code を値に追従させたい時は `TssCombo.codeOf({options, other})` を `onAfterChange` に噛ませる（任意）。
 - 見た目は `tg-combo*` クラス、色は `--tg-accent` を流用。`openOnClick` / `otherPlaceholder` / `icon` / `className`。
 - **開いたリストの見た目はネイティブ `type:'dropdown'`（OS 描画の `<select>`）とはあえて別**（自前ポップアップ＝角丸・影・アクセント色＝「ここは『その他』入力もできる」合図）。**セル右の ▾ キャレットはネイティブ dropdown と統一済み**。リストを素の dropdown に寄せたい場合は `.tg-combo*` / `--tg-accent` を上書きすれば調整できます（※逆にネイティブ `<select>` のリストは OS 製で CSS 装飾不可）。
+- 表の外からも開ける（`openAt`）→ 下の「[表の外で同じ部品を使う](#表の外で同じ部品を使うスマホのカード入力など)」。
+
+### 同梱プラグイン: 多段プルダウン（tss-cascade）
+
+`plugins/tss-cascade.js` ＝「大分類 ▸ 中分類 ▸ 小分類」と段をたどって選ぶプルダウン。葉に `other: true` を付けると、その葉は「その他」＝選ぶと入力欄に切り替わり、打った文字を値にする。動く例: [`examples/cascade-other.html`](https://tssgrid.threestarsoftware.co.jp/examples/cascade-other.html)。
+
+```js
+const OPTS = [
+  { label: '有給', children: [
+    { label: '私用', value: 'paid:personal' },
+    { label: 'その他', other: true, value: 'paid:other' },   // ← この枝の「その他」のコード
+  ] },
+  { label: '午前休', children: [ /* … */ ] },
+];
+columns: [
+  { data: 'categoryCode' },                                              // コード列（hidden: true でも可）
+  { data: 'leaveReason', editor: TssCascade({ options: OPTS, codeField: 'categoryCode' }) },
+]
+// 有給 ▸ 私用            → leaveReason='有給 / 私用' / categoryCode='paid:personal'
+// 有給 ▸ その他 で「通院」 → leaveReason='通院'        / categoryCode='paid:other'
+```
+- `codeField` を省くと、葉の `value` をそのまま値セルに入れる（表示は `TssCascade.pathFormat(OPTS)` を列の `format` に）。
+- 開くと今の選択の所にカーソルがある。「その他」は前に打った文字を「その他…（通院）」と添え、選ぶと入力欄にその文字を入れて開く。
+- **表示の仕方 `layout`**：`'auto'`（既定）＝スマホ（指で操作する幅 600px 未満の画面）は**1枚の中で段を入れ替える**表示（枝を押すと次の段に入れ替わり、上の「‹ 有給」で戻る）、ほかは右へ横に開く表示。`'flyout'` / `'drill'` で固定もできる。
+- 表の外からも開ける（`openAt`）→ 次の節。
+
+### 表の外で同じ部品を使う（スマホのカード入力など）
+
+一覧の列に渡すのと**同じ部品**を、表の外の欄（カードの日付欄・区分欄など）から開けます。選択肢や「その他」の決まりを一覧とカードで二重に持たずに済みます。
+
+```js
+// 一覧の列定義と同じものをそのまま使う
+const cal   = TssCalendar({ holidays });
+const kubun = TssCascade({ options: OPTS, codeField: 'categoryCode' });
+const pay   = TssCombo({ options: PAY, other: { code: '99', label: 'その他' } });
+
+cal.openAt(dateEl, '2026-11-19', iso => { rec.date = iso; });
+kubun.openAt(kubunEl, { value: rec.leaveReason, code: rec.categoryCode }, r => {
+  rec.leaveReason = r.value; rec.categoryCode = r.code;   // r = { value, code, other }
+});
+pay.openAt(payEl, { value: rec.payName, code: rec.payCode }, r => { rec.payName = r.value; rec.payCode = r.code; });
+```
+
+| 部品 | 呼び方 | 選んだ時 |
+|---|---|---|
+| TssCalendar / TssTime / TssDatetime | `openAt(要素, 今の値, onPick, onCancel?)` | `onPick('2026-11-19')`（値の文字） |
+| TssCascade / TssCombo | `openAt(要素, 今の値 または { value, code }, onPick, onCancel?)` | `onPick({ value, code, other })` |
+
+- **置き場所**：欄の下（入らなければ上、どちらにも入らなければ広いほう）。プルダウン類は、入らない時は高さを縮めて中をスクロールする＝欄に重ならない。カレンダーは形が決まっているので、上にも下にも入らない横向きのスマホでは欄に重なることがある。
+- **付いていく**：ページのスクロール、画面の向きの変更、**スマホのキーボードの出入り**（見えている範囲＝`visualViewport` に収める）に合わせて動く。欄が画面から外れたら閉じて `onCancel`。外側を押した時も閉じる。
+- 開く時に、ほかの文字欄にあるカーソルを外す（キーボードが出たままだと、キーボードの裏に開いてしまうため）。
+- 一覧の中で開いた時も同じ置き場所の決め方（表やページのスクロールに付いていく）。
 
 ### 同梱プラグイン: セル内スパークライン（sparkline・ミニグラフ）
 
