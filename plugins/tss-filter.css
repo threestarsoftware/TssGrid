@@ -1,41 +1,42 @@
-/* TssFilter — ヘッダのオートフィルタUI（plugins/tss-filter.js）。色は --tg-accent を流用。 */
+/* TssFilter — ヘッダのオートフィルタUI（plugins/tss-filter.js）。色は tssgrid.css の変数（漏斗＝--tg-filter-*、小窓＝テーマ時の --tg-pop-*）。 */
 .tssgrid .tg-table thead th .tg-filter-btn {
   display: inline-flex; align-items: center; margin-left: 4px; line-height: 1; cursor: pointer;
-  color: #b9bfcc; user-select: none; padding: 1px 2px; border-radius: 3px;
+  color: var(--tg-filter-ico); user-select: none; padding: 1px 2px; border-radius: 3px;
 }
 .tssgrid .tg-table thead th .tg-filter-btn .tg-filter-ico { display: block; }
-.tssgrid .tg-table thead th .tg-filter-btn:hover { color: #fff; background: rgba(255,255,255,.18); }
-.tssgrid .tg-table thead th .tg-filter-btn.on { color: var(--tg-accent, #2f6fed); background: #fff; }   /* 適用中はロートがアクセント色＋白地で明確 */
+.tssgrid .tg-table thead th .tg-filter-btn:hover { color: var(--tg-filter-hover); background: var(--tg-filter-hover-bg); }
+.tssgrid .tg-table thead th .tg-filter-btn.on { color: var(--tg-accent); background: var(--tg-filter-on-bg); }   /* 適用中はロートがアクセント色＋白地で明確 */
 
 .tg-filter-pop {
-  position: fixed; z-index: 1000; width: 220px; background: #fff; color: #1f2733;
-  border: 1px solid #c4ccd6; border-radius: 8px; box-shadow: 0 6px 22px rgba(20,40,80,.22);
+  position: fixed; z-index: 1000; width: 220px; background: var(--tg-pop-bg, #fff); color: var(--tg-pop-fg, #1f2733);
+  border: 1px solid var(--tg-pop-border, #c4ccd6); border-radius: 8px; box-shadow: 0 6px 22px var(--tg-pop-shadow, rgba(20,40,80,.22));
   font: 12.5px "Meiryo UI", "Segoe UI", sans-serif; padding: 8px; box-sizing: border-box;
 }
 /* モード切替（値を選択／部分一致／前方一致）。セグメント風に3分割。 */
-.tg-filter-pop .tg-filter-mode { display: flex; gap: 2px; margin-bottom: 7px; border: 1px solid #dbe1ea; border-radius: 6px; padding: 2px; background: #f4f6fa; }
+.tg-filter-pop .tg-filter-mode { display: flex; gap: 2px; margin-bottom: 7px; border: 1px solid var(--tg-pop-line, #dbe1ea); border-radius: 6px; padding: 2px; background: var(--tg-pop-soft, #f4f6fa); }
 .tg-filter-pop .tg-filter-mode a {
-  flex: 1; text-align: center; padding: 4px 0; border-radius: 4px; cursor: pointer; color: #5b6470;
+  flex: 1; text-align: center; padding: 4px 0; border-radius: 4px; cursor: pointer; color: var(--tg-pop-muted, #5b6470);
   font-size: 11.5px; white-space: nowrap; user-select: none;
 }
-.tg-filter-pop .tg-filter-mode a:hover { background: #e7edf6; }
-.tg-filter-pop .tg-filter-mode a.on { background: var(--tg-accent, #2f6fed); color: #fff; }
+.tg-filter-pop .tg-filter-mode a:hover { background: var(--tg-pop-hover, #e7edf6); }
+.tg-filter-pop .tg-filter-mode a.on { background: var(--tg-pop-accent, #2f6fed); color: var(--tg-pop-accent-fg, #fff); }
 .tg-filter-pop .tg-filter-text input,
 .tg-filter-pop .tg-filter-search input {
-  width: 100%; box-sizing: border-box; padding: 4px 7px; border: 1px solid #cbd2dc; border-radius: 5px; font: inherit;
+  width: 100%; box-sizing: border-box; padding: 4px 7px; border: 1px solid var(--tg-pop-border, #cbd2dc); border-radius: 5px; font: inherit;
+  background: var(--tg-pop-bg, #fff); color: var(--tg-pop-fg, FieldText);
 }
-.tg-filter-pop .tg-filter-tools { font-size: 11.5px; color: #6b7280; margin: 6px 2px 4px; }
-.tg-filter-pop .tg-filter-tools a { color: var(--tg-accent, #2f6fed); cursor: pointer; text-decoration: none; }
+.tg-filter-pop .tg-filter-tools { font-size: 11.5px; color: var(--tg-pop-muted, #6b7280); margin: 6px 2px 4px; }
+.tg-filter-pop .tg-filter-tools a { color: var(--tg-pop-accent, #2f6fed); cursor: pointer; text-decoration: none; }
 .tg-filter-pop .tg-filter-tools a:hover { text-decoration: underline; }
-.tg-filter-pop .tg-filter-list { max-height: 200px; overflow: auto; border: 1px solid #eef1f5; border-radius: 5px; padding: 3px; }
+.tg-filter-pop .tg-filter-list { max-height: 200px; overflow: auto; border: 1px solid var(--tg-pop-line, #eef1f5); border-radius: 5px; padding: 3px; }
 .tg-filter-pop .tg-filter-list label {
   display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; cursor: pointer; white-space: nowrap;
 }
-.tg-filter-pop .tg-filter-list label:hover { background: #f0f4fb; }
+.tg-filter-pop .tg-filter-list label:hover { background: var(--tg-pop-hover, #f0f4fb); }
 .tg-filter-pop .tg-filter-list label span { overflow: hidden; text-overflow: ellipsis; }
 .tg-filter-pop .tg-filter-btns { display: flex; gap: 6px; margin-top: 8px; }
 .tg-filter-pop .tg-filter-btns button {
-  flex: 1; padding: 5px 0; border: 1px solid #cbd2dc; background: #fff; border-radius: 5px; font: inherit; cursor: pointer;
+  flex: 1; padding: 5px 0; border: 1px solid var(--tg-pop-border, #cbd2dc); background: var(--tg-pop-soft, #fff); color: var(--tg-pop-fg, ButtonText); border-radius: 5px; font: inherit; cursor: pointer;
 }
-.tg-filter-pop .tg-filter-btns button[data-act=apply] { background: var(--tg-accent, #2f6fed); border-color: var(--tg-accent, #2f6fed); color: #fff; }
+.tg-filter-pop .tg-filter-btns button[data-act=apply] { background: var(--tg-pop-accent, #2f6fed); border-color: var(--tg-pop-accent, #2f6fed); color: var(--tg-pop-accent-fg, #fff); }
 .tg-filter-pop .tg-filter-btns button:hover { filter: brightness(.97); }

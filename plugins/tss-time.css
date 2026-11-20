@@ -1,16 +1,18 @@
 /* TssTime — スタイル。業務側は下の CSS 変数を上書きするだけでテーマを変えられる。
    例: .tss-time { --time-accent:#c0392b; --time-radius:10px; } */
 .tss-time {
-  --time-bg: #fff;
-  --time-fg: #222;
-  --time-border: #c3ccd6;
-  --time-accent: #2aa0d8;
+  --time-bg: var(--tg-pop-bg, #fff);
+  --time-fg: var(--tg-pop-fg, #222);
+  --time-border: var(--tg-pop-border, #c3ccd6);
+  --time-accent: var(--tg-pop-pick, #2aa0d8);
+  --time-accent-fg: var(--tg-pop-accent-fg, #fff);
+  --time-hover: var(--tg-pop-hover, #eef4ff);
   --time-radius: 8px;
   --time-font: 13px "Segoe UI", "Meiryo", sans-serif;
 
   position: fixed; z-index: 10000; background: var(--time-bg); color: var(--time-fg);
   border: 1px solid var(--time-border); border-radius: var(--time-radius);
-  box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 10px; font: var(--time-font); user-select: none; outline: none;
+  box-shadow: 0 6px 24px var(--tg-pop-shadow, rgba(0,0,0,.18)); padding: 10px; font: var(--time-font); user-select: none; outline: none;
 }
 .tss-time-row { display: flex; align-items: center; gap: 4px; }
 .tss-time-sep { font-weight: 600; padding: 0 1px; }
@@ -18,6 +20,6 @@
 .tss-time select:focus { outline: 2px solid var(--time-accent); outline-offset: -1px; }
 .tss-time-btns { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
 .tss-time-btns button { font: inherit; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--time-border); background: var(--time-bg); color: var(--time-fg); cursor: pointer; }
-.tss-time-btns button:hover { background: #eef4ff; }
-.tss-time-btns .tss-time-ok { border-color: var(--time-accent); background: var(--time-accent); color: #fff; }
+.tss-time-btns button:hover { background: var(--time-hover); }
+.tss-time-btns .tss-time-ok { border-color: var(--time-accent); background: var(--time-accent); color: var(--time-accent-fg); }
 .tss-time-btns .tss-time-ok:hover { filter: brightness(1.05); }

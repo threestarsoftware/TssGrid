@@ -2,21 +2,24 @@
    例: .tss-cal { --cal-accent:#c0392b; --cal-radius:10px; } / 特定業務だけ .myapp .tss-cal { ... } */
 .tss-cal {
   /* ▼ テーマ変数（上書きポイント） */
-  --cal-bg: #fff;
-  --cal-fg: #222;
-  --cal-border: #c3ccd6;
-  --cal-accent: #2aa0d8;          /* 選択日 */
-  --cal-hover: #eef4ff;
-  --cal-sun: #d61f2b;             /* 日曜・祝日の文字 */
-  --cal-sat: #2456b0;             /* 土曜の文字 */
-  --cal-holiday-bg: #fff0f1;      /* 祝日セルの背景 */
-  --cal-muted: #b6bdc6;           /* 前後月・無効日 */
+  /* （テーマ data-tg-theme を使うと tssgrid.css の --tg-pop-* が入る＝表と同じ色。無い時は今までの色） */
+  --cal-bg: var(--tg-pop-bg, #fff);
+  --cal-fg: var(--tg-pop-fg, #222);
+  --cal-border: var(--tg-pop-border, #c3ccd6);
+  --cal-accent: var(--tg-pop-pick, #2aa0d8);          /* 選択日 */
+  --cal-accent-fg: var(--tg-pop-accent-fg, #fff);
+  --cal-hover: var(--tg-pop-hover, #eef4ff);
+  --cal-sun: var(--tg-pop-danger, #d61f2b);           /* 日曜・祝日の文字 */
+  --cal-sat: var(--tg-pop-sat, #2456b0);             /* 土曜の文字 */
+  --cal-holiday-bg: var(--tg-pop-holiday-bg, #fff0f1);   /* 祝日セルの背景 */
+  --cal-muted: var(--tg-pop-faint, #b6bdc6);          /* 前後月・無効日 */
+  --cal-weekday: var(--tg-pop-muted, #889);           /* 曜日の見出し */
   --cal-radius: 8px;
   --cal-font: 13px "Segoe UI", "Meiryo", sans-serif;
 
   position: fixed; z-index: 10000; background: var(--cal-bg); color: var(--cal-fg);
   border: 1px solid var(--cal-border); border-radius: var(--cal-radius);
-  box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 8px; font: var(--cal-font); user-select: none; outline: none;
+  box-shadow: 0 6px 24px var(--tg-pop-shadow, rgba(0,0,0,.18)); padding: 8px; font: var(--cal-font); user-select: none; outline: none;
 }
 /* 範囲選択トグル（range 有効行のみ上部に表示）。 */
 .tss-cal-toggle { display: flex; align-items: center; gap: 6px; margin: 0 2px 6px; padding: 3px 4px; font-size: 12px; color: var(--cal-fg); cursor: pointer; border-bottom: 1px solid var(--cal-border); user-select: none; }
@@ -30,7 +33,7 @@
 .tss-cal-nav { border: 1px solid var(--cal-border); background: var(--cal-bg); color: var(--cal-fg); border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 15px; line-height: 1; }
 .tss-cal-nav:hover { background: var(--cal-hover); }
 .tss-cal-grid { display: grid; grid-template-columns: repeat(7, 32px); gap: 2px; }
-.tss-cal-wl { text-align: center; font-size: 11px; color: #889; padding: 2px 0; }
+.tss-cal-wl { text-align: center; font-size: 11px; color: var(--cal-weekday); padding: 2px 0; }
 .tss-cal-wl.tss-cal-sun { color: var(--cal-sun); } .tss-cal-wl.tss-cal-sat { color: var(--cal-sat); }
 .tss-cal-day { text-align: center; padding: 6px 0; border-radius: 6px; cursor: pointer; }
 .tss-cal-day:hover { background: var(--cal-hover); }
@@ -40,11 +43,11 @@
 .tss-cal-day.tss-cal-other { color: var(--cal-muted); }
 .tss-cal-day.tss-cal-today { box-shadow: inset 0 0 0 1px var(--cal-accent); }
 .tss-cal-day.tss-cal-focus { box-shadow: inset 0 0 0 2px var(--cal-accent); }
-.tss-cal-day.tss-cal-sel { background: var(--cal-accent); color: #fff; }
+.tss-cal-day.tss-cal-sel { background: var(--cal-accent); color: var(--cal-accent-fg); }
 /* 範囲選択（range:true）。間の日は淡色、両端は濃色。 */
 .tss-cal-day.tss-cal-inrange { background: var(--cal-hover); border-radius: 0; }
 .tss-cal-day.tss-cal-range-start,
-.tss-cal-day.tss-cal-range-end { background: var(--cal-accent); color: #fff; }
+.tss-cal-day.tss-cal-range-end { background: var(--cal-accent); color: var(--cal-accent-fg); }
 .tss-cal-day.tss-cal-range-start { border-radius: 6px 0 0 6px; }
 .tss-cal-day.tss-cal-range-end { border-radius: 0 6px 6px 0; }
 .tss-cal-day.tss-cal-range-start.tss-cal-range-end { border-radius: 6px; }   /* 開始=終端（1日だけ選択中） */

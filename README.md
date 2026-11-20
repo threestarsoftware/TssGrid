@@ -417,8 +417,11 @@ plugins: [ TssFilter.plugin({ columns:['部署', 2] }) ]   // 対象列を限定
 plugins: [ TssFilter.plugin({ columns:['status'], initial:{ status:['承認待ち','取消依頼'] } }) ]
 grid.getPlugin('filter').setValues('status', ['承認済み']);  // あとから条件を差込（null で解除）
 grid.getPlugin('filter').clearAll();            // 全条件クリア
+// 1つのセルに複数の値がある列（「Java, Python, Vue」）＝列定義に区切りを書く
+columns: [ { data:'skills', title:'技術', filterSplit:',' } ]          // 文字列・正規表現（/[,、]/）・(値, 行) => 配列
 ```
 - 値候補は**マスタ全行から集計**（絞り込み中でも全値が出る）。フィルタ済み列に印。値は HTML エスケープ。
+- **`filterSplit`**（列定義）: 「値を選択」の一覧は分けた値（Java／Python／Vue …）を重複なしで並べ、**チェックした値のどれかを含む行**を残す（OR）。分けた値の前後の空白は取る（「Java,Python」も「Java, Python」も同じ値）。部分一致・前方一致はセルの文字全体に対して。`initial` / `setValues` も同じ意味。
 - `initial` / `setValues(列,[値])` は手で「値を選択」したのと同じ扱い（完全一致・列間 AND・漏斗印も点灯・ポップアップにチェック済）。列は **data キー or index**。データに無い値は無視（エラーにしない）。**`setData` で行を入れ替えても条件は残り新しい行に効く**。`setValues(列, null)` でその列を解除、`clearAll()` で全解除。
 
 ### 同梱プラグイン: 見出しクリックで並べ替え（sort UI）
@@ -1026,15 +1029,36 @@ onAfterChange: (changes) => {
 
 ## テーマ / 見た目のカスタマイズ
 
-主要な色・サイズは **CSS 変数**にしてあり、業務側で**数個上書きするだけ**で統一感を出せます（フルのテーマエンジンは持たない軽量方針）。
+色は **3段**で決まります。テーマが決めるのは ① だけで、② は自動で作られます。どの段も業務側で直接書けばそれが勝ちます。
 
-```css
-.tssgrid { --tg-accent: #c0392b; --tg-header-bg: #f3eaea; --tg-font-size: 14px; }  /* 全グリッド */
-.myapp .tssgrid { --tg-edit-accent: #7b61ff; }                                      /* 特定業務だけ */
+| 段 | 中身 | 例 |
+|---|---|---|
+| ① 元の色 | 背景・文字・罫線・ヘッダ・アクセントなど十数色 | `--tg-cell-bg` `--tg-fg` `--tg-header-bg` `--tg-header-fg` `--tg-accent` … |
+| ② 作る色 | 選択中・hover・アイコン・読み取り専用の灰色・**表の外に開く小窓**（カレンダー・プルダウン・フィルタ等） | `--tg-selhdr-bg` `--tg-sel-bg` `--tg-header-accent` `--tg-pop-bg` … |
+| ③ 部品 | 表本体と同梱プラグイン。② の変数だけを見る（固定の色を持たない） | |
+
+**同梱テーマ**（`themes/`）: `light`（既定に近い・自分のテーマを作る時のひな形）/ `navy` / `black` / `green` / `wine`（臙脂）/ `dark`。ファイルは ① の色を数行書いただけなので、**コピーして色を変えれば自社のテーマ**になります。
+
+```html
+<link rel="stylesheet" href="tssgrid.css">
+<link rel="stylesheet" href="themes/tss-theme-navy.css">   <!-- 使うテーマだけ -->
+<html data-tg-theme="navy">                                  <!-- ページ全体（小窓にも届く） -->
 ```
-主な変数: `--tg-accent`(選択枠/フィル) / `--tg-edit-accent`(編集枠) / `--tg-border` / `--tg-wrap-border` / `--tg-header-bg`(ヘッダ背景の既定) / `--tg-colheader-bg`(列ヘッダ背景) / `--tg-rowhead-bg`(行番号列背景) / `--tg-header-fg`(列ヘッダ文字)・`--tg-rowhead-fg`(行番号文字) / `--tg-cell-bg` / `--tg-sel-bg`(選択背景) / `--tg-selhdr-bg`(選択中ヘッダ) / `--tg-readonly-bg`・`--tg-readonly-fg` / `--tg-placeholder-fg` / `--tg-invalid-fg`・`--tg-invalid-bg` / `--tg-box-color`・`--tg-box-width`(セル囲み) / `--tg-font-size` / `--tg-radius`。さらに細かくは従来どおり `.tssgrid .tg-xxx { … }` で上書きできます（全 CSS は `.tssgrid` 配下に scope 済み）。
+```js
+TssGrid.setTheme('navy');                                     // ページ全体（JS から）
+TssGrid.setTheme({ headerBg: '#1f3a5f', accent: '#f59f00' });  // 色だけ指定（文字色は省けば白か黒を自動）
+TssGrid.setTheme({ name: 'navy', accent: '#e8590c' });         // 同梱テーマ＋一部だけ変える
+new TssGrid(el, { theme: 'wine' });                           // この表だけ（grid.setTheme(…) で後から）
+TssGrid.setTheme(null);                                       // 外す
+```
 
-- **ヘッダ色**: `--tg-header-bg` で列ヘッダ＋行番号列をまとめて、または `--tg-colheader-bg`／`--tg-rowhead-bg` で**別々に**（未指定なら `--tg-header-bg` を継ぐので後方互換）。選択中の列/行ヘッダは `--tg-selhdr-bg` が出るので、濃色テーマではこれも合わせると統一感が出ます。
+- キーは CSS 変数の `--tg-` を取って camelCase（`--tg-header-bg` → `headerBg`）。`'--tg-xxx'` のまま書いても可。知らない名前は console に警告・TypeScript では型エラー。
+- **② も1つずつ決められます**: `TssGrid.setTheme({ headerBg: '#1f3a5f', selhdrBg: '#ffd54f' })`、CSS なら `.tssgrid { --tg-selhdr-bg: #ffd54f; }`。
+- **表の外に開く小窓も同じ色**になります（小窓は body の直下に出ますが、開いた欄の色・テーマを写します）。表ごとにテーマが違っても、その表から開いた小窓はその表の色。
+- **テーマを付けない時は今までと同じ見た目**です（② は今までの色のまま）。テーマ無しで `--tg-header-bg` 等を変えるのも従来どおり使えますが、② は追従しないので、濃いヘッダにする時はテーマ（`TssGrid.setTheme({ headerBg })` か `data-tg-theme`）を使うと選択中・アイコンまで揃います。
+- **読み込み順は問いません**。色の変数は CSS の層（`@layer`）の中に置いてあり、「既定 ＜ テーマから自動で作る色 ＜ テーマのファイル ＜ `setTheme`」の順で勝ちます（画面ごとに tssgrid.css を後から読み込む作りでも、テーマが負けない）。業務側の CSS は層に入れずに書けば、どれよりも勝ちます。業務側も `@layer` を使っている場合（Tailwind v4 等）は、その層の中で書いた `--tg-…` は層の順番で決まるので、`@layer tssgrid-base, tssgrid-auto, tssgrid-theme, tssgrid-set, app;` のように TssGrid の層を先に宣言してください。
+- 自動で作る色は CSS の `color-mix()`（Chrome 111 / Safari 16.2 / Firefox 113 以降）。
+- 変数の一覧と意味は [`src/tssgrid.css`](src/tssgrid.css) の先頭。見比べ: [examples/theme.html](examples/theme.html)
 
 **罫線まわり**: 色はセル全体なら `--tg-border`、セル単位なら `cellClass` で `border-right/bottom-color` を指定（各セルは右・下の罫線を持つ設計）。**任意の1セルを四角く囲む**なら border ではなく**同梱の `.tg-box` クラス**を `cellClass` で付与（`box-shadow: inset` ベースなので **A1・1行目・1列目・端セルでも全4辺を囲め、レイアウトも動きません**）。色/太さは `--tg-box-color`・`--tg-box-width`、用途別は `.tssgrid td.tg-box-warn{ --tg-box-color:#e67e22 }` のように。
 
@@ -1110,6 +1134,7 @@ new TssGrid(el, { columns: [{ data: 'id', hidden: true }, …] });   // 列定�
 | `columns[c].selectOnEdit` | `boolean` | — | クリック/F2 の**編集開始で中身を全選択**（打てば丸ごと置換）。**時刻/日付ピッカーは既定 ON**。列に明示すれば任意の列で有効/無効にできる（列指定がエディタ既定より優先） |
 | `placeholder` | `string` | — | 空セルに薄いヒント文字（`getData` には入らない）。`columns[c].placeholder` で列単位も可 |
 | `className` | `string` | — | コンテナ(`.tssgrid`)に付ける任意クラス（テーマ付け） |
+| `theme` | `string \| TssTheme` | — | この表だけの色のテーマ（`'navy'` 等の同梱テーマ名か `{ headerBg, accent, … }`）。→ [テーマ](#テーマ--見た目のカスタマイズ) |
 | `fillHandle` | `boolean \| {direction,autoInsertRow}` | `true` | **`false`でフィル完全OFF**（ハンドルを出さない＝ドラッグでの消去/上書きなし。フィルの起点はハンドルのみなので fill 自体が無効に）。`{direction:'vertical'\|'horizontal'\|'both', autoInsertRow:true}`で詳細指定（下へドラッグで行追加）。設定/表示専用グリッドで誤フィルを防ぐのに有効 |
 | `touchSelect` | `boolean \| 'both'\|'vertical'\|'horizontal'` | `'both'` | **タッチ端末の範囲選択ハンドル**（選択枠の四辺の丸を指で引いて範囲を広げる）。`'both'`=四辺（天地=縦・左右=横・斜め=矩形）／`'vertical'`=天地だけ（行方向のみ）／`'horizontal'`=左右だけ（列方向のみ）／`false`=出さない。PC（マウス）には出ない。実行時は `setTouchSelect(v)` |
 | `touchSelectEdge` | `'keep'\|'hide'` | `'keep'` | 表の端（先頭/最終行・最初/最後の表示列）に接した選択ハンドル。`'keep'`=残す（端側から縮められる）／`'hide'`=隠す（伸ばせない向きの丸を減らす）。どちらでも「端かつその向きが1マス幅」の丸は常に隠す（1行だけの表なら天地、1列だけなら左右が自動で消える）。実行時は `setTouchSelect(v, edge)` |

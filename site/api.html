@@ -87,7 +87,7 @@
 <h1>API リファレンス</h1>
 <p class="lead">公開API（オプション・イベント・メソッド）の一覧。<b><code>src/tssgrid.d.ts</code> を正本に自動生成</b>しています。使い方・サンプルは <a href="docs.html">ドキュメント（ガイド）</a> をどうぞ。</p>
 <h2 id="options">グリッド オプション</h2>
-<p>84 項目（<code>new TssGrid(el, options)</code>）。</p>
+<p>85 項目（<code>new TssGrid(el, options)</code>）。</p>
 <table>
 <thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
 <tbody>
@@ -151,6 +151,7 @@ getRows/getData/toCSV・列インデックス・列選択/リサイズ/reorder �
 <tr><td><code>multilineEditMaxLines</code></td><td><code class="ty">number</code></td><td>multiline 編集時に伸びる箱の最大行数（既定 10）。超えた分はボックス内スクロール。ビューポート/wrap を超える時はそちらが優先。</td></tr>
 <tr><td><code>placeholder</code></td><td><code class="ty">string</code></td><td></td></tr>
 <tr><td><code>className</code></td><td><code class="ty">string</code></td><td></td></tr>
+<tr><td><code>theme</code></td><td><code class="ty">string | TssTheme</code></td><td>この表だけの色のテーマ。同梱テーマの名前（themes/tss-theme-xxx.css を読み込んでおく）か色の指定。ページ全体は TssGrid.setTheme。</td></tr>
 <tr><td><code>fillHandle</code></td><td><code class="ty">boolean | { direction?: 'vertical' | 'horizontal' | 'both'; autoInsertRow?: boolean }</code></td><td>false でフィル完全OFF。詳細指定も可。</td></tr>
 <tr><td><code>touchSelect</code></td><td><code class="ty">boolean | 'both' | 'vertical' | 'horizontal'</code></td><td>タッチ端末の範囲選択ハンドル（選択枠の四辺の丸）。既定 'both'＝四辺（天地=縦・左右=横・斜め=矩形）。
 'vertical'=天地の丸だけ（行方向のみ）／'horizontal'=左右の丸だけ（列方向のみ）／false=出さない。PC（マウス）には出ない。</td></tr>
@@ -270,10 +271,12 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 <tr><td><code>ellipsis</code></td><td><code class="ty">boolean</code></td><td>列単位の … 省略（溢れた文字を省略記号で切る／ホバーで全文を title 表示）。値・コピー・編集は不変＝見え方だけ。折り返し(wordWrap)と同時なら折り返しが優先。</td></tr>
 <tr><td><code>multiline</code></td><td><code class="ty">boolean</code></td><td>複数行(改行)入力を有効化。編集は隠し textarea（IME 直打ち対応）、表示は改行保持(pre-wrap)。行高は自動で伸びないので rowHeights 等で確保する。</td></tr>
 <tr><td><code>placeholder</code></td><td><code class="ty">string</code></td><td>空セルの薄いヒント文字。</td></tr>
+<tr><td><code>filterSplit</code></td><td><code class="ty">string | RegExp | ((value: any, row: any[]) =&gt; any[])</code></td><td>TssFilter: 1つのセルに複数の値がある列（「Java, Python, Vue」）。「値を選択」の一覧を分けた値で並べ、チェックした値のどれかを含む行を残す（OR）。
+文字列/正規表現で分ける（分けた値の前後の空白は取る）か、`(value, row) =&gt; 配列`。部分一致・前方一致はセルの文字全体に対して。</td></tr>
 </tbody>
 </table>
 <h2 id="methods">メソッド</h2>
-<p>公開メソッド 91 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
+<p>公開メソッド 93 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
 <h3 id="m-0">データ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
@@ -394,6 +397,8 @@ format が外部状態に依存する／セル内ボタンの状態を更新し�
 <div class="api-m"><code class="sig">addShortcut(s: { name: string; keys: string; handler: (grid: TssGrid, e: KeyboardEvent) =&gt; void }): void</code></div>
 <div class="api-m"><code class="sig">removeShortcut(name: string): void</code></div>
 <div class="api-m"><code class="sig">usePlugin(plugin: ((grid: TssGrid, opts?: any) =&gt; any) | string, opts?: any): any</code></div>
+<div class="api-m"><code class="sig">setTheme(theme: string | TssTheme | null): this</code><p>この表の色のテーマを変える（null で外す）。テーマを付けると選択中・hover・アイコン・小窓の色が元の色から自動になる。</p></div>
+<div class="api-m"><code class="sig">setTheme(theme: string | TssTheme | null, el?: HTMLElement): typeof TssGrid</code><p>ページ全体（html）の色のテーマを変える（null で外す）。表の外に開く小窓（カレンダー・プルダウン等）にも届く。el を渡すとその要素に。</p></div>
 <div class="api-m"><code class="sig">getPlugin(name: string): any</code></div>
 </div>
 <h3 id="m-8">低レベル（公開はするが通常は上位APIを推奨）</h3>

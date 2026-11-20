@@ -314,6 +314,9 @@
 
       this._padToMin();        // minRows/minCols まで空行・空列を補う
       this._build(container);
+      this._onTheme = () => { if (this._destroyed) return; this._selhdrFg = null; if (this.table && this.table.rows.length) this.updateSelectionUI(); };
+      if (typeof document !== 'undefined') document.addEventListener('tssgrid:theme', this._onTheme);
+      if (opts.theme) TssGrid._applyTheme(this.root, opts.theme);   // 色のテーマ（'navy' 等の名前か { headerBg:'#1f3a5f', ... }）。まだ描く前＝色を付けるだけ
       this._bind();
       this.buildTable();
       { const ic = this._resolveInitialCell(); this.setActive(ic[0], ic[1]); }   // 初期カーソル
@@ -802,6 +805,7 @@
     destroy() {
       if (this._destroyed) return;
       this._destroyed = true;
+      if (this._onTheme && typeof document !== 'undefined') document.removeEventListener('tssgrid:theme', this._onTheme);
       if (this._vRAF) { try { cancelAnimationFrame(this._vRAF); } catch (_) {} this._vRAF = 0; }   // 仮想スクロールの保留フレームを破棄
       this._stopAutoScroll();   // ドラッグ自動スクロールの保留フレームを破棄
       for (const p of this._plugins) { if (p.handle && typeof p.handle.destroy === 'function') { try { p.handle.destroy(); } catch (_) {} } }
@@ -864,6 +868,89 @@
     }
     getPlugin(name) { const p = this._plugins.find(p => p.name === name); return p ? p.handle : null; }
     static registerPlugin(name, factory) { (TssGrid._plugins || (TssGrid._plugins = {}))[name] = factory; }
+
+    // ---- 色のテーマ（tssgrid.css の「色の決め方（3段）」を JS から） ----
+    // theme: 'navy' 等の名前（themes/tss-theme-navy.css を読み込んでおく）／{ headerBg:'#1f3a5f', accent:'#f59f00', ... }
+    //        （名前と色を一緒に { name:'navy', accent:'#e8590c' } も可）／null で外す。
+    // 色のキーは CSS 変数の名前の --tg- を取って camelCase（--tg-header-bg → headerBg）。'--tg-xxx' のまま書いても可。
+    // テーマを付けると ② 作る色（選択中・hover・アイコン等）が ① から自動になる。headerBg / cellBg / accent だけ渡して
+    // 文字色（headerFg / fg / accentFg）を省いた時は、背景の明るさから白か黒を選ぶ。
+    setTheme(theme) { TssGrid._applyTheme(this.root, theme); return this; }   // 描き直しは _themeChanged の知らせで
+    static setTheme(theme, el) { TssGrid._applyTheme(el || document.documentElement, theme); return TssGrid; }
+    static _applyTheme(el, theme) {
+      if (!el) return;
+      TssGrid._themeSeq = (TssGrid._themeSeq | 0) + 1;   // 各表の「選択中ヘッダの文字色」の覚えを捨てる合図
+      // ページ全体（html）に付ける時、② 作る色は表・小窓の側で決まる（html に書いても .tssgrid の自動の式に隠れる）＝<style> で表・小窓へ書く。
+      const isDoc = typeof document !== 'undefined' && el === document.documentElement;
+      (el._tgThemeVars || []).forEach(n => el.style.removeProperty(n)); el._tgThemeVars = [];
+      let tag = isDoc ? document.getElementById('tg-theme-derived') : null;
+      if (tag) tag.textContent = '';
+      if (theme == null || theme === false) { el.removeAttribute('data-tg-theme'); TssGrid._themeChanged(); return; }
+      if (typeof theme === 'string') theme = { name: theme };
+      const vars = {};
+      for (const k of Object.keys(theme)) {
+        if (k === 'name' || theme[k] == null || theme[k] === '') continue;
+        const n = k.startsWith('--') ? k : '--tg-' + k.replace(/[A-Z]/g, m => '-' + m.toLowerCase());
+        const v = String(theme[k]).trim();
+        // 名前は CSS 変数の形だけ、値は色/寸法として普通の文字だけ（<style> に書くことがある＝規則を抜け出す記号・url( は受け付けない）
+        if (!/^--[a-z0-9-]+$/i.test(n) || /[\\;{}<>"'`]|url\(/i.test(v)) { try { console.warn('[TssGrid] setTheme: 使えない名前か値なので飛ばしました "' + k + '"'); } catch (_) {} continue; }
+        if (!TssGrid.THEME_VARS.includes(n) && !k.startsWith('--')) { try { console.warn('[TssGrid] setTheme: 知らない色の名前 "' + k + '"（' + n + '）。tssgrid.css の変数名を確かめてください'); } catch (_) {} }
+        vars[n] = v;
+      }
+      const auto = (bg, fg) => { if (vars[bg] && !vars[fg]) { const c = TssGrid._readableOn(vars[bg], '#222222'); if (c) vars[fg] = c === '#ffffff' ? '#fff' : c; } };
+      auto('--tg-header-bg', '--tg-header-fg'); auto('--tg-cell-bg', '--tg-fg'); auto('--tg-accent', '--tg-accent-fg');
+      let der = '';
+      for (const n of Object.keys(vars)) {
+        if (isDoc && !TssGrid.THEME_BASE.includes(n)) { der += n + ':' + vars[n] + ';'; continue; }
+        el.style.setProperty(n, vars[n]); el._tgThemeVars.push(n);
+      }
+      if (der) {
+        if (!tag) { tag = document.createElement('style'); tag.id = 'tg-theme-derived'; document.head.appendChild(tag); }
+        // 層 tssgrid-set＝テーマのファイル・自動の色より後ろ（読み込み順に関係なく勝つ）。層の順番の1行は tssgrid.css と同じ
+        tag.textContent = '@layer tssgrid-base, tssgrid-auto, tssgrid-theme, tssgrid-set; @layer tssgrid-set { :where([data-tg-theme]) :where(' + TssGrid.THEME_HOSTS + ') {' + der + '} }';
+      }
+      el.setAttribute('data-tg-theme', theme.name || 'custom');
+      TssGrid._themeChanged();
+    }
+    // ① 元の色（tssgrid.css の :root）。これ以外は ② 作る色＝表・小窓の側で決まる
+    static get THEME_BASE() {
+      return TssGrid._themeBase || (TssGrid._themeBase = 'cell-bg fg border wrap-border header-bg header-fg accent accent-fg edit-accent invalid-fg changed radius font-size box-width'.split(' ').map(s => '--tg-' + s));
+    }
+    // ② 作る色を持つ要素（表と同梱プラグインの小窓）
+    static get THEME_HOSTS() { return '.tssgrid, .tss-cal, .tss-time, .tss-dt, .tss-ac, .tg-cascade, .tg-combo, .tg-filter-pop, .tg-comment-editor'; }
+    // setTheme で書ける色の名前（tssgrid.css と同梱プラグインの --tg-*。打ち間違いの警告用）
+    static get THEME_VARS() {
+      return TssGrid._themeVars || (TssGrid._themeVars = ('accent accent-fg blur-sel border box-color box-width cell-bg cell-fg changed colheader-bg copy danger ' +
+        'edit-accent edit-bg editor-fg editor-invalid editor-invalid-bg fg fill-preview filter-hover filter-hover-bg filter-ico filter-on-bg font-size ' +
+        'frozen-edge header-accent header-bg header-fg header-icon icon-fg invalid-bg invalid-fg invalid-sel-bg menu-bg menu-fg menu-sep ml-mark muted ' +
+        'pending-a pending-b placeholder-fg pop-accent pop-accent-fg pop-bg pop-border pop-danger pop-danger-bg pop-faint pop-fg pop-holiday-bg pop-hover ' +
+        'pop-line pop-muted pop-pick pop-sat pop-shadow pop-soft radius readonly-bg readonly-fg readonly-sel-bg resize rowdel-bg rowhead-bg rowhead-fg sel-bg selhdr-bg ' +
+        'selhdr-fg sort-accent sort-dim sort-hover toggle-accent toggle-border toggle-fg toggle-hover wrap-bg wrap-border').split(' ').map(s => '--tg-' + s));
+    }
+    // テーマが変わったら、ページ上の表に選択中ヘッダの文字色を決め直させる（表示中の選択も描き直す）
+    static _themeChanged() { try { if (typeof document !== 'undefined') document.dispatchEvent(new CustomEvent('tssgrid:theme')); } catch (_) {} }
+    // 色の明るさ（WCAG の相対輝度 0=黒〜1=白）。読めない色は null。
+    static _luma(color) {
+      let s = String(color).trim(), m, r, g, b;
+      if (!/^#|^rgb/i.test(s) && typeof document !== 'undefined' && document.body) {   // 名前・hsl 等はブラウザに rgb へ直してもらう
+        const t = document.createElement('span'); t.style.color = s; t.style.display = 'none'; document.body.appendChild(t);
+        s = getComputedStyle(t).color; t.remove();
+      }
+      if (m = s.match(/^#([0-9a-f]{3})$/i)) { r = parseInt(m[1][0] + m[1][0], 16); g = parseInt(m[1][1] + m[1][1], 16); b = parseInt(m[1][2] + m[1][2], 16); }
+      else if (m = s.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i)) { r = parseInt(m[1].slice(0, 2), 16); g = parseInt(m[1].slice(2, 4), 16); b = parseInt(m[1].slice(4, 6), 16); }
+      else if (m = s.match(/rgba?\(([^)]+)\)/i)) { const p = m[1].split(/[\s,\/]+/).map(parseFloat); r = p[0]; g = p[1]; b = p[2]; }
+      else if (m = s.match(/color\(srgb\s+([^)]+)\)/i)) { const p = m[1].split(/[\s\/]+/).map(parseFloat); r = p[0] * 255; g = p[1] * 255; b = p[2] * 255; }
+      if (r == null || isNaN(r)) return null;
+      const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    }
+    // 背景 bg の上で読みやすい文字色。prefer が 4.5:1 以上取れればそれ、取れなければ prefer・白・黒で一番コントラストが高い色。読めない色は null。
+    static _readableOn(bg, prefer) {
+      const B = TssGrid._luma(bg); if (B == null) return null;
+      const cr = c => { const F = TssGrid._luma(c); return (Math.max(F, B) + 0.05) / (Math.min(F, B) + 0.05); };
+      if (cr(prefer) >= 4.5) return prefer;
+      return [prefer, '#ffffff', '#000000'].reduce((a, c) => cr(c) > cr(a) ? c : a);
+    }
 
     _build(container) {
       container.innerHTML =
@@ -2203,7 +2290,7 @@
       const rows = hhi - hlo + 1, bigSel = rows > 300 || rows * (c1 - c0 + 1) > 2000;
       for (let c = c0; c <= c1; c++) { const th = this.table.querySelector('thead th[data-c="' + c + '"]'); if (th) th.classList.add('selhdr'); }
       if (!bigSel) for (let r = hlo; r <= hhi; r++) { const th = this.table.querySelector('th.rowhead[data-r="' + r + '"]'); if (th) th.classList.add('selhdr'); }
-      this.wrap.style.setProperty('--tg-selhdr-fg', this._selhdrTextColor());   // 選択ヘッダ文字色を背景輝度から自動（暗背景→白）
+      { const fg = this._selhdrTextColor(); if (fg) this.wrap.style.setProperty('--tg-selhdr-fg-auto', fg); else this.wrap.style.removeProperty('--tg-selhdr-fg-auto'); }   // 選択ヘッダ文字色を背景輝度から自動（暗背景→白）。--tg-selhdr-fg（テーマ・業務 CSS）があればそちらが勝つ
       if (r0 === r1 && c0 === c1) return;
       const clampMerge = this._headerSel && this._merges;   // 列/行選択では「範囲に収まらない結合」は塗らない（帯を塗り広げない）
       // 仮想スクロール: 窓内の行だけシェード（範囲枠 selrange は placeRect がモデル幾何で全域を描く）。
@@ -2233,14 +2320,14 @@
     // 選択ヘッダの文字色を --tg-selhdr-bg の輝度から自動決定（暗背景→白／明背景→濃紺）。
     // 既定の明るい選択色は従来どおり濃紺、暗い選択ヘッダ（slate等）でも文字が読める。buildTable でキャッシュ破棄。
     _selhdrTextColor() {
+      // 業務側・テーマのファイルが --tg-selhdr-fg を決めている時は何もしない＝'' を返す（CSS の側でそちらが勝つ）。テーマの自動の選択色（color-mix）もここで明るさを見る。
+      // テーマを付け替えたら（どの表・ページ全体でも）覚えた色を捨てる＝ページ全体の setTheme はこの表の setTheme を通らない
+      if (this._selhdrSeq !== TssGrid._themeSeq) { this._selhdrSeq = TssGrid._themeSeq; this._selhdrFg = null; }
       if (this._selhdrFg != null) return this._selhdrFg;
-      let bg = '', m, r, g, b;
-      try { bg = getComputedStyle(this.wrap).getPropertyValue('--tg-selhdr-bg').trim(); } catch (_) {}
-      if (m = bg.match(/^#([0-9a-f]{3})$/i)) { r = parseInt(m[1][0] + m[1][0], 16); g = parseInt(m[1][1] + m[1][1], 16); b = parseInt(m[1][2] + m[1][2], 16); }
-      else if (m = bg.match(/^#([0-9a-f]{6})$/i)) { r = parseInt(m[1].slice(0, 2), 16); g = parseInt(m[1].slice(2, 4), 16); b = parseInt(m[1].slice(4, 6), 16); }
-      else if (m = bg.match(/rgba?\(([^)]+)\)/i)) { const p = m[1].split(',').map(parseFloat); r = p[0]; g = p[1]; b = p[2]; }
-      const L = (r == null) ? 1 : (0.299 * r + 0.587 * g + 0.114 * b) / 255;   // 知覚輝度（簡易）
-      return (this._selhdrFg = L < 0.55 ? '#fff' : '#1a3a6b');
+      let bg = '', own = '';
+      try { const cs = getComputedStyle(this.root); own = cs.getPropertyValue('--tg-selhdr-fg').trim(); bg = cs.getPropertyValue('--tg-selhdr-bg').trim(); } catch (_) {}
+      if (own) return (this._selhdrFg = '');
+      return (this._selhdrFg = TssGrid._readableOn(bg, '#1a3a6b') || '#1a3a6b');   // 濃紺で読めればそのまま（既定）、読めなければ白か黒
     }
     updateSelectionUI() {
       if (this._renderPaused) return;   // バッチ描画中は選択枠の位置決めを保留（resume 後に1回）

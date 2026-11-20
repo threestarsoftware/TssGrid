@@ -1,0 +1,19 @@
+/* TssGrid テーマ「black」— 黒（チャコール）のヘッダ＋白い文字。
+   使い方: このファイルを読み込み（tssgrid.css の前でも後でもよい＝@layer で順番に関係なくテーマが勝つ）、
+     <html data-tg-theme="black">（ページ全体）か、表を置く要素・new TssGrid(el, { theme:'black' })（その表だけ）。
+   ここに書くのは tssgrid.css の「① 元の色」だけでよい。選択中・hover・アイコン・小窓の色（② 作る色）は自動で作られる。
+   ② を自分で決めたい時は、下の「② 作る色」のブロック（無ければ light のファイルの例をコピー）に --tg-selhdr-bg 等を足す（書いたものが勝つ）。変数の一覧は tssgrid.css の先頭。 */
+@layer tssgrid-base, tssgrid-auto, tssgrid-theme, tssgrid-set;   /* 読み込み順に関係なく、テーマが tssgrid.css の既定に勝つ（tssgrid.css の先頭と同じ1行） */
+@layer tssgrid-theme {
+  :where([data-tg-theme="black"]) {
+    --tg-header-bg:     #2b2f36;
+    --tg-header-fg:     #fff;
+    --tg-wrap-border:   #2b2f36;
+  }
+  /* ② 作る色をこのテーマで決める分（表と小窓の側に置く。層 tssgrid-theme＝自動で作る色に勝つ） */
+  :where([data-tg-theme="black"]) :where(.tssgrid, .tss-cal, .tss-time, .tss-dt, .tss-ac, .tg-cascade, .tg-combo, .tg-filter-pop, .tg-comment-editor),
+  :where(.tssgrid, .tss-cal, .tss-time, .tss-dt, .tss-ac, .tg-cascade, .tg-combo, .tg-filter-pop, .tg-comment-editor)[data-tg-theme="black"] {
+    --tg-header-accent: #ffd166;
+    --tg-selhdr-bg:     #4a5361;
+  }
+}

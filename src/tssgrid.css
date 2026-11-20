@@ -1,42 +1,152 @@
 /* TssGrid — スタイル（すべて .tssgrid 配下にscope）
 
-   ■ テーマ（業務側で上書きしやすいよう主要な色/サイズを CSS 変数に）
-   業務ごとに統一感を出したいときは、これらを上書きするだけでOK（フルのテーマエンジンは持たない軽量方針）:
-     .tssgrid { --tg-accent:#c0392b; --tg-header-bg:#f3eaea; --tg-radius:8px; }   // 全グリッド
-     .myapp .tssgrid { --tg-font-size:14px; }                                      // 特定業務だけ
+   ■ 色の決め方（3段）
+   ① 元の色 … 背景・文字・罫線・ヘッダ・アクセントなど十数色。テーマはここだけ決める。
+              :root に置く＝表の外に開く小窓（カレンダー・プルダウン・フィルタ等）にも同じ色が届く。
+   ② 作る色 … 選択中・hover・アイコン・読み取り専用の灰色など。
+              既定は今までの色そのまま。テーマ（data-tg-theme）を付けると ① から自動で作る（color-mix）。
+   ③ 部品   … 表本体・同梱プラグインは ② の変数だけを見る（固定の色を持たない）。
+   どの段の変数も、業務側で直接書けばそれが勝つ（変数の宣言はすべて @layer の中＝層に入れていない CSS が読み込み順に関係なく勝つ）:
+     .tssgrid { --tg-accent:#c0392b; --tg-header-bg:#f3eaea; }          // 色だけ変える（② は今までの色のまま）
+     <html data-tg-theme="navy">  + themes/tss-theme-navy.css            // 同梱テーマ（② も自動）
+     TssGrid.setTheme({ headerBg:'#1f3a5f', accent:'#f59f00' })          // プログラムから（② も自動・文字色は省けば白/黒を自動）
+     .tssgrid { --tg-selhdr-bg:#ffd54f; }                               // 作る色を1つだけ自分で決める
    個別の細かい調整は従来どおり `.tssgrid .tg-xxx { … }` で上書きできます。 */
-.tssgrid {
+
+/* ↓ 変数（色）の宣言は層の中。下の部品の規則は層の外（従来どおり詳細度で決まる） */
+/* 色の層（読み込み順に関係なく、後ろの層が勝つ。層の順番はどのファイルにも同じ1行を書いておく＝先に読まれたものが決めても同じ）:
+   tssgrid-base（既定の色）＜ tssgrid-auto（テーマから自動で作る色）＜ tssgrid-theme（テーマのファイル）＜ tssgrid-set（TssGrid.setTheme）。
+   層に入れていない業務側の CSS（.tssgrid { --tg-… } 等）は、どの層よりも勝つ。 */
+@layer tssgrid-base, tssgrid-auto, tssgrid-theme, tssgrid-set;
+@layer tssgrid-base {
+/* ① 元の色（テーマが決める色） */
+:where(:root) {
   --tg-font-size: 13px;
+  --tg-cell-bg: #fff;            /* セル・小窓の背景 */
+  --tg-fg: #222;                 /* 文字（テーマを使わない時、セルの文字はページの色を継ぐ） */
   --tg-border: #d6dde4;          /* セル罫線 */
   --tg-wrap-border: #b9c2cc;     /* 外枠 */
-  --tg-cell-bg: #fff;            /* セル背景 */
-  --tg-header-bg: #eef2f6;       /* ヘッダ/行番号 背景の既定（下の2つの共通元） */
+  --tg-header-bg: #eef2f6;       /* ヘッダ/行番号 背景 */
+  --tg-header-fg: #222;          /* 列ヘッダ文字 */
+  --tg-accent: #1573c0;          /* 選択枠・フィルハンドル・プルダウンの選択中（会社カラーの青） */
+  --tg-accent-fg: #fff;          /* アクセント色の上の文字 */
+  --tg-edit-accent: #2aa0d8;     /* 編集枠・グリップ・カレンダー等の選択中 */
+  --tg-invalid-fg: #d61f2b;      /* 検証NG・削除などの赤 */
+  --tg-changed: #f59f00;         /* 変更の追跡（trackChanges）の印の色＝セル左上の三角・行の左端の線 */
+  --tg-radius: 6px;              /* メニュー/ダンプの角丸 */
+  --tg-box-width: 2px;           /* セル囲み .tg-box の太さ */
+}
+/* ② 作る色（既定＝今までの色。表ごとに決まるので .tssgrid に置く） */
+:where(.tssgrid) {
   --tg-colheader-bg: var(--tg-header-bg);  /* 列ヘッダ背景（未指定なら --tg-header-bg を継ぐ） */
   --tg-rowhead-bg: var(--tg-header-bg);    /* 行番号列 背景（未指定なら --tg-header-bg を継ぐ） */
-  --tg-header-fg: #222;          /* 列ヘッダ文字 */
   --tg-rowhead-fg: #8889a0;      /* 行番号文字 */
-  --tg-accent: #1573c0;          /* 選択枠・フィルハンドル（会社カラーの青） */
+  --tg-rowdel-bg: var(--tg-rowhead-bg);   /* 右端の削除列（🗑・rowDelete）の地 */
+  --tg-header-accent: var(--tg-accent);    /* ヘッダの上で点く色（並べ替えの向き） */
+  --tg-header-icon: #b3b6c8;     /* ヘッダのアイコン（行移動のつまみ） */
   --tg-sel-bg: #eef4ff;          /* 選択セル背景・メニューhover */
-  --tg-selhdr-bg: #cdddff;       /* 選択中の行/列ヘッダ */
-  --tg-edit-accent: #2aa0d8;     /* 編集枠・グリップ（青） */
+  --tg-selhdr-bg: #cdddff;       /* 選択中の行/列ヘッダ（文字色 --tg-selhdr-fg は省けば背景の明るさから自動） */
+  --tg-readonly-sel-bg: #e7edf5; /* 選択中の読み取り専用セル */
+  --tg-invalid-sel-bg: #ffd0d6;  /* 選択中の検証NGセル */
+  --tg-blur-sel: #aab4be;        /* 表にフォーカスが無い時の選択枠 */
   --tg-edit-bg: #f2fbff;         /* 編集中セル背景 */
+  --tg-editor-fg: #222;          /* 編集中の文字 */
+  --tg-editor-invalid: #e23;     /* 編集中に誤り（枠） */
+  --tg-editor-invalid-bg: #fff3f4;
   --tg-frozen-edge: #9aa7b5;     /* 固定列の見切り線 */
   --tg-readonly-bg: #f4f6f8;     /* 読み取り専用セル */
   --tg-readonly-fg: #8a94a0;
   --tg-placeholder-fg: #aeb6c0;  /* 空セルのヒント */
-  --tg-invalid-fg: #d61f2b;      /* 検証NG（keep） */
   --tg-invalid-bg: #ffe3e6;
   --tg-muted: #b6bdc6;           /* 無効メニュー項目など */
+  --tg-icon-fg: #7d8a99;         /* セルの ▾・📅 等のアイコン、メニューの ▶ */
   --tg-danger: var(--tg-invalid-fg);  /* 破壊的操作の色（削除列🗑ホバー等） */
-  --tg-radius: 6px;              /* メニュー/ダンプの角丸 */
-  --tg-box-color: var(--tg-accent);  /* セル囲み .tg-box の色 */
-  --tg-box-width: 2px;               /* セル囲み .tg-box の太さ */
-  --tg-changed: #f59f00;             /* 変更の追跡（trackChanges）の印の色＝セル左上の三角・行の左端の線 */
+  --tg-box-color: var(--tg-accent);   /* セル囲み .tg-box の色 */
+  --tg-menu-bg: #fff;            /* 右クリックメニュー・タッチの一覧 */
+  --tg-menu-fg: #222;
+  --tg-menu-sep: #e3e8ee;
+  --tg-copy: #13a6c8;            /* コピー範囲の点線 */
+  --tg-fill-preview: #888;       /* フィル範囲の点線 */
+  --tg-resize: #4a90e2;          /* 列幅/行高を変える時の線 */
+  --tg-pending-a: #eef2f6;       /* 読込中のシマー */
+  --tg-pending-b: #e2e8f0;
+  --tg-ml-mark: rgba(20,40,80,.18);   /* 複数行セルの右上の印 */
+  /* ヘッダのアイコン（並べ替え ▲▼・フィルタの漏斗）は「その見出しの文字色を薄めた色」（currentColor）。
+     選択中の見出しで文字が白/濃紺に変わればアイコンも付いていく＝どのヘッダ色・選択状態でも見える。 */
+  --tg-sort-dim: color-mix(in srgb, currentColor 65%, transparent);    /* 並べ替え ▲▼（tss-sort） */
+  --tg-sort-hover: color-mix(in srgb, currentColor 85%, transparent);
+  --tg-sort-off: color-mix(in srgb, currentColor 35%, transparent);    /* 並べ替え中の、反対の向き */
+  --tg-filter-ico: color-mix(in srgb, currentColor 65%, transparent);  /* フィルタの漏斗（tss-filter） */
+  --tg-filter-hover: currentColor;
+  --tg-filter-hover-bg: color-mix(in srgb, currentColor 12%, transparent);
+  --tg-filter-on-bg: #fff;       /* 適用中の漏斗の地 */
+}
+}
+@layer tssgrid-auto {
+/* ② をテーマから作る（data-tg-theme を html か表のどこかの親・表そのものに付けた時） */
+:where([data-tg-theme]) :where(.tssgrid), :where(.tssgrid[data-tg-theme]) {
+  --tg-cell-fg: var(--tg-fg);    /* セルの文字（テーマ無しの時は未定義＝ページの色を継ぐ） */
+  --tg-wrap-bg: var(--tg-cell-bg);
+  --tg-rowdel-bg: color-mix(in srgb, var(--tg-fg) 4%, var(--tg-cell-bg));   /* 🗑 の列は行の側の色（🗑 は絵文字で色を変えられない＝濃いヘッダ色の地に埋もれる） */
+  --tg-rowhead-fg: color-mix(in srgb, var(--tg-header-fg) 78%, var(--tg-rowhead-bg));
+  --tg-header-icon: color-mix(in srgb, var(--tg-header-fg) 38%, var(--tg-header-bg));
+  --tg-sel-bg: color-mix(in srgb, var(--tg-accent) 10%, var(--tg-cell-bg));
+  --tg-selhdr-bg: color-mix(in srgb, var(--tg-accent) 32%, var(--tg-header-bg));
+  --tg-readonly-sel-bg: color-mix(in srgb, var(--tg-accent) 10%, var(--tg-readonly-bg));
+  --tg-invalid-sel-bg: color-mix(in srgb, var(--tg-invalid-fg) 22%, var(--tg-cell-bg));
+  --tg-blur-sel: color-mix(in srgb, var(--tg-fg) 30%, var(--tg-cell-bg));
+  --tg-edit-bg: color-mix(in srgb, var(--tg-edit-accent) 6%, var(--tg-cell-bg));
+  --tg-editor-fg: var(--tg-fg);
+  --tg-editor-invalid: var(--tg-invalid-fg);
+  --tg-editor-invalid-bg: var(--tg-invalid-bg);
+  --tg-frozen-edge: color-mix(in srgb, var(--tg-fg) 35%, var(--tg-cell-bg));
+  --tg-readonly-bg: color-mix(in srgb, var(--tg-fg) 4%, var(--tg-cell-bg));
+  --tg-readonly-fg: color-mix(in srgb, var(--tg-fg) 55%, var(--tg-cell-bg));
+  --tg-placeholder-fg: color-mix(in srgb, var(--tg-fg) 33%, var(--tg-cell-bg));
+  --tg-invalid-bg: color-mix(in srgb, var(--tg-invalid-fg) 12%, var(--tg-cell-bg));
+  --tg-muted: color-mix(in srgb, var(--tg-fg) 30%, var(--tg-cell-bg));
+  --tg-icon-fg: color-mix(in srgb, var(--tg-fg) 50%, var(--tg-cell-bg));
+  --tg-menu-bg: var(--tg-cell-bg);
+  --tg-menu-fg: var(--tg-fg);
+  --tg-menu-sep: var(--tg-border);
+  --tg-copy: var(--tg-edit-accent);
+  --tg-fill-preview: color-mix(in srgb, var(--tg-fg) 50%, var(--tg-cell-bg));
+  --tg-resize: var(--tg-accent);
+  --tg-pending-a: color-mix(in srgb, var(--tg-fg) 6%, var(--tg-cell-bg));
+  --tg-pending-b: color-mix(in srgb, var(--tg-fg) 11%, var(--tg-cell-bg));
+  --tg-ml-mark: color-mix(in srgb, var(--tg-fg) 20%, transparent);
+  --tg-header-accent: var(--tg-header-fg);   /* 点灯中の ▲▼＝ヘッダの文字色そのもの（アクセントがヘッダと同系色でも見える）。テーマで色を決めてもよい */
+  --tg-filter-on-bg: var(--tg-cell-bg);
+  --tg-toggle-border: var(--tg-border);
+  --tg-toggle-fg: color-mix(in srgb, var(--tg-fg) 60%, var(--tg-cell-bg));
+  --tg-toggle-hover: var(--tg-sel-bg);
+  --tg-toggle-accent: var(--tg-accent);
+}
+/* 表の外に開く小窓（同梱プラグイン）の色。テーマを付けた時だけ定義＝無い時は各プラグインの今までの色 */
+:where([data-tg-theme]) :where(.tss-cal, .tss-time, .tss-dt, .tss-ac, .tg-cascade, .tg-combo, .tg-filter-pop, .tg-comment-editor),
+:where(.tss-cal, .tss-time, .tss-dt, .tss-ac, .tg-cascade, .tg-combo, .tg-filter-pop, .tg-comment-editor)[data-tg-theme] {
+  --tg-pop-bg: var(--tg-cell-bg);
+  --tg-pop-fg: var(--tg-fg);
+  --tg-pop-border: color-mix(in srgb, var(--tg-fg) 24%, var(--tg-cell-bg));
+  --tg-pop-line: color-mix(in srgb, var(--tg-fg) 11%, var(--tg-cell-bg));     /* 区切り線・一覧の枠 */
+  --tg-pop-soft: color-mix(in srgb, var(--tg-fg) 5%, var(--tg-cell-bg));      /* ボタン・切替の地 */
+  --tg-pop-hover: color-mix(in srgb, var(--tg-accent) 10%, var(--tg-cell-bg));
+  --tg-pop-muted: color-mix(in srgb, var(--tg-fg) 55%, var(--tg-cell-bg));    /* 補足の文字 */
+  --tg-pop-faint: color-mix(in srgb, var(--tg-fg) 30%, var(--tg-cell-bg));    /* 前後月・無効日 */
+  --tg-pop-accent: var(--tg-accent);          /* プルダウン・フィルタの選択中 */
+  --tg-pop-pick: var(--tg-edit-accent);       /* カレンダー・時刻・コメントの選択中 */
+  --tg-pop-accent-fg: var(--tg-accent-fg);
+  --tg-pop-danger: var(--tg-invalid-fg);
+  --tg-pop-danger-bg: color-mix(in srgb, var(--tg-invalid-fg) 10%, var(--tg-cell-bg));
+  --tg-pop-holiday-bg: color-mix(in srgb, var(--tg-invalid-fg) 8%, var(--tg-cell-bg));
+  --tg-pop-shadow: rgba(0,0,0,.25);
+}
 }
 
 .tssgrid .tg-wrap {
   position: relative; display: inline-block; vertical-align: top;   /* inline-block の下に付く文字のベースライン余白（数px）を出さない＝表を縦に並べても隙間が出ない */
   border: 1px solid var(--tg-wrap-border); overflow: auto; max-height: 60vh; user-select: none;
+  background: var(--tg-wrap-bg);   /* テーマ時だけ（無い時は未定義＝透明） */
   -webkit-user-select: none; -webkit-touch-callout: none;
   touch-action: manipulation;   /* ダブルタップ拡大を無効化（スクロール/ピンチは可）＝素早い2回タップ（Excel流プルダウン等）を取りこぼさない・タップ遅延も無し */   /* iOS Safari: 長押しで文字選択/コピー吹き出しを出さない（自前の長押しメニューを優先） */
   isolation: isolate;   /* 選択枠等の内部 z-index をこのグリッド内に閉じ込める＝複数グリッドが重なっても他表の上に漏れない */
@@ -46,7 +156,7 @@
    ＝複数グリッドのうちどれがアクティブか一目で分かる（フォーカス中=くっきり青／他=ふわっと薄い）。
    位置の手がかりは残るので initialCell の初期カーソルも薄く見える（消えない）。 */
 .tssgrid .tg-wrap:not(:focus-within) .tg-selrange,
-.tssgrid .tg-wrap:not(:focus-within) .tg-selbox { border-color: #aab4be; }
+.tssgrid .tg-wrap:not(:focus-within) .tg-selbox { border-color: var(--tg-blur-sel); }
 .tssgrid .tg-wrap:not(:focus-within) .tg-selrange,
 .tssgrid .tg-wrap:not(:focus-within) .tg-selbox,
 .tssgrid .tg-wrap:not(:focus-within) .tg-fillhandle { opacity: .42; }
@@ -83,7 +193,7 @@
 .tssgrid.tg-head-wrap .tg-table thead th { white-space: normal; line-height: 1.3; padding-top: 3px; padding-bottom: 3px; overflow-wrap: anywhere; }
 /* ヘッダはクリックで行/列選択（角は全選択） */
 .tssgrid .tg-table thead th[data-c], .tssgrid .tg-table th.rowhead[data-r], .tssgrid .tg-table th.corner { cursor: pointer; }
-.tssgrid .tg-table td { background: var(--tg-cell-bg); cursor: cell; scroll-margin-top: var(--tg-thead-h, 0px); }   /* キーボード移動の scrollIntoView が sticky ヘッダ下に潜らないよう、ヘッダ高ぶん余白を確保（--tg-thead-h は buildTable が設定） */
+.tssgrid .tg-table td { background: var(--tg-cell-bg); color: var(--tg-cell-fg); cursor: cell; scroll-margin-top: var(--tg-thead-h, 0px); }   /* キーボード移動の scrollIntoView が sticky ヘッダ下に潜らないよう、ヘッダ高ぶん余白を確保（--tg-thead-h は buildTable が設定） */
 /* 表示専用（cursor:false）: セルのカーソルを既定に（選択枠・ハイライトは JS 側で非表示） */
 .tssgrid.tg-no-cursor .tg-table td { cursor: default; }
 /* 見せるだけの表（cursor:false＋readOnly:true）: 読み取り専用の灰色を普通の色に（変数だけ差し替え＝cellClass/cellStyle の色付けは従来どおり効く） */
@@ -108,14 +218,14 @@
 .tssgrid.tg-ellipsis .tg-table td, .tssgrid .tg-table td.tg-ellip-cell { text-overflow: ellipsis; }
 /* 読み取り専用セル: 淡色＋既定カーソル（編集不可・全変更経路で拒否） */
 .tssgrid .tg-table td.tg-readonly { background: var(--tg-readonly-bg); color: var(--tg-readonly-fg); cursor: default; }
-.tssgrid .tg-table td.tg-readonly.sel { background: #e7edf5; }
+.tssgrid .tg-table td.tg-readonly.sel { background: var(--tg-readonly-sel-bg); }
 /* 読取専用は ▾ を出さない。ただし padding（場所）は空けたまま＝中央寄せ列でも文字位置がズレない
    （アイコンは position:absolute の重ね描画なので、出す/出さないは文字レイアウトに無関係＝ズレは padding 由来）。 */
 .tssgrid .tg-table td.tg-readonly.tg-dropdown { padding-right: 18px; }
 .tssgrid .tg-table td.tg-readonly.tg-dropdown::after { display: none; }
 /* invalidMode:'keep' で検証 NG のセル: 値は残して赤く警告（色は変数で調整可） */
 .tssgrid .tg-table td.tg-invalid { color: var(--tg-invalid-fg); background: var(--tg-invalid-bg); }
-.tssgrid .tg-table td.tg-invalid.sel { background: #ffd0d6; }
+.tssgrid .tg-table td.tg-invalid.sel { background: var(--tg-invalid-sel-bg); }
 /* 不正入力を弾いて巻き戻した時の合図（短い赤パルス）。flashInvalid:false で無効。 */
 .tssgrid .tg-table td.tg-reject { animation: tg-reject-flash .5s ease; }
 @keyframes tg-reject-flash {
@@ -136,7 +246,8 @@
 .tssgrid .tg-table tr.tg-frozen-row > td.tg-frozen { z-index: 3; }          /* 固定行∩固定列の角 */
 .tssgrid .tg-table tr.tg-frozen-row-edge > td, .tssgrid .tg-table tr.tg-frozen-row-edge > th { border-bottom: 2px solid var(--tg-frozen-edge); }   /* 固定行の見切り線 */
 /* 選択中の行/列ヘッダ（rowhead より後に置いて背景指定を勝たせる） */
-.tssgrid .tg-table th.selhdr { background: var(--tg-selhdr-bg); color: var(--tg-selhdr-fg, #1a3a6b); }
+/* 文字色: テーマ・業務 CSS の --tg-selhdr-fg ＞ JS が背景の明るさから決めた --tg-selhdr-fg-auto ＞ 濃紺 */
+.tssgrid .tg-table th.selhdr { background: var(--tg-selhdr-bg); color: var(--tg-selhdr-fg, var(--tg-selhdr-fg-auto, #1a3a6b)); }
 /* ネストヘッダ（グループ見出し）: colspan で複数列をまとめる結合セル。中央寄せ＋区切り線 */
 .tssgrid .tg-table th.tg-grouphdr { text-align: center; font-weight: 600; border-bottom: 1px solid var(--tg-border); cursor: pointer; }
 /* セル結合（TssMerge）アンカー: 既定は縦中央。水平寄せは列/セルの align を尊重。中央寄せ等は業務側で
@@ -153,7 +264,7 @@
 .tssgrid .tg-colgrip { position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: col-resize; z-index: 3; touch-action: none; }
 .tssgrid .tg-rowgrip { position: absolute; left: 0; bottom: 0; width: 100%; height: 6px; cursor: row-resize; z-index: 3; touch-action: none; }
 /* 行移動の「つまみ」（行ヘッダ内、行番号の左）。ドラッグで行を並べ替え */
-.tssgrid .tg-rowmove { position: relative; z-index: 4; cursor: grab; color: #b3b6c8; margin-right: 2px; font-size: 11px; line-height: 1; user-select: none; vertical-align: 1px; touch-action: none; }   /* z-index: タッチ時に行高grip(z3)の当たり判定へ被らず ⠿ を優先 */
+.tssgrid .tg-rowmove { position: relative; z-index: 4; cursor: grab; color: var(--tg-header-icon); margin-right: 2px; font-size: 11px; line-height: 1; user-select: none; vertical-align: 1px; touch-action: none; }   /* z-index: タッチ時に行高grip(z3)の当たり判定へ被らず ⠿ を優先 */
 .tssgrid .tg-rowmove:hover { color: var(--tg-accent); }
 .tssgrid .tg-rowmove:active { cursor: grabbing; }
 .tssgrid .tg-rowmove.tg-mark-after { margin-right: 0; margin-left: 4px; }   /* ⠿ を番号の後ろに置く時の間隔 */
@@ -165,7 +276,7 @@
    横スクロールで貼り付けない（sticky にすると横溢れ時に🗑がデータ列へ重なり・選択枠と衝突するため。見出しの縦 sticky は
    thead th 既存ルール、固定行の縦 sticky は tr.tg-frozen-row 既存ルールがそのまま担う）。 */
 .tssgrid .tg-table td.tg-rowdel-cell, .tssgrid .tg-table th.tg-rowdel-hdr {
-  text-align: center; padding: 0; cursor: default; background: var(--tg-rowhead-bg); }
+  text-align: center; padding: 0; cursor: default; background: var(--tg-rowdel-bg); }
   /* 左の区切りは隣セルの border-right に任せる（自前の border-left を足すと隣の右罫線と重なって 2px になる）。 */
 .tssgrid .tg-table th.tg-rowdel-hdr { background: var(--tg-colheader-bg); }   /* 見出しは無地（縦 sticky は thead th 既存ルール） */
 /* 削除列は最終列でも右罫線を残す（tr>td:last-child の border-right:none を上書き）。
@@ -179,28 +290,28 @@
 .tssgrid .tg-colgrip:hover { background: var(--tg-edit-accent); opacity: .5; }
 .tssgrid .tg-rowgrip:hover { background: var(--tg-edit-accent); opacity: .5; }
 /* リサイズのプレビュー線（ドラッグ中だけ表示、離して確定） */
-.tssgrid .tg-resizeguide { position: absolute; background: #4a90e2; box-shadow: 0 0 0 1px rgba(74,144,226,.3); pointer-events: none; z-index: 8; display: none; }
+.tssgrid .tg-resizeguide { position: absolute; background: var(--tg-resize); box-shadow: 0 0 0 1px color-mix(in srgb, var(--tg-resize) 30%, transparent); pointer-events: none; z-index: 8; display: none; }
 
 /* 選択オーバーレイは本体sticky(2)より上＝固定セル上でも青枠が見える。ヘッダ(6)より下＝スクロールで隠れる */
 .tssgrid .tg-selrange   { position: absolute; border: 2px solid var(--tg-accent); box-sizing: border-box; pointer-events: none; z-index: 3; display: none; }
 .tssgrid .tg-selbox     { position: absolute; border: 1px solid var(--tg-accent); box-sizing: border-box; pointer-events: none; z-index: 3; display: none; }
-.tssgrid .tg-copybox    { position: absolute; border: 2px dashed #13a6c8; box-sizing: border-box; pointer-events: none; z-index: 3; display: none; }
-.tssgrid .tg-fillhandle { position: absolute; width: 8px; height: 8px; background: var(--tg-accent); border: 1px solid #fff; box-sizing: border-box; z-index: 5; display: none; cursor: crosshair; touch-action: none; }
+.tssgrid .tg-copybox    { position: absolute; border: 2px dashed var(--tg-copy); box-sizing: border-box; pointer-events: none; z-index: 3; display: none; }
+.tssgrid .tg-fillhandle { position: absolute; width: 8px; height: 8px; background: var(--tg-accent); border: 1px solid var(--tg-cell-bg); box-sizing: border-box; z-index: 5; display: none; cursor: crosshair; touch-action: none; }
 /* タッチ端末: 見た目のサイズはそのまま、当たり判定だけ指サイズへ（::before は本体の寸法を変えない＝配置計算そのまま） */
 @media (pointer: coarse) {
   .tssgrid .tg-fillhandle::before { content: ''; position: absolute; inset: -14px; }
   .tssgrid .tg-colgrip::before { content: ''; position: absolute; top: 0; bottom: 0; left: -9px; right: -9px; }   /* 細い6px列境を指で掴めるよう横に拡張 */
 }
-.tssgrid .tg-fillpreview{ position: absolute; border: 2px dashed #888; box-sizing: border-box; pointer-events: none; z-index: 3; display: none; }
+.tssgrid .tg-fillpreview{ position: absolute; border: 2px dashed var(--tg-fill-preview); box-sizing: border-box; pointer-events: none; z-index: 3; display: none; }
 /* 選択ハンドル（タッチ端末のみ・JS が表示/配置）: 選択範囲の天地中央。指で縦に範囲を伸縮。フィル■(四角)と区別するため丸。 */
-.tssgrid .tg-selh { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid var(--tg-accent); box-sizing: border-box; z-index: 6; display: none; cursor: ns-resize; touch-action: none; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.tssgrid .tg-selh { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--tg-cell-bg); border: 2px solid var(--tg-accent); box-sizing: border-box; z-index: 6; display: none; cursor: ns-resize; touch-action: none; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
 .tssgrid .tg-selh-left, .tssgrid .tg-selh-right { cursor: ew-resize; }
 
 /* 唯一の input。nav=透明sink / edit=可視 / invalid=エラー(将来用フック) */
 .tssgrid .tg-editor { position: absolute; box-sizing: border-box; margin: 0; padding: 0 5px; font-size: var(--tg-font-size); font-family: inherit; z-index: 4; outline: none; }
 .tssgrid .tg-editor.nav     { color: transparent; background: transparent; border: none; caret-color: transparent; pointer-events: none; }
-.tssgrid .tg-editor.edit    { color: #222; background: var(--tg-edit-bg); border: 2px solid var(--tg-edit-accent); caret-color: auto; pointer-events: auto; -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }   /* 編集中は文字選択/コピーOK */
-.tssgrid .tg-editor.invalid { border-color: #e23; background: #fff3f4; }
+.tssgrid .tg-editor.edit    { color: var(--tg-editor-fg); background: var(--tg-edit-bg); border: 2px solid var(--tg-edit-accent); caret-color: auto; pointer-events: auto; -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }   /* 編集中は文字選択/コピーOK */
+.tssgrid .tg-editor.invalid { border-color: var(--tg-editor-invalid); background: var(--tg-editor-invalid-bg); }
 /* 複数行(改行)エディタ = 隠し textarea。nav=透明sink / edit=可視。列は columns[c].multiline:true */
 .tssgrid .tg-editor-multi { padding: 3px 5px; line-height: 1.35; white-space: pre-wrap; overflow: hidden; resize: none; vertical-align: top; }
 .tssgrid .tg-editor-multi.edit { overflow: auto; }
@@ -208,7 +319,7 @@
 .tssgrid .tg-table td.tg-multiline-cell { position: relative; padding: 0; vertical-align: top; }
 .tssgrid .tg-multiline-cell .tg-ml-clip { position: absolute; inset: 0; overflow: hidden; box-sizing: border-box; padding: 3px 5px; white-space: pre-wrap; word-break: break-word; line-height: 1.35; }
 /* 右上の「複数行」ヒント（非interactive・薄色）。掴める誤解を避け右下でなく右上。色は --tg-ml-mark、tg-no-ml-mark で無効。 */
-.tssgrid .tg-multiline-cell::after { content: ""; position: absolute; top: 0; right: 0; border: 6px solid transparent; border-top-color: var(--tg-ml-mark, rgba(20,40,80,.18)); border-right-color: var(--tg-ml-mark, rgba(20,40,80,.18)); pointer-events: none; z-index: 1; }
+.tssgrid .tg-multiline-cell::after { content: ""; position: absolute; top: 0; right: 0; border: 6px solid transparent; border-top-color: var(--tg-ml-mark); border-right-color: var(--tg-ml-mark); pointer-events: none; z-index: 1; }
 .tssgrid.tg-no-ml-mark .tg-multiline-cell::after { display: none; }
 
 /* チェックボックス列: セル中央に配置（クリックでトグル） */
@@ -234,7 +345,7 @@
 .tssgrid .tg-table td.tg-haspicker { position: relative; padding-right: 20px; cursor: pointer; }
 .tssgrid .tg-table td.tg-haspicker::after {
   content: attr(data-ico); position: absolute; right: 5px; top: 0; bottom: 0;
-  display: flex; align-items: center; font-size: 12px; color: #7d8a99; pointer-events: none;
+  display: flex; align-items: center; font-size: 12px; color: var(--tg-icon-fg); pointer-events: none;
 }
 /* 読取専用セルのカスタムピッカー（editor.icon 列＝tg-haspicker）は、標準では淡色（グレー）のまま ▾/アイコンを
    「出す」＝「押せない」は色で、「選ぶ欄」という情報は ▾ で残す。消したい時だけ hidePickerOnReadOnly を使う。
@@ -252,6 +363,16 @@
   content: ''; right: 5px; top: 50%; bottom: auto; transform: translateY(-50%);
   display: block; width: 11px; height: 8px; font-size: 0;
   background: url("data:image/svg+xml;charset=utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='8'><path d='M1.5 2.2l4 4 4-4' fill='none' stroke='%237d8a99' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat center / 11px 8px;
+}
+
+/* テーマ（data-tg-theme）の時: ▾ の色を --tg-icon-fg に（SVG の線の色は変数にできない＝形を mask、色を背景色で塗る）。
+   テーマ無しの時は上の絵のまま＝今までと1画素も変わらない。 */
+:where([data-tg-theme]) .tssgrid .tg-table td.tg-dropdown::after,
+:where([data-tg-theme]) .tssgrid .tg-table td.tg-haspicker[data-ico="▾"]::after,
+.tssgrid[data-tg-theme] .tg-table td.tg-dropdown::after,
+.tssgrid[data-tg-theme] .tg-table td.tg-haspicker[data-ico="▾"]::after {
+  background: var(--tg-icon-fg);
+  -webkit-mask: url("data:image/svg+xml;charset=utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='8'><path d='M1.5 2.2l4 4 4-4' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat center / 11px 8px; mask: url("data:image/svg+xml;charset=utf8,<svg xmlns='http://www.w3.org/2000/svg' width='11' height='8'><path d='M1.5 2.2l4 4 4-4' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat center / 11px 8px;
 }
 
 /* 固定列(frozen)は dropdown/haspicker/multiline でも sticky を維持する。
@@ -284,10 +405,10 @@
 .tssgrid .tg-dump { box-sizing: border-box; background: #0b1020; color: #9fe; padding: 8px; border-radius: var(--tg-radius); font-size: 11px; max-height: 120px; overflow: auto; margin-top: 6px; }
 
 /* 右クリックメニュー（行/列の挿入・削除）。fixed でカーソル位置に出す（wrap の overflow に切られない） */
-.tssgrid .tg-menu { position: fixed; z-index: 100; background: #fff; border: 1px solid var(--tg-wrap-border); border-radius: var(--tg-radius); box-shadow: 0 4px 16px rgba(0,0,0,.18); padding: 4px 0; min-width: 150px; font-size: var(--tg-font-size); color: #222; user-select: none; }
+.tssgrid .tg-menu { position: fixed; z-index: 100; background: var(--tg-menu-bg); border: 1px solid var(--tg-wrap-border); border-radius: var(--tg-radius); box-shadow: 0 4px 16px rgba(0,0,0,.18); padding: 4px 0; min-width: 150px; font-size: var(--tg-font-size); color: var(--tg-menu-fg); user-select: none; }
 .tssgrid .tg-menu .tg-mi { padding: 6px 16px; cursor: pointer; white-space: nowrap; }
 /* タッチのドロップダウン一覧（touchPicker:'list'）。指で押しやすい行高・表のスクロール枠で切れないよう fixed */
-.tssgrid .tg-ddlist { position: fixed; z-index: 100; background: var(--tg-cell-bg); border: 1px solid var(--tg-wrap-border); border-radius: var(--tg-radius); box-shadow: 0 6px 20px rgba(0,0,0,.18); padding: 4px 0; max-height: min(308px, 50vh); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; font-size: calc(var(--tg-font-size) + 2px); color: #222; -webkit-user-select: none; user-select: none; }
+.tssgrid .tg-ddlist { position: fixed; z-index: 100; background: var(--tg-cell-bg); border: 1px solid var(--tg-wrap-border); border-radius: var(--tg-radius); box-shadow: 0 6px 20px rgba(0,0,0,.18); padding: 4px 0; max-height: min(308px, 50vh); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; font-size: calc(var(--tg-font-size) + 2px); color: var(--tg-menu-fg); -webkit-user-select: none; user-select: none; }
 .tssgrid .tg-ddlist .tg-ddl-item { min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 16px; cursor: pointer; white-space: nowrap; }
 .tssgrid .tg-ddlist .tg-ddl-item:active, .tssgrid .tg-ddlist .tg-ddl-item.tg-hi { background: var(--tg-sel-bg); }
 .tssgrid .tg-ddlist .tg-ddl-item.tg-on { color: var(--tg-accent); font-weight: 600; }
@@ -297,17 +418,17 @@
 .tssgrid .tg-menu .tg-mi.tg-danger:hover { background: var(--tg-invalid-bg); color: var(--tg-invalid-fg); }
 .tssgrid .tg-menu .tg-mi.tg-disabled { color: var(--tg-muted); cursor: default; }
 .tssgrid .tg-menu .tg-mi.tg-disabled:hover { background: none; }
-.tssgrid .tg-menu .tg-sep { height: 1px; background: #e3e8ee; margin: 4px 0; }
+.tssgrid .tg-menu .tg-sep { height: 1px; background: var(--tg-menu-sep); margin: 4px 0; }
 /* サブメニュー: 親項目に ▶、ホバーで右側へフライアウト */
 .tssgrid .tg-menu .tg-mi.tg-has-sub { position: relative; padding-right: 26px; }
-.tssgrid .tg-menu .tg-mi.tg-has-sub::after { content: '▶'; position: absolute; right: 10px; top: 0; bottom: 0; display: flex; align-items: center; font-size: 9px; color: #7d8a99; }
-.tssgrid .tg-menu .tg-submenu { display: none; position: absolute; left: 100%; top: -5px; background: #fff; border: 1px solid var(--tg-wrap-border); border-radius: var(--tg-radius); box-shadow: 0 4px 16px rgba(0,0,0,.18); padding: 4px 0; min-width: 150px; }
+.tssgrid .tg-menu .tg-mi.tg-has-sub::after { content: '▶'; position: absolute; right: 10px; top: 0; bottom: 0; display: flex; align-items: center; font-size: 9px; color: var(--tg-icon-fg); }
+.tssgrid .tg-menu .tg-submenu { display: none; position: absolute; left: 100%; top: -5px; background: var(--tg-menu-bg); border: 1px solid var(--tg-wrap-border); border-radius: var(--tg-radius); box-shadow: 0 4px 16px rgba(0,0,0,.18); padding: 4px 0; min-width: 150px; }
 .tssgrid .tg-menu .tg-mi.tg-has-sub:hover > .tg-submenu { display: block; }
 
 /* 遅延ロード(push): 未取得(PENDING)行の「読込中」プレースホルダ。値は描かず淡いシマーの点線を出す */
 .tssgrid .tg-table tr.tg-pending-row td.tg-pending-cell { color: var(--tg-muted); text-align: center; cursor: default; }
 .tssgrid .tg-table tr.tg-pending-row .tg-pending-dots { display: inline-block; width: 40%; max-width: 220px; height: 8px; border-radius: 4px;
-  background: linear-gradient(90deg, #eef2f6 25%, #e2e8f0 37%, #eef2f6 63%); background-size: 400% 100%; animation: tg-pending-shimmer 1.2s ease-in-out infinite; }
+  background: linear-gradient(90deg, var(--tg-pending-a) 25%, var(--tg-pending-b) 37%, var(--tg-pending-a) 63%); background-size: 400% 100%; animation: tg-pending-shimmer 1.2s ease-in-out infinite; }
 @keyframes tg-pending-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 
 /* 変更の追跡（trackChanges）: 保存していない直し＝セル左上の小さな三角＋行の左端の線（上のルール群）。

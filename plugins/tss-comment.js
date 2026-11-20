@@ -21,6 +21,20 @@
  */
 (function (root) {
   'use strict';
+  // （tss-calendar 等の tssPlace と同じ中身）小窓（body の直下に出す）に、開いた欄の色を写す。表やその親に付けた色・テーマ（data-tg-theme）は body の小窓には
+  // 届かないため（html に付けたページ全体のテーマはそのまま届く）。写すのは tssgrid.css の ① 元の色だけ＝② は小窓の側で作る。
+  var TSS_THEME_VARS = ['--tg-cell-bg', '--tg-fg', '--tg-border', '--tg-wrap-border', '--tg-header-bg', '--tg-header-fg', '--tg-accent', '--tg-accent-fg', '--tg-edit-accent', '--tg-invalid-fg'];
+  function tssTheme(pop, el) {
+    if (!pop || !pop.style) return;
+    if (pop._tssThemed) { pop.removeAttribute('data-tg-theme'); for (var j = 0; j < TSS_THEME_VARS.length; j++) pop.style.removeProperty(TSS_THEME_VARS[j]); pop._tssThemed = false; }
+    if (!el || !el.closest) return;
+    var t = el.closest('[data-tg-theme]'); if (t === document.documentElement) t = null;
+    if (!t && !el.closest('.tssgrid')) return;
+    var cs = getComputedStyle(el);
+    for (var i = 0; i < TSS_THEME_VARS.length; i++) { var v = cs.getPropertyValue(TSS_THEME_VARS[i]).trim(); if (v) pop.style.setProperty(TSS_THEME_VARS[i], v); }
+    if (t) pop.setAttribute('data-tg-theme', t.getAttribute('data-tg-theme'));
+    pop._tssThemed = true;
+  }
   var SEP = '\u0000';
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
@@ -154,6 +168,7 @@
         '<button type="button" class="tg-comment-btn" data-act="cancel">' + esc(L.cancel) + '</button>' +
         '</div>';
       document.body.appendChild(editor);
+      tssTheme(editor, td);   // 表の色・テーマを小窓へ（吹き出しは付箋の色のまま）
       var ta = editor.querySelector('.tg-comment-ta');
       ta.value = cur;
       place(editor, td);

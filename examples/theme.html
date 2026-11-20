@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TssGrid 例 — 色のテーマ（同梱テーマ・setTheme・表ごとのテーマ）</title>
+<link rel="stylesheet" href="../src/tssgrid.css">
+<link rel="stylesheet" href="../plugins/tss-sort.css">
+<link rel="stylesheet" href="../plugins/tss-filter.css">
+<link rel="stylesheet" href="../plugins/tss-calendar.css">
+<link rel="stylesheet" href="../plugins/tss-time.css">
+<link rel="stylesheet" href="../plugins/tss-cascade.css">
+<link rel="stylesheet" href="../plugins/tss-combo.css">
+<link rel="stylesheet" href="../plugins/tss-toggle.css">
+<link rel="stylesheet" href="../plugins/tss-comment.css">
+<!-- 同梱テーマ: 使うものだけ読み込めばよい（ここでは見比べるため全部） -->
+<link rel="stylesheet" href="../themes/tss-theme-light.css">
+<link rel="stylesheet" href="../themes/tss-theme-navy.css">
+<link rel="stylesheet" href="../themes/tss-theme-black.css">
+<link rel="stylesheet" href="../themes/tss-theme-green.css">
+<link rel="stylesheet" href="../themes/tss-theme-wine.css">
+<link rel="stylesheet" href="../themes/tss-theme-dark.css">
+<style>
+  body { font-family: "Segoe UI", "Meiryo", sans-serif; margin: 28px; color: #222; line-height: 1.6; background: #fff; }
+  h1 { font-size: 19px; } h2 { font-size: 15px; margin-top: 26px; }
+  .note { background: #f5f7fa; border: 1px solid #dde3ea; border-radius: 6px; padding: 12px 16px; font-size: 13px; max-width: 900px; }
+  .note b { color: #1573c0; }
+  code, pre { font-family: Consolas, "Courier New", monospace; }
+  pre { background: #0b1020; color: #cfe; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; overflow: auto; max-width: 900px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0; }
+  .bar button { font: inherit; font-size: 13px; padding: 4px 12px; border: 1px solid #c3ccd6; border-radius: 6px; background: #fff; color: #222; cursor: pointer; }
+  .bar button.on { background: #1573c0; border-color: #1573c0; color: #fff; }
+  .bar label { font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+  .bar input[type=color] { width: 34px; height: 26px; padding: 0; border: 1px solid #c3ccd6; border-radius: 4px; background: none; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; border: 1px solid rgba(0,0,0,.15); }
+  /* ダークの時はページも暗く（表の外の見え方を合わせるだけ。テーマの機能ではない） */
+  html[data-tg-theme="dark"] body { background: #14181e; color: #dde2e8; }
+  html[data-tg-theme="dark"] .note { background: #1d232b; border-color: #333b46; }
+</style>
+</head>
+<body>
+<h1>色のテーマ <span style="font-size:13px;color:#888">— 同梱テーマ・setTheme・表ごとのテーマ</span></h1>
+<div class="note">
+  色は3段で決まります。<b>① 元の色</b>（背景・文字・罫線・ヘッダ・アクセントの十数色）→ <b>② 作る色</b>（選択中・hover・アイコン・読み取り専用の灰色・小窓）→ <b>③ 部品</b>。
+  テーマが決めるのは ① だけで、② は自動で作られます（<code>color-mix</code>）。② も1つずつ自分で決められます（書いたものが勝つ）。<br>
+  テーマを付けない時は今までと同じ見た目です。カレンダー・プルダウン・フィルタなど<b>表の外に開く小窓も同じ色</b>になります（下の表のセルを開いて確かめてください）。
+</div>
+
+<h2>1. 同梱テーマ（ページ全体）</h2>
+<div class="bar" id="themes">
+  <button data-t="">テーマ無し（既定）</button>
+  <button data-t="light"><span class="sw" style="background:#eef2f6"></span>light</button>
+  <button data-t="navy"><span class="sw" style="background:#1f3a5f"></span>navy</button>
+  <button data-t="black"><span class="sw" style="background:#2b2f36"></span>black</button>
+  <button data-t="green"><span class="sw" style="background:#1e5e46"></span>green</button>
+  <button data-t="wine"><span class="sw" style="background:#7a1f2b"></span>wine</button>
+  <button data-t="dark"><span class="sw" style="background:#1e232b"></span>dark</button>
+</div>
+<div class="bar">
+  <b style="font-size:13px">自分の色で（setTheme）:</b>
+  <label>ヘッダ <input type="color" id="cHead" value="#3b2f63"></label>
+  <label>アクセント <input type="color" id="cAcc" value="#7048e8"></label>
+  <label><input type="checkbox" id="cSel"> 選択中のヘッダも自分で決める <input type="color" id="cSelV" value="#f59f00"></label>
+  <button id="apply">この色にする</button>
+</div>
+<pre id="code"></pre>
+<div id="grid"></div>
+<p style="font-size:12.5px;color:#888">セルを押して開く: 申請区分＝多段、支払＝コード付き、日付＝カレンダー、時刻。見出しの ▲▼＝並べ替え、漏斗＝フィルタ。右クリック＝メニュー。左の列は固定、灰色は読み取り専用、赤は誤り、セル左上の三角は変更の印、右上の赤い三角はコメント。</p>
+
+<h2>2. 表ごとのテーマ（<code>new TssGrid(el, { theme: 'wine' })</code>）</h2>
+<div class="note">ページ全体のテーマとは別に、この表だけ wine です。この表から開いたカレンダーやプルダウンも wine の色になります（小窓は body の直下に出ますが、開いた欄の色を写します）。</div>
+<div id="grid2" style="margin-top:10px"></div>
+
+<script src="../src/tssgrid.js"></script>
+<script src="../plugins/tss-sort.js"></script>
+<script src="../plugins/tss-filter.js"></script>
+<script src="../plugins/tss-calendar.js"></script>
+<script src="../plugins/tss-time.js"></script>
+<script src="../plugins/tss-cascade.js"></script>
+<script src="../plugins/tss-combo.js"></script>
+<script src="../plugins/tss-toggle.js"></script>
+<script src="../plugins/tss-comment.js"></script>
+<script>
+  const KBN = [
+    { label: '交通費', children: [{ label: '電車' }, { label: 'バス' }, { label: 'タクシー' }] },
+    { label: '出張', children: [{ label: '国内' }, { label: '海外' }] },
+    { label: '会議費' },
+  ];
+  const PAY = [{ code: '01', label: '現金' }, { code: '02', label: '振込' }, { code: '03', label: 'カード' }];
+  const cal = TssCalendar({ holidays: { '2026-11-23': '勤労感謝の日', '2026-11-03': '文化の日' } });
+  const tm = TssTime({ step: 15 });
+  const columns = [
+    { data: 'who',  title: '担当', width: 90 },
+    { data: 'kbn',  title: '申請区分', width: 150, editor: TssCascade({ options: KBN }), format: TssCascade.pathFormat(KBN) },
+    { data: 'pay',  title: '支払', width: 90, editor: TssCombo({ options: PAY, codeField: 'payCode' }) },
+    { data: 'day',  title: '日付', width: 110, type: 'date', editor: cal, format: 'yyyy/mm/dd' },
+    { data: 'at',   title: '時刻', width: 70, type: 'time', editor: tm },
+    { data: 'amt',  title: '金額', width: 90, type: 'number', thousands: true },
+    { data: 'no',   title: '伝票番号', width: 90, readOnly: true },
+    { data: 'st',   title: '状態', width: 150 },
+    { data: 'memo', title: '備考', width: 160, placeholder: '（任意）' },
+  ];
+  const rows = [
+    { who: '佐藤', kbn: '電車', pay: '現金', payCode: '01', day: '2026-11-02', at: '09:00', amt: 1240, no: 'A-1001', st: '申請中', memo: '' },
+    { who: '鈴木', kbn: '国内', pay: '振込', payCode: '02', day: '2026-11-05', at: '13:30', amt: 25800, no: 'A-1002', st: '承認', memo: '大阪' },
+    { who: '高橋', kbn: 'タクシー', pay: 'カード', payCode: '03', day: '2026-11-10', at: '22:15', amt: -300, no: 'A-1003', st: '差戻し', memo: '' },
+    { who: '田中', kbn: '会議費', pay: '現金', payCode: '01', day: '2026-11-18', at: '12:00', amt: 4400, no: 'A-1004', st: '申請中', memo: '' },
+    { who: '伊藤', kbn: 'バス', pay: '現金', payCode: '01', day: '2026-11-20', at: '08:45', amt: 230, no: 'A-1005', st: '承認', memo: '' },
+  ];
+  function make(el, extra) {
+    const g = new TssGrid(el, Object.assign({
+      columns, data: rows.map(r => Object.assign({}, r)), frozenCols: 1, trackChanges: true, contextMenu: true, height: '260px',
+      plugins: [
+        TssSort.plugin({ columns: ['who', 'day', 'amt'] }),
+        TssFilter.plugin({ columns: ['who', 'pay', 'st'] }),
+        TssToggle.plugin({ columns: { st: ['申請中', '承認', '差戻し'] } }),
+      ],
+    }, extra));
+    g.setInvalid([{ r: 2, c: 'amt', message: '金額がマイナスです' }]);
+    g.setCells([{ r: 1, c: 'memo', value: '大阪（日帰り）' }]);   // 変更の印を出す
+    TssComment(g, { rowId: row => row.no, comments: [{ id: 'A-1001', dataKey: 'kbn', text: '定期区間外の分だけ' }] });
+    return g;
+  }
+  const grid = make(document.getElementById('grid'));
+  const grid2 = make(document.getElementById('grid2'), { theme: 'wine', height: '200px' });
+  window.grid = grid; window.grid2 = grid2;
+
+  const code = document.getElementById('code');
+  const btns = [...document.querySelectorAll('#themes button')];
+  function mark(t) { btns.forEach(b => b.classList.toggle('on', b.dataset.t === t)); }
+  btns.forEach(b => b.onclick = () => {
+    const t = b.dataset.t;
+    TssGrid.setTheme(t || null);
+    mark(t);
+    code.textContent = t
+      ? `<link rel="stylesheet" href="themes/tss-theme-${t}.css">\n<html data-tg-theme="${t}">   … または  TssGrid.setTheme('${t}');`
+      : '// テーマ無し＝今までの見た目（TssGrid.setTheme(null) で外す）';
+  });
+  document.getElementById('apply').onclick = () => {
+    const th = { headerBg: cHead.value, accent: cAcc.value };
+    if (cSel.checked) th.selhdrBg = cSelV.value;
+    TssGrid.setTheme(th);   // 文字色（headerFg / accentFg）は省いた＝背景の明るさから白か黒を自動
+    mark('-');
+    code.textContent = 'TssGrid.setTheme(' + JSON.stringify(th).replace(/"(\w+)":/g, '$1: ').replace(/,/g, ', ') + ');\n' +
+      '// 文字色は省略＝白か黒を自動。ほかの色（選択中・hover・アイコン・小窓）は自動で作られる';
+  };
+  mark('');
+  code.textContent = '// テーマ無し＝今までの見た目（TssGrid.setTheme(null) で外す）';
+</script>
+</body>
+</html>

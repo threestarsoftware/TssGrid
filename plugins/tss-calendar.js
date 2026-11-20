@@ -12,13 +12,14 @@
  */
 (function (root) {
   'use strict';
-  // ---- 小窓の置き場所（tss-calendar / time / datetime / cascade / combo / autocomplete で同じ中身。直す時は全部）----
+  // ---- 小窓の置き場所と色（tss-calendar / time / datetime / cascade / combo / autocomplete で同じ中身。直す時は全部。tssTheme は filter / comment にも）----
   // anchor の下（入らなければ上・どちらにも入らなければ広いほう）。見えている範囲（visualViewport＝スマホのキーボードを
   // 除いた所）に収め、ページ/表のスクロール・画面の向き・キーボードの出入り・小窓の大きさの変化に付いていく。
   // o.side:'right'＝右へ（多段の子）。o.fit＝入らない時は高さを縮めて中をスクロール（一覧向け＝欄に重ならない）。
   // o.onLost＝anchor が見える範囲から外れた時（単体で開いた時に閉じる用）。anchor は要素か、要素を返す関数。戻り値 { update, destroy }。
   function tssPlace(pop, anchor, o) {
     o = o || {};
+    tssTheme(pop, typeof anchor === 'function' ? anchor() : anchor);   // 欄の色・テーマを小窓へ
     var W = window, vv = W.visualViewport, raf = 0, alive = true, ro = null, first = true;
     function place() {
       raf = 0; if (!alive || !pop.isConnected) return;
@@ -59,6 +60,20 @@
         if (vv) { vv.removeEventListener('resize', req); vv.removeEventListener('scroll', req); }
       }
     };
+  }
+  // 小窓（body の直下に出す）に、開いた欄の色を写す。表やその親に付けた色・テーマ（data-tg-theme）は body の小窓には
+  // 届かないため（html に付けたページ全体のテーマはそのまま届く）。写すのは tssgrid.css の ① 元の色だけ＝② は小窓の側で作る。
+  var TSS_THEME_VARS = ['--tg-cell-bg', '--tg-fg', '--tg-border', '--tg-wrap-border', '--tg-header-bg', '--tg-header-fg', '--tg-accent', '--tg-accent-fg', '--tg-edit-accent', '--tg-invalid-fg'];
+  function tssTheme(pop, el) {
+    if (!pop || !pop.style) return;
+    if (pop._tssThemed) { pop.removeAttribute('data-tg-theme'); for (var j = 0; j < TSS_THEME_VARS.length; j++) pop.style.removeProperty(TSS_THEME_VARS[j]); pop._tssThemed = false; }
+    if (!el || !el.closest) return;
+    var t = el.closest('[data-tg-theme]'); if (t === document.documentElement) t = null;
+    if (!t && !el.closest('.tssgrid')) return;
+    var cs = getComputedStyle(el);
+    for (var i = 0; i < TSS_THEME_VARS.length; i++) { var v = cs.getPropertyValue(TSS_THEME_VARS[i]).trim(); if (v) pop.style.setProperty(TSS_THEME_VARS[i], v); }
+    if (t) pop.setAttribute('data-tg-theme', t.getAttribute('data-tg-theme'));
+    pop._tssThemed = true;
   }
   // 表の中で開いた時の anchor＝今のセル（表のスクロール・描き直しでセルの要素が替わっても追う）。単体の時は渡された要素。
   function tssAnchor(el, ctx) {

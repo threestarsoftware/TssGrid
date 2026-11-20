@@ -133,10 +133,59 @@ export interface ColumnDef {
   multiline?: boolean;
   /** 空セルの薄いヒント文字。 */
   placeholder?: string;
+  /** TssFilter: 1つのセルに複数の値がある列（「Java, Python, Vue」）。「値を選択」の一覧を分けた値で並べ、チェックした値のどれかを含む行を残す（OR）。
+   *  文字列/正規表現で分ける（分けた値の前後の空白は取る）か、`(value, row) => 配列`。部分一致・前方一致はセルの文字全体に対して。 */
+  filterSplit?: string | RegExp | ((value: any, row: any[]) => any[]);
   [k: string]: any;
 }
 
 /** new TssGrid(container, options) のオプション。 */
+/**
+ * 色のテーマ（setTheme / options.theme）。キーは CSS 変数の --tg- を取って camelCase（--tg-header-bg → headerBg）。
+ * ① 元の色（下の項目）を決めれば、② 作る色（選択中・hover・アイコン・小窓）は自動で作られる。
+ * headerBg / cellBg / accent を渡して文字色（headerFg / fg / accentFg）を省いた時は、背景の明るさから白か黒を選ぶ。
+ * ② も1つずつ決められる（selhdrBg・selBg・headerAccent など。一覧は tssgrid.css の先頭）。'--tg-xxx' のまま書いても可。
+ */
+export interface TssTheme {
+  /** 同梱テーマ等の名前（data-tg-theme の値）。色と一緒に渡すとそのテーマの上に色を重ねる。省略は 'custom'。 */
+  name?: string;
+  /** セル・小窓の背景 */
+  cellBg?: string;
+  /** 文字 */
+  fg?: string;
+  /** セル罫線 */
+  border?: string;
+  /** 外枠 */
+  wrapBorder?: string;
+  /** ヘッダ/行番号の背景 */
+  headerBg?: string;
+  /** ヘッダの文字 */
+  headerFg?: string;
+  /** 選択枠・プルダウンの選択中 */
+  accent?: string;
+  /** アクセント色の上の文字 */
+  accentFg?: string;
+  /** 編集枠・カレンダー等の選択中 */
+  editAccent?: string;
+  /** 誤り・削除の赤 */
+  invalidFg?: string;
+  /** 変更の印 */
+  changed?: string;
+  radius?: string;
+  fontSize?: string;
+  /** ヘッダの上で点く色（並べ替えの向き） */
+  headerAccent?: string;
+  /** 選択中のヘッダの背景 / 文字 */
+  selhdrBg?: string;
+  selhdrFg?: string;
+  /** 選択中のセルの背景 */
+  selBg?: string;
+  /** ② 作る色（そのほか。意味は tssgrid.css の先頭の一覧） */
+  blurSel?: string; boxColor?: string; boxWidth?: string; cellFg?: string; colheaderBg?: string; copy?: string; danger?: string; editBg?: string; editorFg?: string; editorInvalid?: string; editorInvalidBg?: string; fillPreview?: string; filterHover?: string; filterHoverBg?: string; filterIco?: string; filterOnBg?: string; frozenEdge?: string; headerIcon?: string; iconFg?: string; invalidBg?: string; invalidSelBg?: string; menuBg?: string; menuFg?: string; menuSep?: string; mlMark?: string; muted?: string; pendingA?: string; pendingB?: string; placeholderFg?: string; popAccent?: string; popAccentFg?: string; popBg?: string; popBorder?: string; popDanger?: string; popDangerBg?: string; popFaint?: string; popFg?: string; popHolidayBg?: string; popHover?: string; popLine?: string; popMuted?: string; popPick?: string; popShadow?: string; popSoft?: string; readonlyBg?: string; readonlyFg?: string; readonlySelBg?: string; resize?: string; rowdelBg?: string; rowheadBg?: string; rowheadFg?: string; sortAccent?: string; sortDim?: string; sortHover?: string; toggleAccent?: string; toggleBorder?: string; toggleFg?: string; toggleHover?: string; wrapBg?: string;
+  /** CSS 変数の名前のまま */
+  [cssVar: `--tg-${string}`]: string | undefined;
+}
+
 export interface TssGridOptions {
   headers?: string[];
   /** 初期データ。2次元配列 or オブジェクト配列。 */
@@ -229,6 +278,8 @@ export interface TssGridOptions {
   multilineEditMaxLines?: number;
   placeholder?: string;
   className?: string;
+  /** この表だけの色のテーマ。同梱テーマの名前（themes/tss-theme-xxx.css を読み込んでおく）か色の指定。ページ全体は TssGrid.setTheme。 */
+  theme?: string | TssTheme;
   /** false でフィル完全OFF。詳細指定も可。 */
   fillHandle?: boolean | { direction?: 'vertical' | 'horizontal' | 'both'; autoInsertRow?: boolean };
   /** タッチ端末の範囲選択ハンドル（選択枠の四辺の丸）。既定 'both'＝四辺（天地=縦・左右=横・斜め=矩形）。
@@ -607,6 +658,10 @@ export declare class TssGrid {
   addShortcut(s: { name: string; keys: string; handler: (grid: TssGrid, e: KeyboardEvent) => void }): void;
   removeShortcut(name: string): void;
   usePlugin(plugin: ((grid: TssGrid, opts?: any) => any) | string, opts?: any): any;
+  /** この表の色のテーマを変える（null で外す）。テーマを付けると選択中・hover・アイコン・小窓の色が元の色から自動になる。 */
+  setTheme(theme: string | TssTheme | null): this;
+  /** ページ全体（html）の色のテーマを変える（null で外す）。表の外に開く小窓（カレンダー・プルダウン等）にも届く。el を渡すとその要素に。 */
+  static setTheme(theme: string | TssTheme | null, el?: HTMLElement): typeof TssGrid;
   getPlugin(name: string): any;
 
   // ---- 低レベル（公開はするが通常は上位APIを推奨） -----------------------

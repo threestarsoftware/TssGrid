@@ -14,11 +14,28 @@
  *
  *  opts: columns（対象列の配列・省略=全列） / caseSensitive（既定 false・値一致は文字列） /
  *        initial（{ 列: [値,...] }・最初から「値を選択」で絞った状態で開く）。
+ *  列定義: filterSplit（1つのセルに複数の値がある列。例 columns:[{ data:'skills', filterSplit:',' }]）＝
+ *        「値を選択」の一覧は分けた値を重複なしで並べ、チェックした値のどれかを含む行を残す（OR）。部分/前方一致はセルの文字全体に対して。
+ *        文字列/正規表現で分ける（分けた値の前後の空白は取る）か、(値, 行) => 配列 の関数。
  *  API: setValues(列, [値,...]|null)（列の「値を選択」条件を差込/解除）。setData 後も active 条件は再適用される。
  *  メモ: 値候補はマスタ全行(_allRows)から集計＝絞り込み中でも全値が出る。grid.filter() は履歴クリア（コア仕様）。
  */
 (function (root) {
   'use strict';
+  // （tss-calendar 等の tssPlace と同じ中身）小窓（body の直下に出す）に、開いた欄の色を写す。表やその親に付けた色・テーマ（data-tg-theme）は body の小窓には
+  // 届かないため（html に付けたページ全体のテーマはそのまま届く）。写すのは tssgrid.css の ① 元の色だけ＝② は小窓の側で作る。
+  var TSS_THEME_VARS = ['--tg-cell-bg', '--tg-fg', '--tg-border', '--tg-wrap-border', '--tg-header-bg', '--tg-header-fg', '--tg-accent', '--tg-accent-fg', '--tg-edit-accent', '--tg-invalid-fg'];
+  function tssTheme(pop, el) {
+    if (!pop || !pop.style) return;
+    if (pop._tssThemed) { pop.removeAttribute('data-tg-theme'); for (var j = 0; j < TSS_THEME_VARS.length; j++) pop.style.removeProperty(TSS_THEME_VARS[j]); pop._tssThemed = false; }
+    if (!el || !el.closest) return;
+    var t = el.closest('[data-tg-theme]'); if (t === document.documentElement) t = null;
+    if (!t && !el.closest('.tssgrid')) return;
+    var cs = getComputedStyle(el);
+    for (var i = 0; i < TSS_THEME_VARS.length; i++) { var v = cs.getPropertyValue(TSS_THEME_VARS[i]).trim(); if (v) pop.style.setProperty(TSS_THEME_VARS[i], v); }
+    if (t) pop.setAttribute('data-tg-theme', t.getAttribute('data-tg-theme'));
+    pop._tssThemed = true;
+  }
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   // ロート（漏斗＝filter）アイコン。currentColor で .on の色替えに追従。ソートの▼と区別。
   const FUNNEL = '<svg class="tg-filter-ico" viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M1.5 3h13l-5 6v4.2l-3-1.6V9z" fill="currentColor"/></svg>';
@@ -41,10 +58,25 @@
       })();
       const isTarget = c => !targets || targets.has(c);
 
-      // マスタ全行（フィルタ中でも全件）から列 c の重複なし値（出現順）。
+      // 列定義の filterSplit（1つのセルに複数の値＝「Java, Python, Vue」）。文字列/正規表現で分ける or (値, 行) => 配列。
+      // 分けた値は前後の空白を取り、空は捨てる（「Java,Python」「Java, Python」のどちらでも同じ値になる）。値が1つも無い行は (空白)。
+      // 未指定の列は null（今までどおりセル全体で1つの値）。
+      function parts(c, row) {
+        const sp = grid.colCfg ? grid.colCfg(c).filterSplit : null;
+        if (sp == null || sp === '') return null;
+        const v = row[c];
+        let arr = typeof sp === 'function' ? sp(v, row) : (v == null ? '' : String(v)).split(sp);
+        arr = Array.isArray(arr) ? arr : (arr == null ? [] : [arr]);
+        const out = [];
+        for (const x of arr) { const s = x == null ? '' : String(x).trim(); if (s !== '') out.push(s); }
+        return out.length ? out : [''];
+      }
+
+      // マスタ全行（フィルタ中でも全件）から列 c の重複なし値（出現順）。filterSplit の列は分けた値で。
       function distinctValues(c) {
         const rows = grid._allRows || grid.data, seen = new Set(), out = [];
-        for (const row of rows) { const v = String(row[c]); if (!seen.has(v)) { seen.add(v); out.push(v); } }
+        const add = v => { if (!seen.has(v)) { seen.add(v); out.push(v); } };
+        for (const row of rows) { const ps = parts(c, row); if (ps) ps.forEach(add); else add(String(row[c])); }
         return out;
       }
 
@@ -56,7 +88,10 @@
         const norm = s => cs ? String(s) : String(s).toLowerCase();
         return row => cols.every(c => {
           const a = active[c], v = String(row[c]);
-          if (a instanceof Set) return a.has(v);                             // 値を選択（大小区別の完全一致）
+          if (a instanceof Set) {                                            // 値を選択（大小区別の完全一致）
+            const ps = parts(c, row);
+            return ps ? ps.some(p => a.has(p)) : a.has(v);                   // filterSplit の列＝チェックした値のどれかを含む行（OR）
+          }
           const hay = norm(v), q = norm(a.q);                                // テキスト一致（既定 大小無視・caseSensitive で区別）
           return a.mode === 'prefix' ? hay.startsWith(q) : hay.indexOf(q) >= 0;
         });
@@ -116,6 +151,7 @@
           '</div>' +
           '<div class="tg-filter-btns"><button data-act="apply">適用</button><button data-act="clear">クリア</button></div>';
         document.body.appendChild(pop);
+        tssTheme(pop, grid.root);   // 表の色・テーマを小窓へ
         // 位置（アンカーの下・はみ出しは画面内へ）
         const r = anchor.getBoundingClientRect();
         const pw = 220, ph = Math.min(320, pop.offsetHeight || 300);
@@ -189,7 +225,10 @@
       // 初期選択（opts.initial: { 列: [値,...] }）＝最初から「値を選択」で絞った状態で開く
       if (opts.initial) {
         let any = false;
-        for (const k in opts.initial) { const c = resolveCol(k); if (c >= 0) { active[c] = new Set((opts.initial[k] || []).map(String)); any = true; } }
+        for (const k in opts.initial) {
+          let c = resolveCol(k);
+          if (c < 0 && /^\d+$/.test(k)) c = resolveCol(+k);   // { 1: [...] } の列番号はオブジェクトのキー＝文字列 '1' で来る
+          if (c >= 0) { active[c] = new Set((opts.initial[k] || []).map(String)); any = true; } }
         if (any) apply();
       }
 
