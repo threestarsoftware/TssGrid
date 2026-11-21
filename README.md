@@ -1305,6 +1305,7 @@ new TssGrid(el, {
 - カタログを**CSVから作る**ヘルパー: `plugins/tss-messages.js` の `TssMessages.fromCSV(text)` / `fromRows(rows)`（`code,level,text` の設定ファイルを読込）。動く例: [`examples/messages.html`](https://tssgrid.threestarsoftware.co.jp/examples/messages.html)。
 - checkbox の保存値は `checked` / `unchecked` で変更可（例: `{ type:'checkbox', checked:'TRUE', unchecked:'FALSE' }`）。
 - **checkbox 列はヘッダに全選択チェックボックス**が出ます（クリックで全 ON/全 OFF、部分選択は indeterminate）。`columns[c].headerCheckbox: false` で非表示に。プログラムからは **`setColumnChecked(c, true/false)`**（readOnly セルはスキップ・**Undo 一発**）。右クリックメニューに出したいときは `contextMenu` に組込キー **`'check_column'` / `'uncheck_column'`** を入れます。見た目は外部CSS `.tssgrid .tg-head-cb { … }` で変更可。
+- **1行しか選べない一覧はラジオに**: `{ data:'pick', type:'checkbox', radio:true }`。丸いラジオで描き、見出しの全選択は出しません（右クリックの「すべてチェック」も出さない）。行に入れるとほかの行は外れます（クリック・Space・貼り付け・`setValue` のどれでも・**Undo 一発**で戻る）。入っている行をもう一度押しても外れません（ふつうのラジオと同じ）。外すのは `setValue(r, c, '')` か `setColumnChecked(c, false)`。フィルタで隠れている行のチェックも外れます（その分は Undo・`onAfterChange` には出ません）。保存値は checkbox と同じ（`checked` / `unchecked` も効く）。選んだ行は `grid.getRows().find(o => o.pick === '1')` などで。
 
 ### 入力の正規化 / 表示の整形（`parse` / `format`）
 
@@ -1326,8 +1327,15 @@ columns: [
 
 - **`type:'date'` の既定 `parse`**: `yyyymmdd` / `yyyy-mm-dd` / `yyyy/mm/dd` / `yyyy.mm.dd` を `yyyy-mm-dd` に正規化（実在日チェック付き）。`time` は `HH:MM[:SS]` を 24時間制に正規化（`1:30 PM` などの AM/PM 入力も受理）。
 - **編集 UI**: `date`/`time` は既定でネイティブのピッカー（`<input type=date/time>`）。**`picker:false`** か `parse`/`format` を付けると**テキスト入力**になり、入力の並び順を自分で決められます（ネイティブの表示順はブラウザのロケール依存なので、yyyymmdd 固定で打ちたい時はこちら）。
-- 評価順は **`parse` → 型チェック → `maxLength` → `validator`**。`format` は表示時のみ。`invalidMode:'keep'` なら `parse` 失敗値もそのまま赤く残ります。
+- 評価順は **`allowChars` → `parse` → 型チェック → `maxLength` → `validator`**。`format` は表示時のみ。`invalidMode:'keep'` なら `parse` 失敗値もそのまま赤く残ります。
 - **`columns[c].maxLength`**: 桁数（文字数）上限。**編集中はそれ以上打てない**（`<input maxlength>`）＋**貼り付け・`setValue` は超過分を切り詰め**。社員番号・電話・郵便番号など「無制限ではない」項目に。例: `{ data:'code', maxLength: 5 }`。さらに厳密な書式は `validator` 併用（`{ maxLength:8, validator: v => /^[A-Z0-9]+$/.test(v) || '英数字のみ' }`）。
+- **`columns[c].allowChars`**: 打てる文字（1文字に当てる正規表現か `(ch) => boolean`）。**編集中は合わない文字を入れない**（日本語入力は確定した時に落とす）＋**貼り付け・`setValue` も落とす**（`validator` はそのまま効く）。全角は1文字ずつ見る＝そのまま合えば残す → 半角にして合えば半角で（`０１２`→`012`）→ 合わなければ落とす（全体を半角にしないので、カナの列の「ー」は化けない）。`zenkaku:false` で半角にして見るのをやめる。複数行の列は改行を残す。
+  ```js
+  { data:'acct', title:'口座番号', allowChars:/[0-9]/, maxLength:7, inputMode:'numeric' }   // 数字だけ・7桁まで・スマホは数字のキーボード
+  { data:'kana', title:'名義', allowChars:/[ァ-ヶー　]/ }                                    // 全角カタカナ（半角ｶﾅは全角にしない＝落ちる）
+  ```
+  表の外の欄（スマホのカード・ダイアログ）でも同じ規則: **`TssGrid.allowCharsFilter(列の定義, text)`**（セルも中でこれを通る）。例 `input.addEventListener('input', e => { if (!e.isComposing) input.value = TssGrid.allowCharsFilter(col, input.value); })`＋`compositionend` でも同じ。
+- **`columns[c].inputMode`**: スマホのキーボードの種類（セルの編集欄の `inputmode`）。`'numeric'`＝数字・`'tel'`・`'email'` など。
 
 ### CellFormat（宣言的な表示書式：数値 / 日付）
 

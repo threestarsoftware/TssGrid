@@ -3,6 +3,14 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.51] - 2026-11-21
+
+### 追加
+- **列の設定 `allowChars`＝打てる文字を絞る**（jimu の口座・名義の欄から）。`{ allowChars:/[0-9]/ }` で、編集中は合わない文字を入れない（日本語入力は確定した時に落とす）・貼り付け・`setValue` も落とす。`validator` はそのまま効く。全角は1文字ずつ見る（そのまま合えば残す → 半角にして合えば半角で → 合わなければ落とす＝カナの列の「ー」は化けない）。正規表現の `g` は気にしなくてよい・関数 `(ch) => boolean` も可。
+- **`TssGrid.allowCharsFilter(列の定義, text)`**：表の外の欄（スマホのカード・ダイアログ）で同じ規則を使う。セルの編集・貼り付け・`setValue` も中でこれを通る（規則は1か所）。
+- **列の設定 `inputMode`**：セルの編集欄の `inputmode`（`'numeric'` でスマホに数字のキーボード）。
+- **checkbox 列の `radio: true`＝1行しか選べない一覧をラジオに**（`{ data:'pick', type:'checkbox', radio:true }`）。丸いラジオで描き、見出しの全選択・右クリックの「すべてチェック」は出さない。行に入れるとほかの行は外れる（クリック・Space・貼り付け・`setValue` のどれでも・Undo 一発で戻る）。入っている行をもう一度押しても外れない。外すのは `setValue(r, c, '')` か `setColumnChecked(c, false)`。フィルタで隠れている行のチェックも外れる。
+
 ## [0.1.50] - 2026-11-20
 
 ### 追加（色のテーマ）

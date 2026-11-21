@@ -271,12 +271,23 @@ html:true 併用でセル内にボタン/アイコン等の HTML を描ける（
 <tr><td><code>ellipsis</code></td><td><code class="ty">boolean</code></td><td>列単位の … 省略（溢れた文字を省略記号で切る／ホバーで全文を title 表示）。値・コピー・編集は不変＝見え方だけ。折り返し(wordWrap)と同時なら折り返しが優先。</td></tr>
 <tr><td><code>multiline</code></td><td><code class="ty">boolean</code></td><td>複数行(改行)入力を有効化。編集は隠し textarea（IME 直打ち対応）、表示は改行保持(pre-wrap)。行高は自動で伸びないので rowHeights 等で確保する。</td></tr>
 <tr><td><code>placeholder</code></td><td><code class="ty">string</code></td><td>空セルの薄いヒント文字。</td></tr>
+<tr><td><code>allowChars</code></td><td><code class="ty">RegExp | ((ch: string) =&gt; boolean)</code></td><td>打てる文字（1文字に当てる正規表現 or `(ch) =&gt; boolean`）。例 `/[0-9]/`（数字だけ）・`/[ァ-ヶー　]/`（全角カタカナ）。
+編集中は合わない文字を入れない（日本語入力は確定した時に落とす）・貼り付け・setValue も落とす。validator はそのまま効く。
+全角は1文字ずつ: そのまま合えば残す → 半角にして合えば半角で（`０１２`→`012`）→ 合わなければ落とす。`zenkaku: false` で半角にして見るのをやめる。
+表の外の欄では `TssGrid.allowCharsFilter(col, text)`。</td></tr>
+<tr><td><code>inputMode</code></td><td><code class="ty">'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url'</code></td><td>スマホのキーボードの種類（セルの編集欄の inputmode）。`'numeric'` で数字のキーボード。</td></tr>
+<tr><td><code>zenkaku</code></td><td><code class="ty">boolean</code></td><td>false で全角→半角の変換をしない（number の parse・allowChars）。</td></tr>
+<tr><td><code>maxLength</code></td><td><code class="ty">number</code></td><td>桁数(文字数)の上限。編集中はそれ以上打てない・貼り付け/setValue は切り詰める。</td></tr>
+<tr><td><code>headerCheckbox</code></td><td><code class="ty">boolean</code></td><td>checkbox 列: false で見出しの全選択チェックを出さない。</td></tr>
+<tr><td><code>radio</code></td><td><code class="ty">boolean</code></td><td>checkbox 列を**ラジオ**に（1つの行しか選べない一覧）。丸いラジオで描き、見出しの全選択は出さない。
+行に入れるとほかの行は外れる（クリック・Space・貼り付け・setValue のどれでも・Undo 一発で戻る）。入っている行をもう一度押しても外れない。
+外すのは `setValue(r, c, '')` か `setColumnChecked(c, false)`。フィルタで隠れている行のチェックも外れる。</td></tr>
 <tr><td><code>filterSplit</code></td><td><code class="ty">string | RegExp | ((value: any, row: any[]) =&gt; any[])</code></td><td>TssFilter: 1つのセルに複数の値がある列（「Java, Python, Vue」）。「値を選択」の一覧を分けた値で並べ、チェックした値のどれかを含む行を残す（OR）。
 文字列/正規表現で分ける（分けた値の前後の空白は取る）か、`(value, row) =&gt; 配列`。部分一致・前方一致はセルの文字全体に対して。</td></tr>
 </tbody>
 </table>
 <h2 id="methods">メソッド</h2>
-<p>公開メソッド 93 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
+<p>公開メソッド 94 個。インスタンス <code>grid.xxx(...)</code> で呼べます。</p>
 <h3 id="m-0">データ</h3>
 <div class="api-list">
 <div class="api-m"><code class="sig">getData(): any[][]</code><p>全データを2次元配列で取得（コピー）。</p></div>
@@ -409,6 +420,9 @@ format が外部状態に依存する／セル内ボタンの状態を更新し�
 <div class="api-m"><code class="sig">cellEl(r: number, c: number): HTMLTableCellElement | null</code><p>セルの DOM 要素を返す（低レベル・内部DOM構造に依存）。結合セルはアンカーに解決。</p></div>
 <div class="api-m"><code class="sig">zen2han(s: string): string</code><p>全角→半角（数字・符号・小数点・カンマ・%・¥・空白＋日付/時刻の区切り ／：）。IME 誤入力対策のユーティリティ。
 number/date/time の組込 parse で使うほか、カスタム `parse`/`format` から `TssGrid.zen2han(v)` として呼べる。</p></div>
+<div class="api-m"><code class="sig">allowCharsFilter(col: ColumnDef | null | undefined, text: any): string</code><p>列の打てる文字（`allowChars`）で text を絞った結果。セルの編集・貼り付け・setValue も中でこれを通る＝表の外の欄（カード・ダイアログ）で同じ規則を使える。
+1文字ずつ: そのまま合えば残す → 半角にして合えば半角で残す → 合わなければ落とす。`allowChars` が無い列は text をそのまま返す。桁数（maxLength）は切らない。
+例 `input.addEventListener('input', () =&gt; { input.value = TssGrid.allowCharsFilter(col, input.value); })`</p></div>
 <div class="api-m"><code class="sig">esc(s: any): string</code><p>HTML エスケープ（`&amp;` `&lt;` `&gt;` `"` `'`）。`format` で HTML/属性を組む時などに（属性値も安全）。</p></div>
 </div>
 <h2 id="history">HistoryManager</h2>

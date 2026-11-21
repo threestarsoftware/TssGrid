@@ -1135,7 +1135,7 @@
       if ('checked' in cfg) return v === String(cfg.checked);
       return v === '1' || v === 'true' || v === 'TRUE' || v === 'yes' || v === '✓';
     }
-    _hasColRules() { return this.columns.some(cfg => cfg && ((cfg.type && cfg.type !== 'text') || typeof cfg.validator === 'function' || typeof cfg.parse === 'function' || cfg.maxLength > 0)); }
+    _hasColRules() { return this.columns.some(cfg => cfg && ((cfg.type && cfg.type !== 'text') || typeof cfg.validator === 'function' || typeof cfg.parse === 'function' || cfg.maxLength > 0 || cfg.allowChars)); }
     static _isISODate(s) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
       const [y, m, d] = s.split('-').map(Number);
@@ -1194,6 +1194,38 @@
         .replace(/／/g, '/').replace(/：/g, ':')
         .replace(/％/g, '%').replace(/￥/g, '¥').replace(/　/g, ' ');
     }
+    // 打てる文字の規則（columns[c].allowChars）で text を絞る。表の外の欄（カード・ダイアログ）からも同じ規則で使える。
+    //   allowChars: 1文字に当てる正規表現（/[0-9]/ 等・g/y が付いていても1文字ずつ新しく照らす）か (ch) => boolean。無ければ text をそのまま返す。
+    //   1文字ずつ: そのまま合えば残す → 合わなければ半角にして（zen2han）合えば半角で残す → それでも合わなければ落とす。
+    //   （全体を zen2han しない＝カナの列の「ー」が「-」に化けて落ちるのを避ける）。zenkaku:false で半角にして見るのをやめる。
+    //   複数行（multiline）の列は改行を残す。桁数（maxLength）はここでは切らない（欄の maxlength / セルは _coerceCell で別に切る）。
+    static allowCharsFilter(col, text) {
+      const s = text == null ? '' : String(text);
+      const rule = col && col.allowChars;
+      if (!rule) return s;
+      let ok;
+      if (typeof rule === 'function') ok = ch => { try { return !!rule(ch); } catch (_) { return false; } };
+      else if (rule instanceof RegExp) { const re = new RegExp(rule.source, rule.flags.replace(/[gy]/g, '')); ok = ch => re.test(ch); }
+      else return s;
+      const zen = col.zenkaku !== false, keepNl = !!col.multiline;
+      let out = '';
+      for (const ch of s) {   // for-of＝サロゲートペア（絵文字など）も1文字
+        if (ok(ch) || (keepNl && (ch === '\n' || ch === '\r'))) { out += ch; continue; }
+        if (zen) { const h = TssGrid.zen2han(ch); if (h !== ch && ok(h)) out += h; }
+      }
+      return out;
+    }
+    // 編集中の欄を allowChars で絞る（変わった時だけ書き戻す・カーソルは前にあった文字の数で保つ）
+    _filterEditorChars() {
+      const cfg = this.colCfg(this.active.c), ed = this.editor;
+      if (!cfg.allowChars || !ed) return;
+      const v = ed.value, nv = TssGrid.allowCharsFilter(cfg, v);
+      if (nv === v) return;
+      let pos = null; try { pos = ed.selectionStart; } catch (_) {}
+      ed.value = nv;
+      if (pos != null) { const p = TssGrid.allowCharsFilter(cfg, v.slice(0, pos)).length; try { ed.setSelectionRange(p, p); } catch (_) {} }
+      if (ed === this._edMulti) this._growMultiEditor();
+    }
     static _parseNumber(v, cfg) {
       let s = String(v).trim();
       if (cfg.zenkaku !== false) s = TssGrid.zen2han(s);   // 既定で全角→半角（cfg.zenkaku:false で無効化）
@@ -1244,6 +1276,8 @@
     _coerceCell(r, c, value) {
       const cfg = this.colCfg(c); let v = value;
       const t = cfg.type || 'text';
+      // 打てる文字（allowChars）: 貼り付け・setValue・編集の確定のどれもここを通る（parse の前＝入力の文字を絞ってから解釈）
+      if (cfg.allowChars && (typeof v === 'string' || typeof v === 'number')) v = TssGrid.allowCharsFilter(cfg, v);
       // parse: 入力文字列 → 保存値（カスタム優先 / 無ければ date・time の組込）
       if (v !== '') {
         const p = this._parseInput(r, c, v);
@@ -1562,7 +1596,7 @@
     // td の中身を型に応じて描画。data は確定済み前提。空セルは placeholder（あれば）を表示。
     _cellHTML(r, c) {
       if (this.colType(c) === 'checkbox')
-        return '<input type="checkbox" class="tg-cb" tabindex="-1"' + (this._isReadOnly(r, c) ? ' disabled' : '') + (this._isCheckedVal(c, this.data[r][c]) ? ' checked' : '') + '>';
+        return '<input type="' + (this.colCfg(c).radio ? 'radio" class="tg-cb tg-radio' : 'checkbox" class="tg-cb') + '" tabindex="-1"' + (this._isReadOnly(r, c) ? ' disabled' : '') + (this._isCheckedVal(c, this.data[r][c]) ? ' checked' : '') + '>';
       if (this.data[r][c] === '' && this._placeholder(c) != null) return TssGrid.esc(this._placeholder(c));
       // html:true の列は表示だけ生HTML（値はテキスト保存のまま）。エスケープを外す＝XSS責任は format/値の提供側。
       // 空セルでも format を走らせる＝ボタン/アイコン等の"飾り"を全行に描ける（_displayValue は空を素通しするので html+関数formatだけ特別扱い）。
@@ -1803,8 +1837,8 @@
         if (lbl && typeof lbl === 'object') lbl = lbl.label != null ? lbl.label : '';
         const lblStr = lbl != null ? String(lbl) : '';
         // 見出しチェック: 見出し文字が無い（単独）なら中央寄せ＝本体セルの中央チェックと揃える。文字がある時だけ右 4px で間隔。
-        const headCb = (this.colType(c) === 'checkbox' && this.colCfg(c).headerCheckbox !== false)
-          ? '<input type="checkbox" class="tg-cb tg-head-cb' + (lblStr === '' ? ' tg-head-cb-solo' : '') + '" tabindex="-1">' : '';
+        const headCb = this._hasHeadCb(c)
+          ?'<input type="checkbox" class="tg-cb tg-head-cb' + (lblStr === '' ? ' tg-head-cb-solo' : '') + '" tabindex="-1">' : '';
         html += '<th data-c="' + c + '"' + a + '>' + headCb + TssGrid.esc(lblStr) + grip + '</th>';
       }
       if (delHdr) html += '<th class="tg-rowdel-hdr"></th>';   // 右端削除列の見出し（無地・非データ）。ネストヘッダ時は角を rowspan で出すのでここでは出さない
@@ -2067,8 +2101,8 @@
     _syncHeaderCheckboxes() {
       if (!this.colHeaders) return;
       for (let c = 0; c < this.COLS; c++) {
-        if (this.colType(c) !== 'checkbox' || this.colCfg(c).headerCheckbox === false) continue;
-        const cb = this.table.querySelector('thead th[data-c="' + c + '"] .tg-head-cb');
+        if (!this._hasHeadCb(c)) continue;
+        const cb =this.table.querySelector('thead th[data-c="' + c + '"] .tg-head-cb');
         if (!cb) continue;
         if (this._columnAllReadOnly(c)) {   // 全 readOnly＝操作不可。安定して「− かつ無効（押せない）」に
           cb.disabled = true; cb.checked = false; cb.indeterminate = true;
@@ -2078,9 +2112,29 @@
         }
       }
     }
-    // 列 c の checkbox を全 ON/OFF（readOnly はスキップ）。1コマンドで履歴に積む＝Undo 一発。
+    // ヘッダに全選択チェックを出す列か（checkbox 列・headerCheckbox:false でない・radio でない＝1つしか選べない列に全選択は無い）
+    _hasHeadCb(c) { const cfg = this.colCfg(c); return this.colType(c) === 'checkbox' && cfg.headerCheckbox !== false && !cfg.radio; }
+    // radio 列（checkbox 列の radio:true）: 行 r にチェックが入ったら、ほかの行のチェックを外す（同じ changes に積む＝Undo 一発で戻る）。
+    // フィルタで隠れている行は表に無い（r で書けない）ので直接外す（その分は Undo・onAfterChange に出ない）。
+    _radioExclusive(r, c, changes) {
+      const off = this._cbUnchecked(c);
+      for (let r2 = 0; r2 < this.ROWS; r2++) {
+        if (r2 === r || !this._isCheckedVal(c, this.data[r2][c])) continue;
+        // 同じ操作の中で先に入れたセル（貼り付けで複数行に入れた等）は、記録を書き換える（2件になると Undo が前から戻して最後に入れた値が残る）
+        const i = changes.findIndex(ch => ch.r === r2 && ch.c === c);
+        if (i < 0) { this.setCell(r2, c, off, changes); continue; }
+        this.data[r2][c] = off; this._renderCell(r2, c);
+        if (changes[i].old === off) changes.splice(i, 1); else changes[i].neu = off;
+      }
+      if (this._allRows) {
+        const shown = new Set(this.data);
+        for (const row of this._allRows) if (!shown.has(row) && this._isCheckedVal(c, row[c])) { if (this._tc) this._tcTouch(row); row[c] = off; }
+      }
+    }
+    // 列 c の checkbox を全 ON/OFF（readOnly はスキップ）。1コマンドで履歴に積む＝Undo 一発。radio 列は全 ON にしない（全 OFF だけ）。
     setColumnChecked(c, flag) {
       if (this.colType(c) !== 'checkbox') return;
+      if (flag && this.colCfg(c).radio) return;
       const val = flag ? this._cbChecked(c) : this._cbUnchecked(c);
       const before = this.snapSel(), changes = [];
       for (let r = 0; r < this.ROWS; r++) { if (this._isReadOnly(r, c) || this._rowBlankExcept(r, c)) continue; this.setCell(r, c, val, changes); }
@@ -2533,7 +2587,10 @@
       if (this.editor === this._edInput) this.editor.type = this._nativeInputType(this.active.c) || 'text';   // type は input 専用
       const _ml = this.colCfg(this.active.c).maxLength;   // 桁数(文字数)上限＝打鍵をブロック（貼付/投入は _coerceCell で切り詰め）
       if (typeof _ml === 'number' && _ml > 0) this.editor.maxLength = _ml; else this.editor.removeAttribute('maxlength');
+      const _im = this.colCfg(this.active.c).inputMode;   // スマホのキーボードの種類（'numeric' で数字のキーボード）
+      if (_im) this.editor.setAttribute('inputmode', _im); else this.editor.removeAttribute('inputmode');
       if (value != null) this.editor.value = value;
+      if (value != null && !this._imeOn) this._filterEditorChars();   // 打ち始めの1文字・F2 で入れた値も allowChars で絞る（変換中は触らない＝確定で絞る）
       this.editor.focus();
       // setSelectionRange は text / textarea のみ（date/time/number input は例外を投げる）
       const _t = this.editor.type;
@@ -2880,6 +2937,8 @@
       if (this._extErr) this._dropExtErr(r, c);   // 値が変わったセルは外から付けた誤りを外す（打ち直した＝直したはず）
       if (this._tc) this._tcTouch(this.data[r]);   // 変更の追跡: この行を初めて変える直前に元の値を控える（変えた行の分だけ）
       this.data[r][c] = val; this._renderCell(r, c);
+      // radio 列: 入れたらほかの行を外す（クリック・Space・貼り付け・フィル・setValue の全部がここを通る＝貼り付けで複数入れたら最後の行が残る）
+      if (this.colCfg(c).radio && this.colType(c) === 'checkbox' && this._isCheckedVal(c, val)) this._radioExclusive(r, c, changes);
     }
     _applyCells(changes, key, source) {
       // 大量（大きな貼り付けの Undo 等）は1セルずつ描かず、最後に表を1回描く（1セルずつ＝1万行×10列で100秒超かかっていた）
@@ -3338,7 +3397,7 @@
         case 'cut': return { label: '切り取り', disabled: !this.copyPaste, act: () => this.copy(true) };
         case 'paste': return { label: '貼り付け', disabled: !this.copyPaste, act: () => this.paste() };
         case 'clear': return { label: '内容をクリア', act: () => this.clearRange() };
-        case 'check_column': return (this.colType(s.c0) === 'checkbox' && !this._columnAllReadOnly(s.c0)) ? { label: 'すべてチェック', act: () => this.setColumnChecked(s.c0, true) } : null;   // 全 read-only 列は no-op なので出さない（ヘッダ無効と整合）
+        case 'check_column': return (this.colType(s.c0) === 'checkbox' && !this.colCfg(s.c0).radio && !this._columnAllReadOnly(s.c0)) ? { label: 'すべてチェック', act: () => this.setColumnChecked(s.c0, true) } : null;   // 全 read-only 列は no-op なので出さない（ヘッダ無効と整合）
         case 'uncheck_column': return (this.colType(s.c0) === 'checkbox' && !this._columnAllReadOnly(s.c0)) ? { label: 'すべて外す', act: () => this.setColumnChecked(s.c0, false) } : null;
         case 'undo': return { label: '元に戻す', disabled: !this.history.canUndo(), act: () => this.history.undo() };
         case 'redo': return { label: 'やり直し', disabled: !this.history.canRedo(), act: () => this.history.redo() };
@@ -3815,6 +3874,11 @@
       // input と textarea(multiline) の両方に同じ編集入口リスナを張る（this.editor はアクティブ列で張り替わる）。
       [this._edInput, this._edMulti].forEach((ed) => {
         ed.addEventListener('keydown', (e) => this._onKey(e));
+        // allowChars: 編集中に合わない文字を落とす（日本語入力は変換中は触らず、確定で落とす＝Chrome は確定の input が変換中扱いで来るので compositionend でも）
+        const chars = (e) => { if (!(e && e.isComposing) && !this._imeOn && this.mode === 'edit' && ed === this.editor) this._filterEditorChars(); };
+        ed.addEventListener('input', chars);
+        ed.addEventListener('compositionstart', () => { this._imeOn = true; });
+        ed.addEventListener('compositionend', () => { this._imeOn = false; chars(null); });
         // 貼り付けの主経路＝ネイティブ paste イベント（clipboardData.getData）。Ctrl+V のジェスチャー内で
         // 同期に読める＝許可プロンプト不要＋堅牢（readText の権限/非セキュア/非フォーカスで落ちる問題を回避）。
         // nav 中の editor は focus 代理なので native 挿入は常に止める（copyPaste=false でも挿入させない）。
@@ -4210,6 +4274,7 @@
     _toggleCheckbox(r, c) {
       if (this._isReadOnly(r, c)) { this._roAttempt(r, c); return; }  // 読み取り専用はトグル不可（知らせだけ）
       const cur = this.data[r][c];
+      if (this.colCfg(c).radio && this._isCheckedVal(c, cur)) return;   // radio: 入っている行をもう一度押しても外れない（ふつうのラジオと同じ。外すのは setValue / setColumnChecked(c,false)）
       const nv = this._isCheckedVal(c, cur) ? this._cbUnchecked(c) : this._cbChecked(c);
       const before = this.snapSel(), changes = [];
       this.setCell(r, c, nv, changes);

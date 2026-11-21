@@ -133,6 +133,23 @@ export interface ColumnDef {
   multiline?: boolean;
   /** 空セルの薄いヒント文字。 */
   placeholder?: string;
+  /** 打てる文字（1文字に当てる正規表現 or `(ch) => boolean`）。例 `/[0-9]/`（数字だけ）・`/[ァ-ヶー　]/`（全角カタカナ）。
+   *  編集中は合わない文字を入れない（日本語入力は確定した時に落とす）・貼り付け・setValue も落とす。validator はそのまま効く。
+   *  全角は1文字ずつ: そのまま合えば残す → 半角にして合えば半角で（`０１２`→`012`）→ 合わなければ落とす。`zenkaku: false` で半角にして見るのをやめる。
+   *  表の外の欄では `TssGrid.allowCharsFilter(col, text)`。 */
+  allowChars?: RegExp | ((ch: string) => boolean);
+  /** スマホのキーボードの種類（セルの編集欄の inputmode）。`'numeric'` で数字のキーボード。 */
+  inputMode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
+  /** false で全角→半角の変換をしない（number の parse・allowChars）。 */
+  zenkaku?: boolean;
+  /** 桁数(文字数)の上限。編集中はそれ以上打てない・貼り付け/setValue は切り詰める。 */
+  maxLength?: number;
+  /** checkbox 列: false で見出しの全選択チェックを出さない。 */
+  headerCheckbox?: boolean;
+  /** checkbox 列を**ラジオ**に（1つの行しか選べない一覧）。丸いラジオで描き、見出しの全選択は出さない。
+   *  行に入れるとほかの行は外れる（クリック・Space・貼り付け・setValue のどれでも・Undo 一発で戻る）。入っている行をもう一度押しても外れない。
+   *  外すのは `setValue(r, c, '')` か `setColumnChecked(c, false)`。フィルタで隠れている行のチェックも外れる。 */
+  radio?: boolean;
   /** TssFilter: 1つのセルに複数の値がある列（「Java, Python, Vue」）。「値を選択」の一覧を分けた値で並べ、チェックした値のどれかを含む行を残す（OR）。
    *  文字列/正規表現で分ける（分けた値の前後の空白は取る）か、`(value, row) => 配列`。部分一致・前方一致はセルの文字全体に対して。 */
   filterSplit?: string | RegExp | ((value: any, row: any[]) => any[]);
@@ -680,6 +697,10 @@ export declare class TssGrid {
   /** 全角→半角（数字・符号・小数点・カンマ・%・¥・空白＋日付/時刻の区切り ／：）。IME 誤入力対策のユーティリティ。
    *  number/date/time の組込 parse で使うほか、カスタム `parse`/`format` から `TssGrid.zen2han(v)` として呼べる。 */
   static zen2han(s: string): string;
+  /** 列の打てる文字（`allowChars`）で text を絞った結果。セルの編集・貼り付け・setValue も中でこれを通る＝表の外の欄（カード・ダイアログ）で同じ規則を使える。
+   *  1文字ずつ: そのまま合えば残す → 半角にして合えば半角で残す → 合わなければ落とす。`allowChars` が無い列は text をそのまま返す。桁数（maxLength）は切らない。
+   *  例 `input.addEventListener('input', () => { input.value = TssGrid.allowCharsFilter(col, input.value); })` */
+  static allowCharsFilter(col: ColumnDef | null | undefined, text: any): string;
 
   /** HTML エスケープ（`&` `<` `>` `"` `'`）。`format` で HTML/属性を組む時などに（属性値も安全）。 */
   static esc(s: any): string;
