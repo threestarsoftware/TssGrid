@@ -2598,6 +2598,7 @@
     toEdit(value, caretEnd) {
       if (this._isReadOnly(this.active.r, this.active.c)) { this._roAttempt(this.active.r, this.active.c, value); return; }  // 読み取り専用は編集モードに入らない（知らせだけ）
       const starting = this.mode !== 'edit';
+      this._editByClick = false;   // クリックで開いた印（openOnClick の所で立て直す）。キー/F2 で始めた編集は立たない
       if (starting) this.clearCopyMarquee();   // 編集開始でコピー/カットのマーキー（点線）を消す（Excel 流）
       this.mode = 'edit';
       this.editor.className = (this.editor === this._edMulti) ? 'tg-editor tg-editor-multi edit' : 'tg-editor edit';
@@ -3913,7 +3914,20 @@
         // ここで preventDefault すれば beforeinput(insertFromPaste) の誤発火＝エディタ誤オープンも起きない。
         // 右クリックメニューの「貼り付け」/プログラム呼び出しは paste イベントを伴わないので paste()＝readText 経路を温存。
         ed.addEventListener('paste', (e) => {
-          if (this.mode !== 'nav') return;
+          if (this.mode !== 'nav') {
+            // クリックで開くエディタ（openOnClick）は「セルを選んだだけ」のつもり＝まだ1文字も打っていない所へ
+            // 複数セル（タブか改行を含む・末尾の改行だけは1セル）を貼ったら、編集を取り消して表へ貼る（nav の Ctrl+V と同じ）。
+            // キー/F2/ダブルクリックで始めた編集・打ち始めた後は従来どおり入力欄へ（Excel の編集中の貼り付けと同じ）。
+            const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
+            if (this._editByClick && ed === this.editor && this.editor.value === this._editOpenValue && /[\t\r\n]/.test(text.replace(/[\r\n]+$/, ''))) {
+              e.preventDefault();
+              const r = this.active.r, c = this.active.c, v = this.data[r][c];
+              if (this.onEditEnd) { try { this.onEditEnd({ r, c, oldValue: v, newValue: v, canceled: true }); } catch (_) {} }
+              this.setActive(r, c);   // Esc と同じ取り消し（開く前の値のまま nav へ）
+              if (this.copyPaste) this.pasteGrid(TssGrid.parseTSV(text));
+            }
+            return;
+          }
           e.preventDefault();
           if (!this.copyPaste) return;
           const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
@@ -4016,7 +4030,7 @@
           else this._openSelect();
         }
         // カスタムエディタが openOnClick を申告していれば、ドロップダウン同様シングルクリックで開く（再クリックは開かない＝トグル）
-        else { const ed = this.colCfg(c).editor; if (ed && ed.openOnClick && !wasOpenHere) { this.dragging = false; if (ed.inline) this._beginEdit(r, c, true); else this._openCustomEditor(r, c); } }   // inline は共有 input を開く（_beginEdit→toEdit→ed.open）
+        else { const ed = this.colCfg(c).editor; if (ed && ed.openOnClick && !wasOpenHere) { this.dragging = false; if (ed.inline) { this._beginEdit(r, c, true); if (this.mode === 'edit') { this._editByClick = true; this._editOpenValue = this.editor.value; } } else this._openCustomEditor(r, c); } }   // inline は共有 input を開く（_beginEdit→toEdit→ed.open）
       });
       // ヘッダ全選択チェックは mousedown で処理済み。click のネイティブ・トグルを止めて二重反転を防ぐ
       this.table.addEventListener('click', (e) => {

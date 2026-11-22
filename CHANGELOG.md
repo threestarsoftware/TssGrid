@@ -3,6 +3,11 @@
 TssGrid の各リリースの変更点。日付は JST。形式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 準拠（ゆるめ）。
 数値は特記なき限り**自社調べ**（headless Chrome / Windows 11・環境差あり）。
 
+## [0.1.53] - 2026-11-22
+
+### 修正
+- **クリックで開くエディタ（`openOnClick` の inline＝同梱の TssCalendar / TssDatetime / TssTime / TssAutocomplete など）のセルで Excel の複数行を Ctrl+V すると、表に貼られず入力欄に1行につながって入った**（tssgrid-kintone が報告）。クリックで開いた直後でまだ1文字も打っていない時に、タブか改行を含む文字（複数セル）を貼ったら、編集を取り消して表へ貼るようにした。1セル分の文字（末尾の改行だけは1セル）・打ち始めた後・F2/キーで始めた編集は今までどおり入力欄へ。
+
 ## [0.1.52] - 2026-11-22
 
 ### 追加
