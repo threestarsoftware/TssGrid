@@ -202,6 +202,7 @@
       // 行/列ヘッダの表示（false で行番号列・ヘッダ行を隠す）
       this.rowHeaders = opts.rowHeaders !== false;
       this.rowHeaderW = (opts.rowHeaderWidth | 0) || 40;   // 行番号列の幅(px)。大量行で桁数が増える時に広げる
+      this._rhAuto = !((opts.rowHeaderWidth | 0) > 0);     // 幅を明示しない時は番号の桁数に合わせる（4桁までは 40px＝今までどおり）
       this.rowHeaderLabel = opts.rowHeaderLabel;   // 行ヘッダ表示: 未指定=行番号(r+1) / false=数字なし(空) / (r)=>文字列=カスタム
       this.colHeaders = opts.colHeaders !== false;
       // 行ヘッダの「つまみ」をドラッグして行を並べ替える（行番号列が必要）
@@ -474,6 +475,7 @@
       }
       this.ROWS = this.data.length;
       if (!this.table) return;   // 未マウントなら次の buildTable が拾う
+      this._syncRowHeaderW(true);   // 桁が上がったら行番号列を広げる（9999→10000 など）
       if (this.virtual) {
         // 窓＋上下スペーサを作り直す（force）。下スペーサ高が ROWS で再計算され新行までスクロール可能に。
         // 窓が末尾に無い（新行が可視外）時も安全＝可視 ~33 行の innerHTML 差し替えのみ・scrollTop 不変・
@@ -1701,7 +1703,39 @@
 
     _colWidth(c) { return this.colW[c] != null ? this.colW[c] : this.defColW; }
     _rowHeight(r) { return this.rowH[r] != null ? this.rowH[r] : this.defRowH; }
-    _rhW() { return this.rowHeaders ? this.rowHeaderW : 0; }   // 行ヘッダ列の幅（非表示なら 0）
+    _rhW() { return this.rowHeaders ? this.rowHeaderW : 0; }
+    // 行番号の桁数に合わせて行番号列の幅を決め直す（rowHeaderWidth を明示した時・番号を出さない/関数の時は触らない）。
+    // 4桁までは 40px（既定の見た目のまま）。5桁からは「桁数×数字1つの幅＋左右の余白」（行番号のフォントで測る）。
+    // apply=true なら作ってある表にも貼り直す（colgroup・合計幅・固定列の left）。幅が変わった時 true を返す。
+    _syncRowHeaderW(apply) {
+      if (!this._rhAuto || !this.rowHeaders || this.rowHeaderLabel === false || typeof this.rowHeaderLabel === 'function') return false;
+      const digits = String(Math.max(1, this.ROWS)).length;
+      let w = 40;
+      if (digits > 4) {
+        let m = this._rhDigitW;
+        if (!m) {
+          const el = this.table && this.table.querySelector('th.rowhead[data-r]');
+          let font = '600 13px sans-serif', pad = 12;
+          if (el) {
+            const cs = (this.table.ownerDocument.defaultView || window).getComputedStyle(el);
+            font = (cs.fontWeight || '400') + ' ' + (cs.fontSize || '13px') + ' ' + (cs.fontFamily || 'sans-serif');
+            pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+          }
+          m = { dw: this._measureText('0000000000', font) / 10, pad };
+          if (el) this._rhDigitW = m;   // 実物で測れた時だけ覚える（まだ表が無い時は概算・描いた後に測り直す）
+        }
+        w = Math.max(40, Math.ceil(digits * m.dw + m.pad + 4));
+      }
+      if (w === this.rowHeaderW) return false;
+      this.rowHeaderW = w;
+      if (apply && this.table) {
+        const col = this.table.querySelector('colgroup > col:first-child');
+        if (col && !col.hasAttribute('data-c')) col.style.width = w + 'px';
+        this._applyTableWidth(); this._applyStretch(); this._applyFrozen(); this._reflow();
+        if (this.onColumnWidthsChange) { try { this.onColumnWidthsChange(this.getColumnWidths()); } catch (_) {} }   // 行番号の幅も「描く幅」＝合計の表（tss-sum）などが写し直せるように
+      }
+      return true;
+    }   // 行ヘッダ列の幅（非表示なら 0）
     _hasDelCol() { return this.rowDelete && this.allowDeleteRows; }   // 右端削除列を出すか（allowDeleteRows:false なら出さない）
     _delW() { return this._hasDelCol() ? this.rowDeleteW : 0; }        // 削除列の幅（非表示なら 0）
     // 行末の削除セル（🗑）。data-r/data-c を持たない＝各種 td[data-r] 探索に引っかからない（行番号は closest('tr[data-r]') から取る）。
@@ -1768,6 +1802,32 @@
     _navSkip(c) { return !!this.colCfg(c).skipNav; }
     _stepNavCol(r, c, dir) {
       for (let n = c; ;) { const s = this._stepColM(r, n, dir); if (s === n) return c; n = s; if (!this._navSkip(n)) return n; }
+    }
+    // Ctrl+矢印の行き先（Excel と同じ）: 値のある塊の中なら塊の端へ。塊の端・空のセルからは次の値のあるセルへ。無ければ表の端へ。
+    // 横は隠し列・skipNav の列を飛ばす（_stepNavCol）。フィルタ中は見えている行だけ（data＝見えている行）。
+    _jumpEdge(r, c, dr, dc) {
+      const filled = (rr, cc) => { const row = this.data[rr]; if (row === TssGrid.PENDING) return true; const v = row && row[cc]; return v != null && v !== ''; };
+      const step = (rr, cc) => dr ? [this._stepRowM(rr, cc, dr), cc] : [rr, this._stepNavCol(rr, cc, dc)];
+      const inside = (rr, cc) => rr >= 0 && rr < this.ROWS && cc >= 0 && cc < this.COLS;
+      let [nr, nc] = step(r, c);
+      if (!inside(nr, nc) || (nr === r && nc === c)) return { r, c };   // もう端
+      if (filled(r, c) && filled(nr, nc)) {   // 塊の中＝塊の最後まで
+        for (;;) { const [xr, xc] = step(nr, nc); if (!inside(xr, xc) || (xr === nr && xc === nc) || !filled(xr, xc)) return { r: nr, c: nc }; nr = xr; nc = xc; }
+      }
+      for (;;) {   // 次の値のあるセルまで。無ければ端
+        if (filled(nr, nc)) return { r: nr, c: nc };
+        const [xr, xc] = step(nr, nc); if (!inside(xr, xc) || (xr === nr && xc === nc)) return { r: nr, c: nc };
+        nr = xr; nc = xc;
+      }
+    }
+    // Ctrl+End の行き先: 値のある最後の行 × 値のある最後の列（Excel の「最後のセル」）。何も無ければ左上。
+    _lastDataCell() {
+      let lr = -1, lc = -1;
+      for (let r = 0; r < this.ROWS; r++) {
+        const row = this.data[r]; if (!row || row === TssGrid.PENDING) { if (row === TssGrid.PENDING) lr = r; continue; }
+        for (let c = 0; c < this.COLS; c++) { if (this.hiddenCols.has(c) || this._navSkip(c)) continue; const v = row[c]; if (v != null && v !== '') { lr = r; if (c > lc) lc = c; } }
+      }
+      return { r: Math.max(0, lr), c: lc < 0 ? this._edgeNavCol(1) : lc };
     }
     _edgeNavCol(dir) {   // dir>0=左端から最初の / dir<0=右端から最初の、可視で skipNav でない列
       for (let c = dir > 0 ? 0 : this.COLS - 1; c >= 0 && c < this.COLS; c += dir) if (!this.hiddenCols.has(c) && !this._navSkip(c)) return c;
@@ -1948,6 +2008,7 @@
     // 仮想スクロール: tbody を窓ぶん＋上下スペーサ行に差し替え（buildTable せず軽量再描画）。
     _renderWindow(win, force) {
       if (!force && this._vRendered && win.start === this._vStart && win.end === this._vEnd) return false;
+      if (force) this._syncRowHeaderW(true);   // 行数が変わった描き直し（setRowCount など）で桁が変われば行番号列の幅も
       const tbody = this.table && this.table.querySelector('tbody');
       if (!tbody) return false;
       const rh = this.rowHeaders, colsSpan = this.COLS + (rh ? 1 : 0) + (this._hasDelCol() ? 1 : 0);
@@ -2024,6 +2085,7 @@
       if (this._customEditor && this._customCancel) this._customCancel();   // 開いているカスタムエディタを閉じる（body直下ポップアップの取り残し防止・_commitActive と同じ扱い）
       this._selhdrFg = null;   // 選択ヘッダ文字色キャッシュ破棄（テーマ変更に追従）
       const rh = this.rowHeaders;
+      this._syncRowHeaderW(false);   // 行番号の桁数に合わせた幅（下の colgroup で使う）
       let html = '<colgroup>' + (rh ? '<col style="width:' + this.rowHeaderW + 'px">' : '');
       for (let c = 0; c < this.COLS; c++) html += '<col data-c="' + c + '"' + (this._isHidden(c) ? ' class="tg-hidden"' : '') + ' style="width:' + (this._isHidden(c) ? 0 : this._colWidth(c)) + 'px">';
       if (this._hasDelCol()) html += '<col class="tg-rowdel-col" style="width:' + this.rowDeleteW + 'px">';   // 右端削除列（固定幅・システム列）
@@ -2067,6 +2129,7 @@
       }
       html += '</tbody>';
       this.table.innerHTML = html;
+      if (!this._rhDigitW && this.ROWS > 9999 && this._syncRowHeaderW(false)) { const col = this.table.querySelector('colgroup > col:first-child'); if (col && !col.hasAttribute('data-c')) col.style.width = this.rowHeaderW + 'px'; }   // 初回は表が無く概算＝描いた行番号で測り直す
       if (this.onHeaderRender && this.colHeaders) this._applyHeaderRender();   // 外部がヘッダthを装飾（ソートアイコン等）。高さ確定前に走らせて幾何へ反映
       const thd = this.table.querySelector('thead');
       this._theadH = (this.colHeaders && thd) ? thd.offsetHeight : 0;   // ヘッダ高をキャッシュ（クリップ計算用）
@@ -4518,6 +4581,20 @@
       if (this.fillShortcuts && ctrl && !e.shiftKey && (e.key.toLowerCase() === 'd' || e.key.toLowerCase() === 'r')) { e.preventDefault(); this._fillFrom(e.key.toLowerCase() === 'd' ? 'down' : 'right'); return; }
       // Ctrl+V は keydown で拾わず native paste イベントへ委譲（editor の paste リスナが処理）。
       // ここで preventDefault すると paste イベント自体を止めかねないため分岐を置かない。
+      // Ctrl+矢印＝データの端へ（Excel と同じ）。Ctrl+Shift は選択を広げる。Ctrl+Home / End＝先頭 / 最後のデータのセルへ。
+      if (ctrl && !e.altKey && (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End')) {
+        e.preventDefault();
+        const from = e.shiftKey ? this.extent : this.active;
+        let to;
+        if (e.key === 'Home') to = { r: 0, c: this._edgeNavCol(1) };
+        else if (e.key === 'End') to = this._lastDataCell();
+        else {
+          const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+          to = this._jumpEdge(from.r, from.c, d[0], d[1]);
+        }
+        if (e.shiftKey) this.setExtent(to.r, to.c); else this.setActive(to.r, to.c);
+        return;
+      }
       if (e.shiftKey && e.key.startsWith('Arrow')) {
         e.preventDefault();
         let { r, c } = this.extent;

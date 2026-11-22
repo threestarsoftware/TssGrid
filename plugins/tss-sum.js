@@ -98,6 +98,7 @@
         if (hid !== tg.hiddenCols.has(c)) { same = false; if (hid) tg.hiddenCols.add(c); else tg.hiddenCols.delete(c); }
         if (!hid && tg.colW[c] !== w[c]) { same = false; tg.colW[c] = w[c]; }
       }
+      if (tg.rowHeaderW !== source.rowHeaderW) { same = false; tg.rowHeaderW = source.rowHeaderW; }
       if (!same) tg.buildTable();
       syncScroll();
     }
@@ -142,6 +143,7 @@
         vals[i] = v;
         tg.data[i][valueCol] = String(v);
       }
+      tg.rowHeaderW = source.rowHeaderW;   // 明細の行番号の幅は行数の桁で広がる（0.1.54）＝毎回写す（数字が横にずれない）
       tg.buildTable();
       if (opts.onCompute) { try { opts.onCompute(vals.slice()); } catch (e) {} }
     }

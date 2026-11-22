@@ -257,7 +257,7 @@ export interface TssGridOptions {
   /** false で選択カーソルを非表示（表示専用グリッド向け・内部選択は保持）。 */
   cursor?: boolean;
   stretchH?: 'none' | 'last' | 'all';
-  /** 実際に描く列幅が変わった時（ドラッグ・setColWidth・stretchH・flex の伸び縮み・列の表示切替）。widths は列ごと（隠し列は 0）。 */
+  /** 実際に描く列幅が変わった時（ドラッグ・setColWidth・stretchH・flex の伸び縮み・列の表示切替・行番号の列が桁で広がった時）。widths は列ごと（隠し列は 0）。 */
   onColumnWidthsChange?: (widths: number[]) => void;
   /** 変えたセルを覚える（既定 false）。最後に commitChanges / setData した時の値と比べる＝Undo・同じ値に戻したら印が消える。
    *  印＝セルに tg-changed（左上の小さな三角）・行に tg-row-changed（左端の線）。色は CSS 変数 --tg-changed。 */
@@ -265,7 +265,7 @@ export interface TssGridOptions {
   /** 長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。既定 false＝1行で切る。 */
   headerWrap?: boolean;
   rowHeaders?: boolean;
-  /** 行番号列の幅(px)。既定 40。大量行で桁数が増える時に広げる。 */
+  /** 行番号列の幅(px)。指定しない時は自動（4桁まで 40・5桁から番号の桁に合わせて広がり、行が増えて桁が上がっても追従）。指定するとその幅に固定。 */
   rowHeaderWidth?: number;
   /** 行ヘッダの表示内容。未指定=行番号(r+1) / false=数字なし(空) / (r)=>文字列=カスタム表示。 */
   rowHeaderLabel?: false | ((r: number) => string | number);

@@ -131,7 +131,7 @@
 印＝セルに tg-changed（左上の小さな三角）・行に tg-row-changed（左端の線）。色は CSS 変数 --tg-changed。</td></tr>
 <tr><td><code>headerWrap</code></td><td><code class="ty">boolean</code></td><td>長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。既定 false＝1行で切る。</td></tr>
 <tr><td><code>rowHeaders</code></td><td><code class="ty">boolean</code></td><td></td></tr>
-<tr><td><code>rowHeaderWidth</code></td><td><code class="ty">number</code></td><td>行番号列の幅(px)。既定 40。大量行で桁数が増える時に広げる。</td></tr>
+<tr><td><code>rowHeaderWidth</code></td><td><code class="ty">number</code></td><td>行番号列の幅(px)。指定しない時は自動（4桁まで 40・5桁から番号の桁に合わせて広がり、行が増えて桁が上がっても追従）。指定するとその幅に固定。</td></tr>
 <tr><td><code>rowHeaderLabel</code></td><td><code class="ty">false | ((r: number) =&gt; string | number)</code></td><td>行ヘッダの表示内容。未指定=行番号(r+1) / false=数字なし(空) / (r)=&gt;文字列=カスタム表示。</td></tr>
 <tr><td><code>rowReorder</code></td><td><code class="ty">boolean | 'header'</code></td><td>行のドラッグ並べ替え。true=行ヘッダーセルの ⠿ アイコンを掴んで移動 / 'header'=行ヘッダーセル全体が移動ハンドル（クリック=選択／ドラッグ=移動）。</td></tr>
 <tr><td><code>rowReorderMark</code></td><td><code class="ty">'before' | 'after' | false</code></td><td>行ヘッダーの ⠿ マークの位置。'before'=番号の前（既定）/ 'after'=番号の後 / false=マークを出さない。</td></tr>
@@ -199,7 +199,7 @@ true にすると autocomplete='new-password' に切り替えて確実に止め�
 <table>
 <thead><tr><th>イベント</th><th>シグネチャ</th><th>説明</th></tr></thead>
 <tbody>
-<tr><td><code>onColumnWidthsChange</code></td><td><code class="ty">(widths: number[]) =&gt; void</code></td><td>実際に描く列幅が変わった時（ドラッグ・setColWidth・stretchH・flex の伸び縮み・列の表示切替）。widths は列ごと（隠し列は 0）。</td></tr>
+<tr><td><code>onColumnWidthsChange</code></td><td><code class="ty">(widths: number[]) =&gt; void</code></td><td>実際に描く列幅が変わった時（ドラッグ・setColWidth・stretchH・flex の伸び縮み・列の表示切替・行番号の列が桁で広がった時）。widths は列ごと（隠し列は 0）。</td></tr>
 <tr><td><code>onAfterRowMove</code></td><td><code class="ty">(from: number, to: number, count: number) =&gt; void</code></td><td>行の移動の確定後（from=元の先頭行, to=新しい先頭行, count=行数）。Undo/Redo で戻した・やり直した時も呼ぶ。</td></tr>
 <tr><td><code>onFilter</code></td><td><code class="ty">(info: { count: number; total: number; cleared?: boolean }) =&gt; void</code></td><td>非破壊フィルタ（filter / clearFilter）の適用・解除の後。count=見えている行数, total=全行数, cleared=解除した時 true。</td></tr>
 <tr><td><code>onBeforeChange</code></td><td><code class="ty">(changes: ChangeItem[], source: ChangeSource) =&gt; boolean | void</code></td><td>確定の直前。検証・自動整形。false で全取消、change.newValue 書換で整形。</td></tr>

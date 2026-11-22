@@ -383,7 +383,7 @@ new TssGrid(el, { virtual: true, data, /* … */ });
 new TssGrid(el, { virtual: { buffer: 10 }, data });   // 窓の上下バッファ行数（既定6）
 ```
 - **自社調べ**（headless Chrome / Win11）: 10 万行で**初回描画 ≈ 46 ms**（全件描画 ≈ 10.5 秒に対して）。スクロール 1 コマの窓差し替え ≈ 3 ms。動く例: [`examples/virtual.html`](https://tssgrid.threestarsoftware.co.jp/examples/virtual.html)。
-- 制約（v1）: **行高一定**／**固定行列・折り返し・セル結合は非対応**（指定時は自動で無効化＋警告）。行番号の桁数が増える場合は `rowHeaderWidth` で行ヘッダ幅を広げられます。
+- 制約（v1）: **行高一定**／**固定行列・折り返し・セル結合は非対応**（指定時は自動で無効化＋警告）。行番号の列は、行数が5桁（1万行）を越えると桁に合わせて自動で広がります（`rowHeaderWidth` を指定すればその幅に固定）。
 - フィルタとの関係: `filter()` は「絞り込んだ部分集合だけ描く」軽さ、`virtual` は「絞らず全件をスクロールする」軽さ。用途で使い分け（v1 では併用は未対応）。
 
 ### ページネーション（サーバ側ページング）
@@ -1125,9 +1125,10 @@ new TssGrid(el, { columns: [{ data: 'id', hidden: true }, …] });   // 列定�
 | `columns[c].minWidth` / `maxWidth` | `number` | — | 列の最小／最大の幅(px)。flex の伸び縮み・ドラッグ・自動調整・`setColWidth` で効く |
 | `columns[c].resizable` | `boolean` | `true` | 列ごとの幅ロック。`false` でその列だけリサイズ禁止 |
 | `stretchH` | `'none'\|'last'\|'all'` | `'none'` | 列を枠幅まで伸ばす。`'last'`=余りを最終列へ / `'all'`=全列で配分（`width` 指定時に効く・隠し列は対象外）。決めた列で伸び縮みさせたい時は列の `flex` |
-| `onColumnWidthsChange` | `(widths)=>void` | — | 実際に描く列幅が変わった時（ドラッグ・`setColWidth`・`stretchH`・`flex`・列の表示切替）。今の幅は `getColumnWidths()`（隠し列は 0） |
+| `onColumnWidthsChange` | `(widths)=>void` | — | 実際に描く列幅が変わった時（ドラッグ・`setColWidth`・`stretchH`・`flex`・列の表示切替・行番号の列が桁で広がった時＝`grid.rowHeaderW`）。今の幅は `getColumnWidths()`（隠し列は 0） |
 | `headerWrap` | `boolean` | `false` | 長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。既定は1行で切る |
 | `rowHeaders` / `colHeaders` | `boolean` | `true` | 行番号列 / ヘッダ行の表示。`false` で隠す |
+| `rowHeaderWidth` | `number` | 自動 | 行番号列の幅(px)。指定しない時は4桁まで 40px、5桁（1万行）からは番号の桁に合わせて広がる（`appendRows`・`setRowCount`・行の挿入で桁が上がった時も追従）。指定するとその幅に固定 |
 | `hiddenColumns` | `(number\|string)[]` | `[]` | 初期で隠す列（番号か data キー）。列定義の `columns[c].hidden: true` でも可。実行時は `hideColumn`/`showColumn`/`toggleColumn`（→ [列の表示/非表示](#列の表示非表示)） |
 | `wordWrap` | `boolean` | `false` | セル内で折り返し（行高は内容に合わせ伸びる）。`columns[c].wordWrap` で列単位も可 |
 | `ellipsis` | `boolean` | `false` | 溢れた文字を **… で省略**し、溢れたセルは**ホバーで全文（`title`）**。`columns[c].ellipsis` で列単位も可。見え方だけ＝値・コピー・編集は全文のまま。`wordWrap` と同時なら折り返しが優先 |
@@ -1568,6 +1569,9 @@ grid.revertChanges();    // 直しを全部捨てて元に戻す
 |---|---|
 | 矢印 | セル移動 |
 | Shift+矢印 / ドラッグ / Shift+クリック | 範囲選択 |
+| Ctrl+矢印 | データの端へ（Excel と同じ: 値のある塊の中なら塊の端、塊の端・空のセルからは次の値のあるセル、無ければ表の端）。隠し列・`skipNav` の列は飛ばす。フィルタ中は見えている行だけ。Mac は ⌘+矢印 |
+| Ctrl+Shift+矢印 | 同じ行き先まで範囲を広げる |
+| Ctrl+Home / Ctrl+End | 先頭のセル / 値のある最後の行×最後の列のセルへ（Shift を足すと範囲選択） |
 | 行/列ヘッダをクリック（ドラッグ・Shift+クリックで複数） | 行・列の選択。左上の角で全選択 |
 | **列/行ヘッダを Ctrl+クリック** | 列・行を**飛び飛びに複数選択**（トグル。Ctrl+Shift で範囲を追加。`disjointSelect:false` で無効化）。選択は `grid.getSelectedColumns()` / `grid.getSelectedRows()` で取得（昇順・飛び飛び対応）。**飛び飛びの列/行は Ctrl+C コピー / Ctrl+X カットOK**（選んだ列×全行／選んだ行×全列＝Excelに貼れる長方形。カットは貼付先で元の列/行がクリア）。**Delete で内容クリア・右クリック「N 列/行を削除」で構造削除**もまとめて効く |
 | 列ヘッダ右端 / 行ヘッダ下端をドラッグ | 列幅 / 行高のリサイズ（既定はドラッグ中に線でプレビュー→離して確定） |
