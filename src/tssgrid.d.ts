@@ -99,6 +99,8 @@ export interface ColumnDef {
   valign?: 'top' | 'middle' | 'bottom';
   /** 列単位の読み取り専用。関数でセル単位判定も可。 */
   readOnly?: boolean | ((value: any, cell: CellCoord) => boolean);
+  /** 矢印（←→）・Tab・Enter の左右の移動でこの列を飛ばす（クリックでは選べる）。左に固定した見出しの列（日・曜など）に。 */
+  skipNav?: boolean;
   /** 入力検証。編集/貼付/フィルの全経路に効く。 */
   validator?: (value: any, cell: CellCoord) => ValidatorResult;
   /** カスタム編集UI（薄いオブジェクト契約 or それを返す関数）。 */

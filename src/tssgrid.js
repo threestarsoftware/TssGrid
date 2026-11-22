@@ -1037,6 +1037,14 @@
       if (typeof ro === 'function') { try { return !!ro(this.data[r][c], { r, c }); } catch (_) { return false; } }
       return !!ro;
     }
+    // 範囲 r0..r1 × c0..c1 が全部読み取り専用か（フィルハンドルを出すかの判定）。大きい範囲は列の readOnly:true だけで見る＝スクロール毎に呼んでも軽い。
+    _allReadOnly(r0, c0, r1, c1) {
+      if (this.readOnly) return true;
+      if (!this._hasReadOnly()) return false;
+      if ((r1 - r0 + 1) * (c1 - c0 + 1) > 2000) { for (let c = c0; c <= c1; c++) if (this.colCfg(c).readOnly !== true) return false; return true; }
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (!this._isReadOnly(r, c)) return false;
+      return true;
+    }
     _hasReadOnly() { return this.readOnly || (this._merges && this._merges.length > 0) || this._cellRO.size > 0 || this.columns.some(cfg => cfg && cfg.readOnly); }
     // ---- セル単位の可変状態（整列 / 実行時 readOnly）。キーは "r,c"。 ----
     _ck(r, c) { return r + ',' + c; }
@@ -1756,6 +1764,15 @@
       const m = this._mergeAt(r, c);
       return this._stepVisCol(m ? (dir > 0 ? m.c + m.colspan - 1 : m.c) : c, dir);
     }
+    // 矢印・Tab・Enter の横移動: columns[c].skipNav の列を飛ばす（クリックでは選べる）。先が全部 skipNav なら c のまま。
+    _navSkip(c) { return !!this.colCfg(c).skipNav; }
+    _stepNavCol(r, c, dir) {
+      for (let n = c; ;) { const s = this._stepColM(r, n, dir); if (s === n) return c; n = s; if (!this._navSkip(n)) return n; }
+    }
+    _edgeNavCol(dir) {   // dir>0=左端から最初の / dir<0=右端から最初の、可視で skipNav でない列
+      for (let c = dir > 0 ? 0 : this.COLS - 1; c >= 0 && c < this.COLS; c += dir) if (!this.hiddenCols.has(c) && !this._navSkip(c)) return c;
+      return dir > 0 ? this._firstVisCol() : this._lastVisCol();
+    }
     // r から方向 dir の次行（結合高を跨ぐ）。行は非表示概念が無いので素直に ±1（端は setActive の clampR 任せ）。
     _stepRowM(r, c, dir) {
       if (!this._merges) return r + dir;
@@ -2398,7 +2415,8 @@
       this.place(this.selbox, this.activeTd()); this.selbox.style.display = 'block';
       // フィルハンドルは nav か、ドロップダウンを開いている時に表示（テキスト等の編集中は隠す）
       const selOpen = this.select && this.select.style.display !== 'none';
-      if (this.fillHandle && (this.mode === 'nav' || selOpen || (this._customEditor && this._customKeepHandle))) {
+      // 選択が全部読み取り専用なら出さない（引いても書き込めない＝紛らわしい）
+      if (this.fillHandle && (this.mode === 'nav' || selOpen || (this._customEditor && this._customKeepHandle)) && !this._allReadOnly(r0, c0, r1, c1)) {
         const R = this._cellRectAuto(r1, c1);   // 選択末尾セルの右下角（ハイブリッド経由）
         const fw = this.fillhandle.offsetWidth || 8;
         // ハンドルは角に半分はみ出す配置だが、最終列/行ではテーブル端を超えないようクランプ
@@ -2654,8 +2672,17 @@
       // _noEditorFocus: 指でドロップダウンをタップした時は文字入力欄にフォーカスしない
       // （iOS は入力欄フォーカスでキーボード分ページを持ち上げ→select へ移ると戻す＝その揺れで一覧が閉じる/離れた位置に残る）
       this._syncEditorNav(); if (!this._noEditorFocus) this.editor.focus(); this.updateSelectionUI();
-      if (!this.virtual) this.activeTd().scrollIntoView({ block: 'nearest', inline: 'nearest' });   // 仮想は _vEnsureVisible が可視化済み
+      if (!this.virtual) this._revealCell(this.activeTd());   // 仮想は _vEnsureVisible が可視化済み
       this._fireSelection();
+    }
+    // セルを見える所へ（キー移動の最小スクロール）。固定の部分（左＝行番号＋固定列・上＝見出し＋固定行）は sticky で上に重なるだけなので、
+    // ブラウザは「その下も見えている」と考えて戻しきらない（固定の右隣の列へ ← で戻ると左が隠れたまま）。
+    // 固定でないセルの scroll-margin（tssgrid.css）に、その時の固定の幅・高さを入れてから呼ぶ（列幅・行高・見出し高の変化にも付いていく）。
+    _revealCell(td) {
+      if (!td) return;
+      this.wrap.style.setProperty('--tg-pane-w', this._frozenPaneW() + 'px');
+      this.wrap.style.setProperty('--tg-pane-h', this._frozenPaneH() + 'px');
+      td.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
     setExtent(r, c) {
       const e = { r: this.clampR(r), c: this.clampC(c) };
@@ -2663,7 +2690,7 @@
       this.extent = e;
       if (this.virtual) this._vEnsureVisible(e.r);
       this.updateSelectionUI();
-      if (!this.virtual) this.cellEl(this.extent.r, this.extent.c).scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      if (!this.virtual) this._revealCell(this.cellEl(this.extent.r, this.extent.c));
       this._fireSelection();
     }
     selectRect(r0, c0, r1, c1) {
@@ -2679,7 +2706,7 @@
       if (this._renderPaused) { this._pendingSel = sel; return; }   // バッチ描画中は選択を記録だけ→resume で1回反映
       if (this.virtual) this._vEnsureVisible(this.active.r);
       this._syncEditorNav(); this.editor.focus(); this.updateSelectionUI();
-      if (!this.virtual) this.activeTd().scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      if (!this.virtual) this._revealCell(this.activeTd());
       this._fireSelection();
     }
 
@@ -3935,8 +3962,8 @@
           const r = this.active.r, c = this.active.c;
           if (e.key === 'ArrowUp') this.setActive(this._stepRowM(r, c, -1), c);
           else if (e.key === 'ArrowDown') this.setActive(this._stepRowM(r, c, 1), c);
-          else if (e.key === 'ArrowLeft') this.setActive(r, this._stepColM(r, c, -1));
-          else this.setActive(r, this._stepColM(r, c, 1));
+          else if (e.key === 'ArrowLeft') this.setActive(r, this._stepNavCol(r, c, -1));
+          else this.setActive(r, this._stepNavCol(r, c, 1));
         }
       });
       this.select.addEventListener('blur', () => { if (!this._refocusSel && this.mode === 'edit' && this.select.style.display !== 'none') this._commitSelect(); });
@@ -4401,15 +4428,15 @@
       for (let g = 0, lim = this.ROWS * this.COLS + 2; g < lim; g++) {
         let nr = r, nc = c;
         if (dc !== 0) {   // 横移動は隠し列をスキップ＋結合幅を跨ぐ
-          const stepc = this._stepColM(r, c, dc > 0 ? 1 : -1);
+          const stepc = this._stepNavCol(r, c, dc > 0 ? 1 : -1);   // skipNav の列は飛ばす
           if (stepc !== c) nc = stepc;
-          else if (this.autoWrapRow) { nc = dc > 0 ? this._firstVisCol() : this._lastVisCol(); nr = r + (dc > 0 ? 1 : -1); }
+          else if (this.autoWrapRow) { nc = this._edgeNavCol(dc > 0 ? 1 : -1); nr = r + (dc > 0 ? 1 : -1); }
         }
         if (dr !== 0) {
           nr = this._stepRowM(r, c, dr > 0 ? 1 : -1);   // 縦移動は結合高を跨ぐ
           if (this.autoWrapCol) {   // 縦の端で列送り（送り先も可視列）
-            if (nr >= this.ROWS) { nr = 0; nc = this._stepVisCol(c, 1); }
-            else if (nr < 0) { nr = this.ROWS - 1; nc = this._stepVisCol(c, -1); }
+            if (nr >= this.ROWS) { nr = 0; nc = this._stepNavCol(r, c, 1); }
+            else if (nr < 0) { nr = this.ROWS - 1; nc = this._stepNavCol(r, c, -1); }
           }
         }
         if (nr === r && nc === c) break;                                       // 端で動かない＝終了
@@ -4489,8 +4516,8 @@
       switch (e.key) {
         case 'ArrowUp': e.preventDefault(); this.setActive(this._stepRowM(this.active.r, this.active.c, -1), this.active.c); return;
         case 'ArrowDown': e.preventDefault(); this.setActive(this._stepRowM(this.active.r, this.active.c, 1), this.active.c); return;
-        case 'ArrowLeft': e.preventDefault(); this.setActive(this.active.r, this._stepColM(this.active.r, this.active.c, -1)); return;
-        case 'ArrowRight': e.preventDefault(); this.setActive(this.active.r, this._stepColM(this.active.r, this.active.c, 1)); return;
+        case 'ArrowLeft': e.preventDefault(); this.setActive(this.active.r, this._stepNavCol(this.active.r, this.active.c, -1)); return;   // skipNav の列は飛ばす
+        case 'ArrowRight': e.preventDefault(); this.setActive(this.active.r, this._stepNavCol(this.active.r, this.active.c, 1)); return;
         case 'Enter': e.preventDefault(); this._advance('enter', e.shiftKey); return;
         case 'Tab': e.preventDefault(); this._advance('tab', e.shiftKey); return;
         case 'F2': e.preventDefault(); this._beginEdit(this.active.r, this.active.c); return;

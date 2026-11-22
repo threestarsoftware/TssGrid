@@ -1439,7 +1439,8 @@ new TssGrid(el, {
 ```
 
 - 列の `readOnly` は **`true`** または **`(value, { r, c }) => boolean`**（セル単位の判定）。
-- 読み取り専用セルは淡色表示（`td.tg-readonly`）。checkbox は `disabled`、dropdown は ▾ を出しません。
+- 読み取り専用セルは淡色表示（`td.tg-readonly`）。checkbox は `disabled`、dropdown は ▾ を出しません。選んだ範囲が全部読み取り専用の時は、フィルハンドル（■）も出しません（引いても書き込めないので）。
+- **矢印・Tab・Enter で止まらない列**: 列に `skipNav: true`。左右の移動で飛ばします（クリックでは選べる・コピーもできる）。左に固定した「日・曜」のような見出しの列に。先が全部 `skipNav` の列なら動きません。読み取り専用の列を飛ばすのはグリッドの `navSkipReadOnly`（Tab・Enter だけ・読み取り専用のセルすべて）。
 - 検証（`validator`）とは独立。`invalidMode` に関係なく常に元の値へ戻します。
 
 ### セル内改行（複数行入力・multiline）

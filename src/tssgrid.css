@@ -242,6 +242,9 @@
 .tssgrid .tg-table .tg-frozen-edge { border-right: 2px solid var(--tg-frozen-edge); }   /* 固定境界の見切り線 */
 /* 行固定: 上から frozenRows 行を sticky top（top は JS が設定）。z は frozen列と同様に選択オーバーレイ(3)より下 */
 .tssgrid .tg-table tr.tg-frozen-row > td { position: sticky; z-index: 2; }
+/* キー移動で見える所へ動かす時、固定の部分（左＝行番号＋固定列・上＝見出し＋固定行）の下に潜らないよう、固定でないセルにその幅・高さの余白（値は _revealCell が入れる） */
+.tssgrid .tg-table td:not(.tg-frozen) { scroll-margin-left: var(--tg-pane-w, 0px); }
+.tssgrid .tg-table tr:not(.tg-frozen-row) > td { scroll-margin-top: var(--tg-pane-h, var(--tg-thead-h, 0px)); }
 .tssgrid .tg-table tr.tg-frozen-row > th.rowhead { z-index: 3; }            /* 行ヘッダ＝top+left の角 */
 .tssgrid .tg-table tr.tg-frozen-row > td.tg-frozen { z-index: 3; }          /* 固定行∩固定列の角 */
 .tssgrid .tg-table tr.tg-frozen-row-edge > td, .tssgrid .tg-table tr.tg-frozen-row-edge > th { border-bottom: 2px solid var(--tg-frozen-edge); }   /* 固定行の見切り線 */

@@ -252,6 +252,7 @@ true にすると autocomplete='new-password' に切り替えて確実に止め�
 <tr><td><code>align</code></td><td><code class="ty">'left' | 'center' | 'right'</code></td><td>列既定の水平/垂直整列。</td></tr>
 <tr><td><code>valign</code></td><td><code class="ty">'top' | 'middle' | 'bottom'</code></td><td></td></tr>
 <tr><td><code>readOnly</code></td><td><code class="ty">boolean | ((value: any, cell: CellCoord) =&gt; boolean)</code></td><td>列単位の読み取り専用。関数でセル単位判定も可。</td></tr>
+<tr><td><code>skipNav</code></td><td><code class="ty">boolean</code></td><td>矢印（←→）・Tab・Enter の左右の移動でこの列を飛ばす（クリックでは選べる）。左に固定した見出しの列（日・曜など）に。</td></tr>
 <tr><td><code>validator</code></td><td><code class="ty">(value: any, cell: CellCoord) =&gt; ValidatorResult</code></td><td>入力検証。編集/貼付/フィルの全経路に効く。</td></tr>
 <tr><td><code>editor</code></td><td><code class="ty">EditorDef | (() =&gt; EditorDef)</code></td><td>カスタム編集UI（薄いオブジェクト契約 or それを返す関数）。</td></tr>
 <tr><td><code>parse</code></td><td><code class="ty">(input: string, cell: CellCoord) =&gt; any</code></td><td>入力の正規化（保存値へ変換）。</td></tr>
