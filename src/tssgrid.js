@@ -793,7 +793,7 @@
     }
     _afterFilterSelect() {
       if (this.ROWS > 0) this.setActive(Math.min(this.active.r, this.ROWS - 1), this._snapVisCol(this.active.c));
-      else { this.active = { r: 0, c: 0 }; this.extent = { r: 0, c: 0 }; this.selbox.style.display = this.selrange.style.display = this.fillhandle.style.display = 'none'; }
+      else { this.active = { r: 0, c: 0 }; this.extent = { r: 0, c: 0 }; this.selbox.style.display = this.selrange.style.display = this.fillhandle.style.display = 'none'; this.place(this.editor, null); }   // 隠し入力欄も見出しの中へ（1行目の位置に残すと枠に縦スクロールが出る）
     }
     // マスタ(全行)を getRows 形式で取得（フィルタ中でも全件）。未フィルタなら getRows と同じ。
     getAllRows(opts) {
@@ -1031,6 +1031,7 @@
     colType(c) { return this.colCfg(c).type || 'text'; }
     // 読み取り専用判定（グリッド全体 / 列 readOnly: bool/関数 / セル単位 setCellReadOnly）。
     _isReadOnly(r, c) {
+      if (!this.data[r]) return true;   // 行が無い（0件で打った等）＝編集に入らない
       if (this.data[r] === TssGrid.PENDING) return true;   // 遅延ロード: 未取得セルは「読込中」＝編集不可（fillRows で実データが来たら普通に編集可）
       if (this.readOnly) return true;
       if (this._merges && this._isCovered(r, c)) return true;   // 結合の従属セルは編集不可（貼付/フィルは既存の readOnly 経路で巻戻し）
@@ -2322,6 +2323,11 @@
     place(elem, td) {
       // 仮想スクロールで active が窓外だと td=null。その場合は active 座標＋モデル幾何で配置（窓外なら overflow で隠れる）。
       const r = td ? +td.dataset.r : this.active.r, c = td ? +td.dataset.c : this.active.c, R = this._cellRectAuto(r, c);
+      if (!this.ROWS) {   // 0件（フィルタで全部隠れた・最後の行を消した）: 1行目の位置（見出しの下）に置くと枠に縦スクロールが出る＝見出しの中に収める
+        const h = Math.min(R.height, this._theadH || 0);
+        elem.style.left = R.left + 'px'; elem.style.top = '0px'; elem.style.width = R.width + 'px'; elem.style.height = h + 'px';
+        return;
+      }
       elem.style.left = R.left + 'px'; elem.style.top = R.top + 'px';
       elem.style.width = R.width + 'px'; elem.style.height = R.height + 'px';
       this._clipOverlay(elem, R.left, R.top, c, r);
@@ -2652,7 +2658,7 @@
     // 読み取り専用セルで「変えようとした」操作（打鍵・F2・ダブルクリック・チェックのトグル）を onReadOnly で知らせる。
     // 値は変わらない＝通知だけ。打鍵は beforeinput と compositionstart の両方から来るので同じセルの連続は1回に畳む。
     _roAttempt(r, c, value) {
-      if (!this.onReadOnly) return;
+      if (!this.onReadOnly || !this.data[r]) return;   // 行が無い（0件）時は知らせない
       const now = Date.now(), last = this._roLast;
       if (last && last.r === r && last.c === c && now - last.t < 300) return;
       this._roLast = { r, c, t: now };
