@@ -143,6 +143,10 @@
 }
 }
 
+.tssgrid { position: relative; }   /* つまみの層（.tg-handles）の置き場の基準 */
+/* つまみの層（フィル■・タッチの選択の丸）: スクロールする枠の外＝表の端で外へはみ出しても枠にスクロールバーが出ない。層自体は場所を取らず、つまみだけ触れる */
+.tssgrid .tg-handles { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; pointer-events: none; }
+.tssgrid .tg-handles > * { pointer-events: auto; }
 .tssgrid .tg-wrap {
   position: relative; display: inline-block; vertical-align: top;   /* inline-block の下に付く文字のベースライン余白（数px）を出さない＝表を縦に並べても隙間が出ない */
   border: 1px solid var(--tg-wrap-border); overflow: auto; max-height: 60vh; user-select: none;
@@ -159,7 +163,7 @@
 .tssgrid .tg-wrap:not(:focus-within) .tg-selbox { border-color: var(--tg-blur-sel); }
 .tssgrid .tg-wrap:not(:focus-within) .tg-selrange,
 .tssgrid .tg-wrap:not(:focus-within) .tg-selbox,
-.tssgrid .tg-wrap:not(:focus-within) .tg-fillhandle { opacity: .42; }
+.tssgrid .tg-wrap:not(:focus-within) ~ .tg-handles .tg-fillhandle { opacity: .42; }
 
 /* border-collapse: separate（+ border-spacing:0）で各セルが自分の罫線を自分のboxの中に描く。
    collapse だと罫線がテーブル単位の共有1px線になり、sticky セルの背景が境界1pxを覆いきれず
@@ -306,11 +310,14 @@
   .tssgrid .tg-colgrip::before { content: ''; position: absolute; top: 0; bottom: 0; left: -9px; right: -9px; }   /* 細い6px列境を指で掴めるよう横に拡張 */
 }
 .tssgrid .tg-fillpreview{ position: absolute; border: 2px dashed var(--tg-fill-preview); box-sizing: border-box; pointer-events: none; z-index: 3; display: none; }
-/* 選択ハンドル（タッチ端末のみ・JS が表示/配置）: 選択範囲の天地中央。指で縦に範囲を伸縮。フィル■(四角)と区別するため丸。 */
-.tssgrid .tg-selh { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--tg-cell-bg); border: 2px solid var(--tg-accent); box-sizing: border-box; z-index: 6; display: none; cursor: ns-resize; touch-action: none; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
-.tssgrid .tg-selh-left, .tssgrid .tg-selh-right { cursor: ew-resize; }
+/* 選択の丸（タッチ端末のみ・JS が表示/配置）: 選択範囲の左上・右下の角。引けば範囲を伸縮・タップでメニュー。フィル■(四角)と区別するため丸。
+   当たり判定は見た目より少しだけ広く（広げすぎると隣のセルのタップを奪う） */
+.tssgrid .tg-selh { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--tg-cell-bg); border: 2px solid var(--tg-accent); box-sizing: border-box; z-index: 6; display: none; cursor: nwse-resize; touch-action: none; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.tssgrid .tg-selh::before { content: ''; position: absolute; inset: -7px; border-radius: 50%; }
 
 /* 唯一の input。nav=透明sink / edit=可視 / invalid=エラー(将来用フック) */
+/* iPhone のキーボードの ＜ ＞ を受ける見えない番兵（入力欄の前後・同じ位置）。来たら隣のセルへ動いて入力欄に戻す */
+.tssgrid .tg-navsent { position: absolute; left: 0; top: 0; width: 1px; height: 1px; padding: 0; border: 0; margin: 0; opacity: 0; pointer-events: none; font-size: 16px; }
 .tssgrid .tg-editor { position: absolute; box-sizing: border-box; margin: 0; padding: 0 5px; font-size: var(--tg-font-size); font-family: inherit; z-index: 4; outline: none; }
 .tssgrid .tg-editor.nav     { color: transparent; background: transparent; border: none; caret-color: transparent; pointer-events: none; }
 .tssgrid .tg-editor.edit    { color: var(--tg-editor-fg); background: var(--tg-edit-bg); border: 2px solid var(--tg-edit-accent); caret-color: auto; pointer-events: auto; -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }   /* 編集中は文字選択/コピーOK */
@@ -422,6 +429,20 @@
 .tssgrid .tg-menu .tg-mi.tg-disabled { color: var(--tg-muted); cursor: default; }
 .tssgrid .tg-menu .tg-mi.tg-disabled:hover { background: none; }
 .tssgrid .tg-menu .tg-sep { height: 1px; background: var(--tg-menu-sep); margin: 4px 0; }
+/* メニューのアイコン（contextMenuIcons・既定 ON）: 右クリックの縦の一覧は左に 16px。色は文字色（危険な項目は赤・使えない項目は淡色に一緒に変わる） */
+.tssgrid .tg-menu .tg-mi-ico { display: inline-block; width: 16px; height: 16px; margin-right: 10px; vertical-align: -3px; line-height: 16px; text-align: center; font-size: 14px; }
+.tssgrid .tg-menu .tg-mi-ico svg { display: block; width: 100%; height: 100%; }
+.tssgrid .tg-menu.tg-menu-icons .tg-mi { padding-left: 12px; }
+/* 選択の丸のメニュー（タッチ）: 横一列のバー（Excel のスマホ版と同じ）。選択の上に出して選択・丸に被せない */
+.tssgrid .tg-menu.tg-menu-bar { padding: 0; min-width: 0; white-space: nowrap; font-size: 0; }
+.tssgrid .tg-menu.tg-menu-bar .tg-mi { display: inline-block; vertical-align: middle; padding: 10px 7px; font-size: var(--tg-font-size); }
+@media (max-width: 330px) { .tssgrid .tg-menu.tg-menu-bar .tg-mi { padding: 10px 4px; font-size: 12px; } }   /* 幅 320px 未満の画面は文字と余白を詰めて1行に収める */
+/* アイコン付きのバー: アイコンを上・文字を下に積む＝1項目の幅は文字だけで決まる（5項目で約 260px） */
+.tssgrid .tg-menu.tg-menu-bar.tg-menu-icons .tg-mi { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; min-width: 44px; padding: 7px 6px 6px; font-size: 11px; }
+.tssgrid .tg-menu.tg-menu-bar .tg-mi-ico { width: 20px; height: 20px; margin: 0; line-height: 20px; font-size: 17px; }
+.tssgrid .tg-menu.tg-menu-bar.tg-menu-icons .tg-sep { height: 36px; }
+@media (max-width: 330px) { .tssgrid .tg-menu.tg-menu-bar.tg-menu-icons .tg-mi { min-width: 40px; padding: 7px 3px 6px; } }   /* 幅 320px 未満は余白を詰める */
+.tssgrid .tg-menu.tg-menu-bar .tg-sep { display: inline-block; vertical-align: middle; width: 1px; height: 18px; margin: 0 2px; }
 /* サブメニュー: 親項目に ▶、ホバーで右側へフライアウト */
 .tssgrid .tg-menu .tg-mi.tg-has-sub { position: relative; padding-right: 26px; }
 .tssgrid .tg-menu .tg-mi.tg-has-sub::after { content: '▶'; position: absolute; right: 10px; top: 0; bottom: 0; display: flex; align-items: center; font-size: 9px; color: var(--tg-icon-fg); }

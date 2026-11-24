@@ -1119,7 +1119,7 @@ new TssGrid(el, { columns: [{ data: 'id', hidden: true }, …] });   // 列定�
 | `nestedHeaders` | `array[]` | — | **ヘッダ結合**（複数段見出し）。各段は配列で要素は文字列 or `{label,colspan}`。最下段が**リーフ＝実列**（並べ替え・全選択チェック等は機能）。上段グループのクリックで範囲列を選択 → 動く例: [`examples/nested-headers.html`](https://tssgrid.threestarsoftware.co.jp/examples/nested-headers.html) |
 | `width` / `height` | `number\|string` | — | 枠(wrap)の幅/高さ。**指定するとテーブル自身に横/縦スクロールバーが出る**（未指定だと枠が内容幅まで広がりページ側がスクロール）。固定行/列・縦横スクロールを使うなら指定推奨 |
 | `resizeCols` / `resizeRows` | `boolean` | `true` | 列幅/行高のリサイズ可否（全体）。`false` でグリップを出さない |
-| `cursor` | `boolean` | `true` | 選択カーソル（青の選択枠/範囲/セルハイライト/フィルハンドル）を表示するか。`false` で**表示専用グリッド向けに非表示**＋セルカーソルも既定に（内部の選択は保持＝コピーは可）。合計表・サマリ等に。`readOnly:true` と併用すると読み取り専用の灰色を付けず普通の色で表示（見せるだけの表） |
+| `cursor` | `boolean` | `true` | 選択カーソル（青の選択枠/範囲/セルハイライト/フィルハンドル）を表示するか。`false` で**表示専用グリッド向けに非表示**＋セルカーソルも既定に（内部の選択は保持＝コピーは可）。合計表・サマリ等に。`readOnly:true` と併用すると読み取り専用の灰色を付けず普通の色で表示（見せるだけの表）。隠れた入力欄は Tab や iPhone のキーボードの ＜ ＞ の順に入れない（タッチでは編集していない間 `disabled`） |
 | `columns[c].width` | `number` | — | 列ごとの初期幅(px)。**列定義に同居するので並べ替え・コピペで幅が一緒に動く**（`colWidths` より壊れにくい）。実行時リサイズ・明示 `colWidths` があればそちらが優先 |
 | `columns[c].flex` | `boolean\|number` | — | **この列で表の幅を吸収**（置き場の幅に合わせて伸び縮み）。`width` が出発点・`minWidth`〜`maxWidth` の範囲で、縮めて最小に達したらそこからは横スクロール。置き場の幅が変わると自動で配り直す。数値は flex 列が複数の時の配分の重み。flex 列がある表では `stretchH` より優先。例 `{ data:'reason', width:90, flex:true, minWidth:60, maxWidth:90 }` |
 | `columns[c].minWidth` / `maxWidth` | `number` | — | 列の最小／最大の幅(px)。flex の伸び縮み・ドラッグ・自動調整・`setColWidth` で効く |
@@ -1138,8 +1138,9 @@ new TssGrid(el, { columns: [{ data: 'id', hidden: true }, …] });   // 列定�
 | `className` | `string` | — | コンテナ(`.tssgrid`)に付ける任意クラス（テーマ付け） |
 | `theme` | `string \| TssTheme` | — | この表だけの色のテーマ（`'navy'` 等の同梱テーマ名か `{ headerBg, accent, … }`）。→ [テーマ](#テーマ--見た目のカスタマイズ) |
 | `fillHandle` | `boolean \| {direction,autoInsertRow}` | `true` | **`false`でフィル完全OFF**（ハンドルを出さない＝ドラッグでの消去/上書きなし。フィルの起点はハンドルのみなので fill 自体が無効に）。`{direction:'vertical'\|'horizontal'\|'both', autoInsertRow:true}`で詳細指定（下へドラッグで行追加）。設定/表示専用グリッドで誤フィルを防ぐのに有効 |
-| `touchSelect` | `boolean \| 'both'\|'vertical'\|'horizontal'` | `'both'` | **タッチ端末の範囲選択ハンドル**（選択枠の四辺の丸を指で引いて範囲を広げる）。`'both'`=四辺（天地=縦・左右=横・斜め=矩形）／`'vertical'`=天地だけ（行方向のみ）／`'horizontal'`=左右だけ（列方向のみ）／`false`=出さない。PC（マウス）には出ない。実行時は `setTouchSelect(v)` |
-| `touchSelectEdge` | `'keep'\|'hide'` | `'keep'` | 表の端（先頭/最終行・最初/最後の表示列）に接した選択ハンドル。`'keep'`=残す（端側から縮められる）／`'hide'`=隠す（伸ばせない向きの丸を減らす）。どちらでも「端かつその向きが1マス幅」の丸は常に隠す（1行だけの表なら天地、1列だけなら左右が自動で消える）。実行時は `setTouchSelect(v, edge)` |
+| `touchSelect` | `boolean \| 'both'\|'vertical'\|'horizontal'` | `'both'` | **タッチ端末の範囲選択**（選択の**左上と右下の角の丸**。Excel のスマホ版と同じ）。丸を引けば反対の角を起点に範囲を伸縮、**丸をタップした時・引いて離した時にメニュー**（横一列のバーを選択の上に。切り取り・コピー・貼り付け・内容をクリア・**フィル**）。「フィル」を選ぶと右下の丸がフィル■に替わり、引けばフィル（引き終わる・ほかをタップすると丸に戻る）。`'both'`=縦横どちらへも（斜めに引けば四角）／`'vertical'`=行方向だけ（斜めに引いても列は変わらない）／`'horizontal'`=列方向だけ／`false`=出さない（タッチでもフィル■を常に出す）。PC（マウス）には出ない。実行時は `setTouchSelect(v)`。**列ごとに出さない**: `columns[c].touchSelect: false`（選んだセルが全部その列なら丸・メニュー・フィル■を出さない。見出しの列など。タップで選ぶ・長押しメニューはそのまま） |
+| `touchSelectEdge` | `'keep'\|'hide'` | `'keep'` | 表の端（先頭/最終行・最初/最後の表示列）に接した角の丸。`'keep'`=残す（端側から縮められる）／`'hide'`=隠す（もう外へは伸ばせない丸を減らす）。どちらでも、端で1マス幅の丸（伸ばすも縮めるも出来ない）は常に隠す（例: 左上のセル1つを選んだ時の左上の丸）。`'vertical'` なら行の端だけ、`'horizontal'` なら列の端だけで判定。実行時は `setTouchSelect(v, edge)` |
+| （iPhone の ＜ ＞） | — | — | 入力中にキーボードの ＜ ＞ を押すと、表の中で隣の打てるセルへ動いて入力を続ける（＞＝右・行の終わりは次の行の頭／＜＝左）。読み取り専用・チェック・プルダウンは飛ばす。設定は要らない |
 | `touchPicker` | `'list'\|'native'` | `'list'` | **タッチでのドロップダウンの一覧**。`'list'`=表が出す自前の一覧（指で押しやすい行高・一覧を開いたまま別のセルをタップするとそのまま次が開く・キーボードの出入りで閉じない）／`'native'`=ブラウザ純正のピッカー（`<select>`）。`columns[c].touchPicker` で列単位に上書き可。PC（マウス）は常に純正 |
 | `touchDropdown` | `'tap'\|'secondTap'` | `'tap'` | **タッチでのドロップダウンの開き方**。`'tap'`=タップ1回で開く／`'secondTap'`=1回目は選択だけ（丸ハンドルで範囲選択できる・キーボードも出ない）、同じセルをもう一度タップで開く（スマホ版 Excel 流）。`columns[c].touchDropdown` で列単位に上書き可。PC（マウス）は常にクリック1回で開く |
 | `onBeforeAutofill` / `onAfterAutofill` | `(src,target)=>…` | — | フィル前後。before は `false` で取消。`src`/`target` = `{r0,c0,r1,c1}` |
@@ -1157,6 +1158,7 @@ new TssGrid(el, { columns: [{ data: 'id', hidden: true }, …] });   // 列定�
 | `onInvalid` | `(rejections, source)=>void` | — | 列ルールで弾かれた時。`rejections = [{ r, c, value, message }]` |
 | `flashInvalid` | `boolean` | `true` | 不正値を弾いて**巻き戻した時にセルを短く赤く点滅**して知らせる（`.tg-reject`・`prefers-reduced-motion` 配慮）。`onInvalid` は別途そのまま発火。`false` で無効 |
 | `onReadOnly` | `(blocked, source)=>void` | — | 読み取り専用セルへの変更を弾いた時。`blocked = [{ r, c, value }]`。貼り付け/Delete/フィルに加え、**打鍵（`value`＝打った文字）・F2・ダブルクリック・チェックのトグル**でも `source:'edit'` で呼ばれる（「🔒 変更できません」の表示用）。クリックで選んだだけでは呼ばれない |
+| `contextMenuIcons` | `boolean` | `true` | メニュー項目のアイコン（右クリックのメニューは左、タッチの選択の丸のバーは上）。`false` で文字だけ。組込項目の絵は `TssGrid.MENU_ICONS`（差し替え可） |
 | `contextMenu` | `boolean \| Array \| {items}` | `true` | 右クリックメニュー。`true`=既定項目 / `false`=無効 / **配列**=項目を構成（組込キー＋カスタム項目）（→ [右クリックメニュー](#右クリックメニュー行列の挿入削除)） |
 | `allowInsertRows` / `allowDeleteRows` | `boolean` | `true` | 行の挿入 / 削除の可否（メニュー項目の表示も連動） |
 | `allowInsertCols` / `allowDeleteCols` | `boolean` | `true` | 列の挿入 / 削除の可否 |
@@ -1512,7 +1514,7 @@ new TssGrid(el, {
 ```
 
 - **組込キー**: `row_above` / `row_below` / `remove_row` / `col_left` / `col_right` / `remove_col` / `copy` / `cut` / `paste` / `clear` / `undo` / `redo`、区切りは `'---------'`（ダッシュのみ）。
-- **カスタム項目**: `{ name, callback, disabled?, hidden?, key?, submenu? }`。`name`/`disabled`/`hidden` は**関数**も可＝引数は `(range, ctx)`（`range`＝選択範囲 `{r0,c0,r1,c1}`）。`callback` の `this` はグリッド、引数は `{ range, key, ctx }`。
+- **カスタム項目**: `{ name, callback, disabled?, hidden?, key?, submenu?, icon? }`。`icon` は SVG の文字列（`'<svg viewBox="0 0 24 24" …>'`・色は `currentColor` にすると文字色に揃う）か絵文字などの1文字。省くと、`key` が組込キーならその絵、無ければ空き（文字の位置は揃う）。組込項目の絵は `TssGrid.MENU_ICONS.copy` などで差し替えられます。`name`/`disabled`/`hidden` は**関数**も可＝引数は `(range, ctx)`（`range`＝選択範囲 `{r0,c0,r1,c1}`）。`callback` の `this` はグリッド、引数は `{ range, key, ctx }`。
 - **組込動作のまま name/disabled だけ変えたい**: カスタム項目に `callback` を**書かず** `key` に組込キー（`row_above` 等）を指定すると、**その組込アクションを実行**します（`disabled`/`name` はカスタム側を尊重）。例: `{ name: '行を上に追加', key: 'row_above', disabled: (s) => … }`＝ラベルと活性条件だけ差し替え、挿入動作は組込のまま。
 - **`ctx`＝右クリックの対象** `{ on, r, c }`。`on` は `'col'`（列ヘッダ）/`'row'`（行ヘッダ）/`'cell'`（データセル）/`'corner'`（隅）。例: **列ヘッダを右クリックした時だけ項目を出す**なら `hidden: (range, ctx) => ctx.on !== 'col'`。
 - `submenu` に配列を渡すとフライアウトの**サブメニュー**になります（同じ組込キー／カスタム項目が使えます）。

@@ -123,6 +123,7 @@
       const _cm = opts.contextMenu;
       this.contextMenu = _cm !== false;
       this._menuConfig = Array.isArray(_cm) ? _cm : (_cm && Array.isArray(_cm.items)) ? _cm.items : null;
+      this.contextMenuIcons = opts.contextMenuIcons !== false;   // メニュー項目のアイコン（右クリック=左に・タッチの丸のバー=上に）。false で文字だけ
       this._menuCtx = null;          // 直近の右クリック対象 { on:'col'|'row'|'cell'|'corner', r, c }（メニュー項目へ渡す）
       this.allowInsertRows = opts.allowInsertRows !== false;
       this.allowDeleteRows = opts.allowDeleteRows !== false;
@@ -793,7 +794,7 @@
     }
     _afterFilterSelect() {
       if (this.ROWS > 0) this.setActive(Math.min(this.active.r, this.ROWS - 1), this._snapVisCol(this.active.c));
-      else { this.active = { r: 0, c: 0 }; this.extent = { r: 0, c: 0 }; this.selbox.style.display = this.selrange.style.display = this.fillhandle.style.display = 'none'; this.place(this.editor, null); }   // 隠し入力欄も見出しの中へ（1行目の位置に残すと枠に縦スクロールが出る）
+      else { this.active = { r: 0, c: 0 }; this.extent = { r: 0, c: 0 }; this.selbox.style.display = this.selrange.style.display = this.fillhandle.style.display = this.selhTL.style.display = this.selhBR.style.display = 'none'; this.place(this.editor, null); }   // 隠し入力欄も見出しの中へ（1行目の位置に残すと枠に縦スクロールが出る）
     }
     // マスタ(全行)を getRows 形式で取得（フィルタ中でも全件）。未フィルタなら getRows と同じ。
     getAllRows(opts) {
@@ -959,21 +960,24 @@
         '<div class="tssgrid"><div class="tg-wrap">' +
         '<table class="tg-table"></table>' +
         '<div class="tg-selrange"></div><div class="tg-selbox"></div>' +
-        '<div class="tg-copybox"></div><div class="tg-fillpreview"></div><div class="tg-fillhandle"></div>' +
-        '<div class="tg-selh tg-selh-top"></div><div class="tg-selh tg-selh-bot"></div>' +
-        '<div class="tg-selh tg-selh-left"></div><div class="tg-selh tg-selh-right"></div>' +
+        '<div class="tg-copybox"></div><div class="tg-fillpreview"></div>' +
         '<div class="tg-resizeguide"></div>' +
+        (this.cursor ? '<input class="tg-navsent tg-navsent-prev" type="text" autocomplete="off" aria-hidden="true">' : '') +
         '<input class="tg-editor nav" type="text" autocomplete="off" spellcheck="false">' +
         '<textarea class="tg-editor tg-editor-multi nav" autocomplete="off" spellcheck="false" style="display:none"></textarea>' +
         '<select class="tg-select" style="display:none"></select>' +
-        '</div>' + (this.showDump ? '<pre class="tg-dump"></pre>' : '') +
+        (this.cursor ? '<input class="tg-navsent tg-navsent-next" type="text" autocomplete="off" aria-hidden="true">' : '') +
+        '</div>' +
+        // つまみの層（フィル■・タッチの選択の丸）: スクロールする枠の外に置く＝表の端で外へはみ出しても枠にスクロールバーが出ない
+        '<div class="tg-handles"><div class="tg-fillhandle"></div><div class="tg-selh tg-selh-tl"></div><div class="tg-selh tg-selh-br"></div></div>' +
+        (this.showDump ? '<pre class="tg-dump"></pre>' : '') +
         '<div class="tg-menu" style="display:none"></div></div>';
       const q = s => container.querySelector(s);
       this.wrap = q('.tg-wrap'); this.table = q('.tg-table');
       this.selrange = q('.tg-selrange'); this.selbox = q('.tg-selbox');
       this.copybox = q('.tg-copybox'); this.fillhandle = q('.tg-fillhandle'); this.fillpreview = q('.tg-fillpreview');
-      this.selhTop = q('.tg-selh-top'); this.selhBot = q('.tg-selh-bot');
-      this.selhLeft = q('.tg-selh-left'); this.selhRight = q('.tg-selh-right');
+      this.handles = q('.tg-handles');
+      this.selhTL = q('.tg-selh-tl'); this.selhBR = q('.tg-selh-br');   // タッチの選択の丸（左上・右下の角）
       this._coarse = (typeof matchMedia !== 'undefined') ? matchMedia('(pointer: coarse)').matches : false;   // タッチ端末でのみ選択ハンドルを出す
       this.resizeGuide = q('.tg-resizeguide');
       this._edInput = q('input.tg-editor'); this._edMulti = q('.tg-editor-multi'); this.editor = this._edInput;
@@ -989,10 +993,23 @@
         el.name = _eduid + '-' + i;
         el.setAttribute('autocomplete', _acVal);
         el.setAttribute('autocapitalize', 'off');
+        // スマホのキーボードの Enter を「次へ（→）」に変えさせない＝Enter はいつも Enter（確定して enterMoves の向きへ）。
+        // Android の Chrome は後ろに入力欄があると Enter を「次の入力欄へ」に変えることがある（iPhone の ＜ ＞ 用の番兵もその対象になり得る）
+        el.setAttribute('enterkeyhint', 'enter');
         el.setAttribute('data-lpignore', 'true');    // LastPass
         el.setAttribute('data-1p-ignore', 'true');   // 1Password
         el.setAttribute('data-bwignore', 'true');    // Bitwarden
         el.setAttribute('data-form-type', 'other');  // 一部ヒューリスティック向けヒント
+      });
+      // 選べない表（cursor:false）: 隠れた入力欄を Tab や iPhone のキーボードの ＜ ＞ で渡り歩く順に入れない（入っても居場所が見えない）
+      if (!this.cursor) { this._edInput.tabIndex = -1; this._edMulti.tabIndex = -1; }
+      // iPhone のキーボードの ＜ ＞（前後の入力欄へ）: 入力欄の前後に見えない番兵を置き、そこへ来たら表の中で隣のセルへ動いて入力を続ける。
+      // ＜ ＞ はキーを出さず「次の入力欄へフォーカス」するだけなので、番兵で受けて動きに読み替える。
+      this._navSentPrev = q('.tg-navsent-prev'); this._navSentNext = q('.tg-navsent-next');
+      [[this._navSentPrev, -1], [this._navSentNext, 1]].forEach(([el, dir]) => {
+        if (!el) return;
+        el.setAttribute('autocapitalize', 'off'); el.setAttribute('data-lpignore', 'true'); el.setAttribute('data-1p-ignore', 'true');
+        el.addEventListener('focus', () => this._onNavSentinel(dir));
       });
       this.select = q('.tg-select'); this.dumpEl = q('.tg-dump');
       this.menuEl = q('.tg-menu');
@@ -2326,11 +2343,15 @@
       if (!this.ROWS) {   // 0件（フィルタで全部隠れた・最後の行を消した）: 1行目の位置（見出しの下）に置くと枠に縦スクロールが出る＝見出しの中に収める
         const h = Math.min(R.height, this._theadH || 0);
         elem.style.left = R.left + 'px'; elem.style.top = '0px'; elem.style.width = R.width + 'px'; elem.style.height = h + 'px';
+        if (elem === this.editor && this._navSentNext) for (const s of [this._navSentPrev, this._navSentNext]) { s.style.left = R.left + 'px'; s.style.top = '0px'; }   // 番兵も見出しの中へ
         return;
       }
       elem.style.left = R.left + 'px'; elem.style.top = R.top + 'px';
       elem.style.width = R.width + 'px'; elem.style.height = R.height + 'px';
       this._clipOverlay(elem, R.left, R.top, c, r);
+      if (elem === this.editor && this._navSentNext) {   // 番兵は入力欄と同じ所に＝フォーカスが来ても枠がスクロールしない
+        for (const s of [this._navSentPrev, this._navSentNext]) { s.style.left = R.left + 'px'; s.style.top = R.top + 'px'; }
+      }
       // multiline を編集中に置き直した時は grow をやり直す（_reflow/ResizeObserver が高さを戻すのを打ち消す）
       if (elem === this._edMulti && this.mode === 'edit') this._growMultiEditor();
     }
@@ -2473,6 +2494,7 @@
       if (this._renderPaused) return;   // バッチ描画中は選択枠の位置決めを保留（resume 後に1回）
       if (!this.cursor) {   // 表示専用: 選択枠・範囲・フィルハンドルを出さない（選択自体は内部に保持）
         this.selbox.style.display = 'none'; this.selrange.style.display = 'none'; this.fillhandle.style.display = 'none';
+        this.selhTL.style.display = 'none'; this.selhBR.style.display = 'none';
         return;
       }
       this.highlightRange(); this._placeOverlays();
@@ -2482,68 +2504,89 @@
       const { r0, r1, c0, c1 } = this.rectRange();
       this.placeRect(this.selrange, r0, c0, r1, c1); this.selrange.style.display = 'block';
       this.place(this.selbox, this.activeTd()); this.selbox.style.display = 'block';
-      // フィルハンドルは nav か、ドロップダウンを開いている時に表示（テキスト等の編集中は隠す）
+      this._placeHandles();
+    }
+    // つまみ（フィル■・タッチの選択の丸）の位置合わせ。つまみは枠の外の層（.tg-handles）にある＝表の座標から枠のスクロールを引いて置く。
+    // 見えている所（固定の部分の内側〜枠の内寸）から角が外れたら隠す（枠で切れない層なので、自分で隠す）。
+    _placeHandles() {
+      if (!this.handles) return;
+      const { r0, r1, c0, c1 } = this.rectRange(), w = this.wrap;
+      const bx = w.offsetLeft + w.clientLeft - w.scrollLeft, by = w.offsetTop + w.clientTop - w.scrollTop;   // 表の座標 → 層の座標
+      const sTop = w.scrollTop, sLeft = w.scrollLeft, vBottom = sTop + w.clientHeight, vRight = sLeft + w.clientWidth;
+      const inView = (x, y, r, c) => {   // 角 (x,y) が見えている所にあるか（r/c が固定の部分なら固定の内側も見える）
+        const vTop = sTop + (r >= this.frozenRows ? this._frozenPaneH() : 0), vLeft = sLeft + (c >= this.frozenCols ? this._frozenPaneW() : 0);
+        return x >= vLeft - 0.5 && x <= vRight + 0.5 && y >= vTop - 0.5 && y <= vBottom + 0.5;
+      };
       const selOpen = this.select && this.select.style.display !== 'none';
-      // 選択が全部読み取り専用なら出さない（引いても書き込めない＝紛らわしい）
-      if (this.fillHandle && (this.mode === 'nav' || selOpen || (this._customEditor && this._customKeepHandle)) && !this._allReadOnly(r0, c0, r1, c1)) {
+      const touchUI = !!(this._coarse && this.touchSelect && this.cursor);   // タッチ: 角の丸で選ぶ。フィル■はメニューの「フィル」を選んだ時だけ
+      // フィルを選んだ後に選択が変わった（引き終わった・ほかをタップした）＝丸に戻す
+      if (this._touchFill && !this.filling && this._touchFill !== r0 + ',' + c0 + ',' + r1 + ',' + c1) this._touchFill = null;
+      // フィルハンドルは nav か、ドロップダウンを開いている時に表示（テキスト等の編集中は隠す）。選択が全部読み取り専用なら出さない（引いても書き込めない）
+      let fhOn = false;
+      if (this.fillHandle && this.cursor && (this.mode === 'nav' || selOpen || (this._customEditor && this._customKeepHandle)) && (!touchUI || this._touchFill) && !this._allReadOnly(r0, c0, r1, c1)) {
         const R = this._cellRectAuto(r1, c1);   // 選択末尾セルの右下角（ハイブリッド経由）
-        const fw = this.fillhandle.offsetWidth || 8;
-        // ハンドルは角に半分はみ出す配置だが、最終列/行ではテーブル端を超えないようクランプ
-        // （超えると overflow:auto の枠を押し広げてスクロールバーが出てしまう）。テーブルは
-        // 枠(padding box)の原点 0 に置かれるので、上限は offsetWidth/Height - ハンドル幅。
-        const maxL = this.table.offsetWidth - fw, maxT = this.table.offsetHeight - fw;
-        const fhL = Math.min(R.left + R.width - 5, maxL);
-        const fhT = Math.min(R.top + R.height - 5, maxT);
-        this.fillhandle.style.left = fhL + 'px'; this.fillhandle.style.top = fhT + 'px';
-        this.fillhandle.style.display = 'block';
-        this._clipOverlay(this.fillhandle, fhL, fhT, c1, r1);   // 固定ペインに潜ったら隠す
-      } else this.fillhandle.style.display = 'none';
-      // 選択ハンドル（タッチ端末のみ）: 選択範囲の四辺中央に丸ハンドル。天地=縦／左右=横／斜めに引けば矩形。
-      if (this.selhTop) {
-        // ドロップダウンを開いている間も出す（タップ1回で開く手軽さは保ったまま、丸を引けば範囲選択へ移れる＝フィル■と同じ扱い）
-        if (this._coarse && this.touchSelect && this.cursor && (this.mode === 'nav' || this.select.style.display !== 'none' || (this._customEditor && this._customEditor._tgTouchList))) {
-          const V = this.touchSelect !== 'horizontal', H = this.touchSelect !== 'vertical';   // 天地(縦)／左右(横)を出すか
-          const TL = this._cellRectAuto(r0, c0), BR = this._cellRectAuto(r1, c1);
-          const left = TL.left, right = BR.left + BR.width, top = TL.top, bottom = BR.top + BR.height;
-          const cx = (left + right) / 2, cy = (top + bottom) / 2;
-          // 可視窓＝固定ペイン(ヘッダ行+行番号列)の内側〜ビューポート。中心がこの外＝固定領域に被る/画面外なので隠す。
-          const sTop = this.wrap.scrollTop, sLeft = this.wrap.scrollLeft;
-          const vTop = sTop + (r0 >= this.frozenRows ? this._frozenPaneH() : 0);
-          const vLeft = sLeft + (c0 >= this.frozenCols ? this._frozenPaneW() : 0);
-          const vBottom = sTop + this.wrap.clientHeight, vRight = sLeft + this.wrap.clientWidth;
-          const show = (el, hx, hy) => {
-            if (hx < vLeft - 0.5 || hx > vRight + 0.5 || hy < vTop - 0.5 || hy > vBottom + 0.5) { el.style.display = 'none'; return; }
-            this._placeSelHandle(el, hx, hy);
-          };
-          const hide = el => { el.style.display = 'none'; };
-          // 表の端に接した丸: 'hide'＝常に隠す（その向きへは伸ばせない）／'keep'＝端側から縮める用に残す。
-          // ただし端かつその向きが1マス幅の丸は伸ばすも縮めるも出来ない＝設定に関係なく隠す（1行だけの表の天地・1列だけの表の左右）。
-          const fc = this._firstVisCol(), lc = this._lastVisCol(), lr = this.ROWS - 1, edgeHide = this.touchSelectEdge === 'hide';
-          // 掴んで引いている最中の丸は端に着いても消さない（指の下の丸が消えると戻れない様に見える）。
-          const dragging = this._selDrag && this._selDrag.which;
-          const useless = (w, atEdge, span1) => w !== dragging && atEdge && (edgeHide || span1);
-          const put = (el, on, hx, hy) => { if (on) show(el, hx, hy); else hide(el); };
-          put(this.selhTop, V && !useless('top', r0 <= 0, r0 === r1), cx, top);
-          put(this.selhBot, V && !useless('bot', r1 >= lr, r0 === r1), cx, bottom);
-          put(this.selhLeft, H && !useless('left', c0 <= fc, c0 === c1), left, cy);
-          put(this.selhRight, H && !useless('right', c1 >= lc, c0 === c1), right, cy);
-        } else {
-          this.selhTop.style.display = 'none'; this.selhBot.style.display = 'none';
-          this.selhLeft.style.display = 'none'; this.selhRight.style.display = 'none';
+        const cx = R.left + R.width, cy = R.top + R.height;
+        if (inView(cx, cy, r1, c1)) {
+          const fhL = cx - 5, fhT = cy - 5;   // 角に半分はみ出す（表の端でも押し込まない＝層が枠の外なのでスクロールバーは出ない）
+          this.fillhandle.style.left = (bx + fhL) + 'px'; this.fillhandle.style.top = (by + fhT) + 'px';
+          this.fillhandle.style.display = 'block'; fhOn = true;
+          this._clipOverlay(this.fillhandle, fhL, fhT, c1, r1);   // 固定の部分に半分潜ったら、その分を切る
         }
       }
+      if (!fhOn) this.fillhandle.style.display = 'none';
+      // 選択の丸（タッチ端末のみ）: 左上と右下の角。引けば反対の角を起点に範囲を伸縮・タップでメニュー（コピー等・フィル）。
+      // ドロップダウンを開いている間も出す（タップ1回で開く手軽さは保ったまま、丸を引けば範囲選択へ移れる）。
+      const tl = this.selhTL, br = this.selhBR;
+      // 列の touchSelect:false＝選んだセルが全部その列なら丸を出さない（メニュー・フィル■も出ない）。引いている最中は消さない（戻れなくなる）
+      let colOff = !this._selDrag;
+      for (let c = c0; colOff && c <= c1; c++) if (this.colCfg(c).touchSelect !== false) colOff = false;
+      if (touchUI && !colOff && !this._touchFill && (this.mode === 'nav' || selOpen || (this._customEditor && this._customEditor._tgTouchList))) {
+        const V = this.touchSelect !== 'horizontal', H = this.touchSelect !== 'vertical';   // 縦・横どちらへ伸ばせるか
+        const TL = this._cellRectAuto(r0, c0), BR = this._cellRectAuto(r1, c1);
+        // 表の端に接した丸: 'hide'＝隠す（もう外へは伸ばせない）／'keep'＝端側から縮める用に残す。
+        // ただし端で、伸ばせる向きがどれも1マス幅なら、伸ばすも縮めるも出来ない＝設定に関係なく隠す。
+        const fc = this._firstVisCol(), lc = this._lastVisCol(), lr = this.ROWS - 1, edgeHide = this.touchSelectEdge === 'hide';
+        const dragging = this._selDrag && this._selDrag.which;   // 掴んで引いている最中の丸は消さない（指の下の丸が消えると戻れない様に見える）
+        const atEdgeTL = (!V || r0 <= 0) && (!H || c0 <= fc), atEdgeBR = (!V || r1 >= lr) && (!H || c1 >= lc);
+        const span1 = (!V || r0 === r1) && (!H || c0 === c1);
+        const put = (el, which, atEdge, x, y, r, c) => {
+          if ((which !== dragging && atEdge && (edgeHide || span1)) || !inView(x, y, r, c)) { el.style.display = 'none'; return; }
+          el.style.display = 'block';
+          const sz = el.offsetWidth || 18;
+          el.style.left = (bx + x - sz / 2) + 'px'; el.style.top = (by + y - sz / 2) + 'px';
+        };
+        put(tl, 'tl', atEdgeTL, TL.left, TL.top, r0, c0);
+        put(br, 'br', atEdgeBR, BR.left + BR.width, BR.top + BR.height, r1, c1);
+      } else { tl.style.display = 'none'; br.style.display = 'none'; }
     }
-    _placeSelHandle(el, cx, cy) {
-      el.style.display = 'block';
-      const sz = el.offsetWidth || 18;
-      el.style.left = (cx - sz / 2) + 'px';
-      el.style.top = (cy - sz / 2) + 'px';
+    // 選択の丸をタップした時のメニュー（Excel のスマホ版と同じ）: 切り取り・コピー・貼り付け・クリア・フィル。
+    // 「フィル」を選ぶと右下の丸がフィル■に替わり、引けばフィル。引き終わる・ほかをタップすると丸に戻る。
+    // 横一列のバーを選択の上に出す（入らなければ下）＝選択や丸に被せない（被せると次に丸を掴もうとしてメニューを押す）。
+    _showHandleMenu() {
+      const s = this.rectRange(), items = [];
+      ['cut', 'copy', 'paste', 'clear'].forEach(k => { const it = this._builtinItem(k, s); if (it) { it.icon = TssGrid.MENU_ICONS[k]; items.push(k === 'clear' ? Object.assign(it, { label: 'クリア' }) : it); } });   // 横一列は短く（スマホの幅に収める）
+      if (this.fillHandle && !this._allReadOnly(s.r0, s.c0, s.r1, s.c1)) {
+        items.push({ sep: true }, { label: 'フィル', icon: TssGrid.MENU_ICONS.fill, act: () => { this._touchFill = s.r0 + ',' + s.c0 + ',' + s.r1 + ',' + s.c1; this._placeHandles(); } });
+      }
+      this._menuCtx = { on: 'cell', r: s.r0, c: s.c0 };
+      this.menuEl.classList.add('tg-menu-bar');
+      this._showMenuItems(items, 0, 0);
+      if (this.menuEl.style.display !== 'block') return;
+      // 選択の見えている部分（枠の内側に切った矩形）の上へ。上に入らなければ下、どちらも無理なら枠の上端に重ねる
+      const w = this.wrap.getBoundingClientRect(), sr = this.selrange.getBoundingClientRect();
+      const top = Math.max(sr.top, w.top), bottom = Math.min(sr.bottom, w.bottom), left = Math.max(sr.left, w.left), right = Math.min(sr.right, w.right);
+      const mw = this.menuEl.offsetWidth, mh = this.menuEl.offsetHeight, vw = window.innerWidth, vh = window.innerHeight, gap = 12;
+      let y = top - mh - gap;
+      if (y < 4) y = bottom + gap + 10 + mh <= vh ? bottom + gap + 10 : Math.max(4, w.top + 4);   // 下は右下の丸（はみ出し約10px）を避ける
+      const x = Math.min(Math.max(4, (left + right) / 2 - mw / 2), vw - mw - 4);
+      this.menuEl.style.left = x + 'px'; this.menuEl.style.top = y + 'px';
     }
     // 選択ハンドルのドラッグ中: 指の「行・列」まで範囲を伸縮＝縦・横・斜め(矩形)すべて可。まっすぐ下なら縦のまま。
     // 重要: setExtent(scrollIntoView付き)は使わない。横スクロールする幅だと「extentを見せる→内容が指の下で動く→さらに右の列→…」
     // と自己増幅して全列を飲み込む。_dragMoveAt と同じく _extendTo(スクロールしない)＋端だけ _edgeAutoScroll(上限付き)に揃える。
     _selMoveAt(clientX, clientY) {
-      if (!this._selDrag) return;
+      const d = this._selDrag; if (!d) return;
+      if (!d.moved) { if (Math.abs(clientX - d.x) < 8 && Math.abs(clientY - d.y) < 8) return; d.moved = true; }   // 指のブレはタップのうち（離せばメニュー）
       const pt = { clientX, clientY };
       const td = this._tdAtPoint(pt);
       if (td) { this._stopAutoScroll(); this._selApply(+td.dataset.r, +td.dataset.c); }
@@ -2554,22 +2597,40 @@
     _selApply(pr, pc) {
       const d = this._selDrag; if (!d || !d.s) return;
       const s = d.s; pr = this.clampR(pr); pc = this.clampC(pc);
-      let r0, r1, c0, c1;
-      const oneAxis = this.touchSelect === 'vertical' || this.touchSelect === 'horizontal';   // 片方向だけ＝斜めに広げない
-      if (d.which === 'top' || d.which === 'bot') {
-        const fixed = d.which === 'bot' ? s.r0 : s.r1;
-        r0 = Math.min(fixed, pr); r1 = Math.max(fixed, pr);
-        c0 = oneAxis ? s.c0 : Math.min(s.c0, pc); c1 = oneAxis ? s.c1 : Math.max(s.c1, pc);
-      } else {
-        const fixed = d.which === 'right' ? s.c0 : s.c1;
-        c0 = Math.min(fixed, pc); c1 = Math.max(fixed, pc);
-        r0 = oneAxis ? s.r0 : Math.min(s.r0, pr); r1 = oneAxis ? s.r1 : Math.max(s.r1, pr);
-      }
+      // 掴んだ丸の反対の角を起点に、指のセルまでの四角。'vertical' は列を、'horizontal' は行を掴んだ時のまま（斜めに引いても片方だけ伸びる）。
+      const fr = d.which === 'br' ? s.r0 : s.r1, fc = d.which === 'br' ? s.c0 : s.c1;
+      const V = this.touchSelect !== 'horizontal', H = this.touchSelect !== 'vertical';
+      const r0 = V ? Math.min(fr, pr) : s.r0, r1 = V ? Math.max(fr, pr) : s.r1;
+      const c0 = H ? Math.min(fc, pc) : s.c0, c1 = H ? Math.max(fc, pc) : s.c1;
       const a = { r: r0, c: c0 }, e = { r: r1, c: c1 };
       if (!this._beforeSel(a, e)) return;
       this._headerSel = null; this.active = a; this.extent = e;
       this.updateSelectionUI(); this._fireSelection();
     }
+    _endSelDrag() {
+      const d = this._selDrag; this._selDrag = null; this._stopAutoScroll(); this._placeOverlays();
+      if (d) this._showHandleMenu();   // 丸をタップした・引いて離した＝メニュー（Excel のスマホ版と同じ）
+    }
+    // 番兵にフォーカスが来た: 入力中の欄から（＝iPhone の ＜ ＞）なら、表の中で隣の「打てるセル」へ動いて入力を続ける
+    // （＞＝右・行の終わりは次の行の頭／＜＝左・行の頭は前の行の終わり。読み取り専用・チェック・プルダウン等は飛ばす）。
+    // 外から Tab で入って来た時は入力欄へ渡すだけ（動かない）。
+    _onNavSentinel(dir) {
+      const fromEditor = this._edBlurAt && Date.now() - this._edBlurAt < 600 && this._edBlurMode === 'edit';
+      this._edBlurAt = 0;
+      if (!fromEditor) { this._navFocusEditor(); return; }
+      if (this.mode === 'edit') this._commitActive();
+      let r = this.active.r, c = this.active.c, found = null;
+      for (let n = 0, lim = this.ROWS * this.COLS; n < lim; n++) {
+        const nc = this._stepNavCol(r, c, dir);
+        if (nc !== c) c = nc;
+        else { r += dir; if (r < 0 || r >= this.ROWS) break; c = this._edgeNavCol(dir); }
+        if (!this._isReadOnly(r, c) && this._usesTextEditor(c) && !this._isCovered(r, c)) { found = { r, c }; break; }
+      }
+      const t = found || this.active;   // 先が無い（表の端）＝今のセルで入力を続ける
+      this.setActive(t.r, t.c);
+      this._beginEdit(t.r, t.c);
+    }
+    _navFocusEditor() { try { this.editor.focus({ preventScroll: true }); } catch (_) { this.editor.focus(); } }
     _isMultiline(c) { return !!this.colCfg(c).multiline; }
     // アクティブ列に応じて this.editor を input↔textarea に張り替える（非アクティブ側は隠す）。
     _pickEditor(c) {
@@ -2579,7 +2640,19 @@
       this.editor = next; next.style.display = '';
     }
     // 「アクティブ editor を貼り直して nav へ」= 各選択メソッド共通の choke point（張り替えを place より前に）。
-    _syncEditorNav() { this._pickEditor(this.active.c); this.place(this.editor, this.activeTd()); this.toNav(); }
+    _syncEditorNav() { this._pickEditor(this.active.c); this.place(this.editor, this.activeTd()); this.toNav(); this._syncNavKeyboard(); }
+    // タッチ: 選んだだけのセルで出すキーボード。読み取り専用・チェックのセルは打てない＝キーボードを出さない（inputmode=none）。
+    // フォーカスは外さない（iPad の外付けキーボードの矢印でセルを動けるように）。打てるセルは列の inputMode（数字のキーボード等）。
+    // 出す/出さないが変わる時は、付いているフォーカスを一度外す（iOS は付いたままの inputmode の変更をキーボードに映さないことがある）。
+    _syncNavKeyboard() {
+      if (!this._coarse) return;
+      const r = this.active.r, c = this.active.c, el = this.editor;
+      const want = (this._isReadOnly(r, c) || this.colType(c) === 'checkbox') ? 'none' : (this.colCfg(c).inputMode || null);
+      const cur = el.getAttribute('inputmode');
+      if (want === cur) return;
+      if ((want === 'none') !== (cur === 'none') && document.activeElement === el) { try { el.blur(); } catch (_) {} }
+      if (want) el.setAttribute('inputmode', want); else el.removeAttribute('inputmode');
+    }
     // カーソル位置に文字列を差し込む（multiline の改行挿入用）。
     _insertText(s) {
       const el = this.editor, st = el.selectionStart, en = el.selectionEnd, v = el.value;
@@ -2650,6 +2723,7 @@
     toNav() {
       this._closeInlineEditor();   // 編集終了の締めどころ（commit/Esc/blur/選択移動＝全経路がここを通る）
       this.mode = 'nav';
+      if (!this.cursor && this._coarse) { this._edInput.disabled = true; this._edMulti.disabled = true; }   // 選べない表（タッチ）: ＜ ＞ で止まらない（編集に入る時に戻す）
       this.editor.className = (this.editor === this._edMulti) ? 'tg-editor tg-editor-multi nav' : 'tg-editor nav';
       if (this.editor === this._edInput) this.editor.type = 'text';   // type は input 専用（textarea は readonly で throw する）
       this.editor.value = '';
@@ -2667,6 +2741,7 @@
     toEdit(value, caretEnd) {
       if (this._isReadOnly(this.active.r, this.active.c)) { this._roAttempt(this.active.r, this.active.c, value); return; }  // 読み取り専用は編集モードに入らない（知らせだけ）
       const starting = this.mode !== 'edit';
+      if (this._edInput.disabled) { this._edInput.disabled = false; this._edMulti.disabled = false; }
       this._editByClick = false;   // クリックで開いた印（openOnClick の所で立て直す）。キー/F2 で始めた編集は立たない
       if (starting) this.clearCopyMarquee();   // 編集開始でコピー/カットのマーキー（点線）を消す（Excel 流）
       this.mode = 'edit';
@@ -2728,7 +2803,7 @@
     setTouchSelect(v, edge) {
       this.touchSelect = TssGrid._normTouchSelect(v);
       if (edge !== undefined) this.touchSelectEdge = edge === 'hide' ? 'hide' : 'keep';
-      if (this.selhTop) this._placeOverlays();
+      if (this.handles) this._placeHandles();
     }
     _navFocus() { if (this._coarse) { try { this.editor.blur(); } catch (_) {} } else this.editor.focus(); }
     setActive(r, c) {
@@ -3507,14 +3582,14 @@
     _resolveMenuItems(config, s, ctx) {
       const items = [];
       for (const entry of config) {
-        if (typeof entry === 'string') { const it = this._builtinItem(entry, s); if (it) items.push(it); continue; }
+        if (typeof entry === 'string') { const it = this._builtinItem(entry, s); if (it) { it.icon = TssGrid.MENU_ICONS[entry]; items.push(it); } continue; }
         if (!entry || typeof entry !== 'object') continue;
         const hidden = typeof entry.hidden === 'function' ? !!entry.hidden.call(this, s, ctx) : !!entry.hidden;
         if (hidden) continue;
         const name = typeof entry.name === 'function' ? entry.name.call(this, s, ctx) : entry.name;
         if (entry.separator || /^-+$/.test(String(name))) { items.push({ sep: true }); continue; }
         const disabled = typeof entry.disabled === 'function' ? !!entry.disabled.call(this, s, ctx) : !!entry.disabled;
-        const it = { label: String(name == null ? '' : name), disabled, danger: !!entry.danger };
+        const it = { label: String(name == null ? '' : name), disabled, danger: !!entry.danger, icon: entry.icon != null ? entry.icon : TssGrid.MENU_ICONS[entry.key] };   // icon: SVG 文字列 or 1文字（絵文字など）。無ければ組込キーの絵
         if (Array.isArray(entry.submenu)) it.submenu = entry.submenu;
         else if (typeof entry.callback === 'function') it.act = () => { try { entry.callback.call(this, { range: { ...s }, key: entry.key, ctx }); } catch (_) {} };
         // callback 無しで key が組込項目（row_above 等）を指すなら、その組込アクションを実行＝
@@ -3531,21 +3606,36 @@
         if (it.sep) { html += '<div class="tg-sep"></div>'; continue; }
         if (it.submenu) {
           const sub = this._renderMenuItems(this._resolveMenuItems(it.submenu, s, ctx), s, ctx);
-          html += '<div class="tg-mi tg-has-sub' + (it.disabled ? ' tg-disabled' : '') + '">' + TssGrid.esc(it.label) + '<div class="tg-submenu">' + sub + '</div></div>';
+          html += '<div class="tg-mi tg-has-sub' + (it.disabled ? ' tg-disabled' : '') + '">' + this._menuLabelHTML(it) + '<div class="tg-submenu">' + sub + '</div></div>';
         } else {
           const idx = this._menuActions.push(it.act) - 1;
-          html += '<div class="tg-mi' + (it.danger ? ' tg-danger' : '') + (it.disabled ? ' tg-disabled' : '') + '" data-mi="' + idx + '">' + TssGrid.esc(it.label) + '</div>';
+          html += '<div class="tg-mi' + (it.danger ? ' tg-danger' : '') + (it.disabled ? ' tg-disabled' : '') + '" data-mi="' + idx + '">' + this._menuLabelHTML(it) + '</div>';
         }
       }
       return html;
     }
-    _showMenu(x, y) {
+    // 項目の中身: アイコン（無い項目も枠だけ空けて文字の位置を揃える）＋文字。icon は SVG 文字列（そのまま）か文字（エスケープ）。
+    _menuLabelHTML(it) {
+      if (!this.contextMenuIcons) return TssGrid.esc(it.label);
+      const ic = it.icon == null ? '' : String(it.icon);
+      const ico = /^\s*<svg[\s>]/i.test(ic) ? ic : TssGrid.esc(ic);
+      return '<span class="tg-mi-ico" aria-hidden="true">' + ico + '</span><span class="tg-mi-label">' + TssGrid.esc(it.label) + '</span>';
+    }
+    _showMenuCore(x, y) {
       const s = this.rectRange(), ctx = this._menuCtx;
       const config = this._menuConfig || this._defaultMenuKeys();
-      const items = this._resolveMenuItems(config, s, ctx);
+      this._showMenuItems(this._resolveMenuItems(config, s, ctx), x, y);
+    }
+    _showMenu(x, y) {
+      this.menuEl.classList.remove('tg-menu-bar');   // 右クリック・長押しのメニューは縦の一覧（選択の丸のメニューだけ横一列）
+      this._showMenuCore(x, y);
+    }
+    _showMenuItems(items, x, y) {
+      const s = this.rectRange(), ctx = this._menuCtx;
       if (!items.length) { this._hideMenu(); return; }   // 該当項目なし＝メニューを出さない（前回の残りも隠す）
       this._menuActions = [];
       this.menuEl.innerHTML = this._renderMenuItems(items, s, ctx);
+      this.menuEl.classList.toggle('tg-menu-icons', !!this.contextMenuIcons);   // アイコンの並べ方（右クリック=左・丸のバー=上）
       this.menuEl.style.display = 'block';
       // 画面外にはみ出さないよう調整
       const mw = this.menuEl.offsetWidth, mh = this.menuEl.offsetHeight;
@@ -4024,6 +4114,7 @@
           // checkbox は文字入力を無視（Space / クリックでトグル）
         });
         ed.addEventListener('blur', (e) => {
+          this._edBlurAt = Date.now(); this._edBlurMode = this.mode;   // 番兵（iPhone の ＜ ＞）が「入力欄から来た」かを見分ける用
           if (this._customEditor) return;   // カスタムエディタが奪ったフォーカスでの blur は無視
           // inline エディタの補助ポップアップ（<select> 等）へフォーカスが移った blur は編集継続（閉じない）。
           const to = (e && e.relatedTarget) || document.activeElement;
@@ -4126,16 +4217,16 @@
       const _startFill = (e) => { e.preventDefault(); e.stopPropagation(); this.filling = { src: this.rectRange() }; this._fillRow = null; };
       this.fillhandle.addEventListener('mousedown', _startFill);
       this.fillhandle.addEventListener('touchstart', (e) => { this._noCtxUntil = Date.now() + 1000; _startFill(e); }, { passive: false });
-      // 選択ハンドル（天地の丸）: 掴んで縦に範囲を伸縮。掴んだ反対側の角をアンカーにする。
+      // 選択の丸（左上・右下の角）: 引けば反対の角を起点に範囲を伸縮／動かさずに離せばメニュー（_endSelDrag）。
       const _startSel = (which) => (e) => {
         e.preventDefault(); e.stopPropagation();
-        // 掴んだ時の範囲と辺を記録（_selApply が「その辺だけ」動かし、他方の軸の幅は保持する）。
-        // setActive は呼ばない＝選択を1セルに潰さない＆タッチでキーボードを出さない。
+        // 掴んだ時の範囲と角を記録。setActive は呼ばない＝選択を1セルに潰さない＆タッチでキーボードを出さない。
         if (this.select.style.display !== 'none') this._closeSelectQuiet();   // 開いたドロップダウンは値を変えずに閉じてから範囲選択へ
-        this._selDrag = { which, s: this.rectRange() };
+        const t = (e.touches && e.touches[0]) || e;
+        this._selDrag = { which, s: this.rectRange(), x: t.clientX, y: t.clientY, moved: false };
         this._noCtxUntil = Date.now() + 1000;
       };
-      [['top', this.selhTop], ['bot', this.selhBot], ['left', this.selhLeft], ['right', this.selhRight]].forEach(([w, el]) => {
+      [['tl', this.selhTL], ['br', this.selhBR]].forEach(([w, el]) => {
         el.addEventListener('mousedown', _startSel(w));
         el.addEventListener('touchstart', _startSel(w), { passive: false });
       });
@@ -4170,7 +4261,7 @@
       // スクロール時は枠の位置合わせのみ（highlightRange を呼ばない＝ちらつき防止。
       // 枠はネイティブにスクロール追従するので、これは主に固定列の補正用）
       this.wrap.addEventListener('scroll', () => {
-        const td = this.activeTd(); if (!td) return;
+        const td = this.activeTd(); if (!td) { this._placeHandles(); return; }   // つまみは枠の外の層＝スクロールに付いて来ないので毎回置き直す（窓外なら隠す）
         this.place(this.editor, td);
         if (this.select && this.select.style.display !== 'none') this.place(this.select, td);
         this._placeOverlays();
@@ -4202,7 +4293,7 @@
         else if (this.filling) this._fillMoveAt(e.clientX, e.clientY, e.altKey);
       });
       this._on(document, 'mouseup', (e) => {
-        if (this._selDrag) { this._selDrag = null; this._stopAutoScroll(); this._placeOverlays(); return; }   // 離したら端の丸の出し分けをやり直す
+        if (this._selDrag) { this._endSelDrag(); return; }   // 離した: 引いた＝端の丸の出し分けをやり直す／動かさず＝メニュー
         if (this.resizing) { this._resizeEnd(); return; }
         if (this.rowMove) { this._rowMoveEnd(); return; }
         if (this.headerDrag) { this.headerDrag = null; return; }
@@ -4302,7 +4393,7 @@
             this._afterDismissTap(+td.dataset.r, +td.dataset.c);
           }
         }
-        if (this._selDrag) { this._selDrag = null; this._stopAutoScroll(); this._placeOverlays(); return; }   // 離したら端の丸の出し分けをやり直す
+        if (this._selDrag) { this._endSelDrag(); return; }   // 離した: 引いた＝端の丸の出し分けをやり直す／動かさず＝メニュー
         if (this._rowTouch) {
           this._clearRowLp();
           const rt = this._rowTouch; this._rowTouch = null;
@@ -4627,6 +4718,27 @@
     }
   }
 
+  // メニューのアイコン（線画 SVG・色は文字色＝テーマに追従）。組込キーごと。差し替え・追加は TssGrid.MENU_ICONS.xxx = '<svg …>'。
+  TssGrid.MENU_ICONS = (() => {
+    const svg = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+    const trash = svg('<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/>');
+    return {
+      cut: svg('<circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.2 15.8 18 4"/><path d="M15.8 15.8 6 4"/>'),
+      copy: svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/>'),
+      paste: svg('<rect x="5" y="5" width="14" height="16" rx="2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/>'),
+      clear: svg('<path d="M15 4l5 5-9 9H7l-3-3z"/><path d="M10 9l5 5"/><path d="M13 20h7"/>'),
+      fill: svg('<path d="M12 3v11"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/>'),
+      row_above: svg('<rect x="3" y="13" width="18" height="7" rx="1"/><path d="M12 3v7M8.5 6.5h7"/>'),
+      row_below: svg('<rect x="3" y="4" width="18" height="7" rx="1"/><path d="M12 14v7M8.5 17.5h7"/>'),
+      col_left: svg('<rect x="13" y="3" width="7" height="18" rx="1"/><path d="M3 12h7M6.5 8.5v7"/>'),
+      col_right: svg('<rect x="4" y="3" width="7" height="18" rx="1"/><path d="M14 12h7M17.5 8.5v7"/>'),
+      remove_row: trash, remove_col: trash,
+      check_column: svg('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12l3 3 5-6"/>'),
+      uncheck_column: svg('<rect x="4" y="4" width="16" height="16" rx="2"/>'),
+      undo: svg('<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'),
+      redo: svg('<path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/>'),
+    };
+  })();
   TssGrid.CELL_TYPES = ['text', 'number', 'date', 'time', 'dropdown', 'checkbox'];   // columns[c].type に使える型（d.ts の CellType と同じ）
   TssGrid.PENDING = Symbol('tg-pending');   // 遅延ロード(push): 未取得行を表す sentinel。data[r] に入れると _rowHTML が「読込中」行を描く
 

@@ -152,6 +152,9 @@ export interface ColumnDef {
    *  行に入れるとほかの行は外れる（クリック・Space・貼り付け・setValue のどれでも・Undo 一発で戻る）。入っている行をもう一度押しても外れない。
    *  外すのは `setValue(r, c, '')` か `setColumnChecked(c, false)`。フィルタで隠れている行のチェックも外れる。 */
   radio?: boolean;
+  /** false＝スマホ・タブレットで、選んだセルが全部この列の時は選択の丸を出さない（丸のメニュー・フィル■も出ない）。タップで選ぶ・長押しメニューはそのまま。
+   *  ほかの列にまたがる選択では出す。PC には影響しない。読み取ってコピーしたい列は付けずにおく。 */
+  touchSelect?: boolean;
   /** TssFilter: 1つのセルに複数の値がある列（「Java, Python, Vue」）。「値を選択」の一覧を分けた値で並べ、チェックした値のどれかを含む行を残す（OR）。
    *  文字列/正規表現で分ける（分けた値の前後の空白は取る）か、`(value, row) => 配列`。部分一致・前方一致はセルの文字全体に対して。 */
   filterSplit?: string | RegExp | ((value: any, row: any[]) => any[]);
@@ -301,12 +304,13 @@ export interface TssGridOptions {
   theme?: string | TssTheme;
   /** false でフィル完全OFF。詳細指定も可。 */
   fillHandle?: boolean | { direction?: 'vertical' | 'horizontal' | 'both'; autoInsertRow?: boolean };
-  /** タッチ端末の範囲選択ハンドル（選択枠の四辺の丸）。既定 'both'＝四辺（天地=縦・左右=横・斜め=矩形）。
-   *  'vertical'=天地の丸だけ（行方向のみ）／'horizontal'=左右の丸だけ（列方向のみ）／false=出さない。PC（マウス）には出ない。 */
+  /** タッチ端末の範囲選択（選択の左上と右下の角の丸・Excel のスマホ版と同じ）。丸を引けば反対の角を起点に伸縮、タップした時・引いて離した時にメニュー（横一列のバーを選択の上に）
+   *  （切り取り・コピー・貼り付け・内容をクリア・フィル）。「フィル」で右下の丸がフィル■に替わる（引き終わる・ほかをタップで丸に戻る）。
+   *  既定 'both'＝縦横どちらへも（斜めで四角）／'vertical'=行方向だけ／'horizontal'=列方向だけ／false=出さない（タッチでもフィル■を常に出す）。PC（マウス）には出ない。 */
   touchSelect?: boolean | 'both' | 'vertical' | 'horizontal';
-  /** 表の端（先頭/最終行・最初/最後の表示列）に接した選択ハンドルの扱い。既定 'keep'＝残す（端側から縮められる）。
-   *  'hide'＝隠す（その向きへは伸ばせないので丸を減らして誤タッチを防ぐ）。
-   *  どちらでも「端かつその向きが1マス幅」の丸は伸ばすも縮めるも出来ないので常に隠す（1行だけの表の天地・1列だけの表の左右）。 */
+  /** 表の端（先頭/最終行・最初/最後の表示列）に接した角の丸の扱い。既定 'keep'＝残す（端側から縮められる）。
+   *  'hide'＝隠す（もう外へは伸ばせないので丸を減らして誤タッチを防ぐ）。
+   *  どちらでも、端で1マス幅の丸は伸ばすも縮めるも出来ないので常に隠す（例: 左上のセル1つを選んだ時の左上の丸）。 */
   touchSelectEdge?: 'keep' | 'hide';
   /** タッチでのドロップダウン（type:'dropdown'）の開き方。既定 'tap'＝タップ1回で開く。
    *  'secondTap'＝1回目は選択だけ（丸ハンドルで範囲選択できる）・同じセルをもう一度タップで開く（スマホ版 Excel 流）。
@@ -343,6 +347,8 @@ export interface TssGridOptions {
   readOnly?: boolean;
   /** 右クリックメニュー。true=既定 / false=無効 / 配列 or {items} =構成（組込キー文字列＋カスタム MenuItem）。 */
   contextMenu?: boolean | Array<string | MenuItem> | { items: Array<string | MenuItem> };
+  /** メニュー項目のアイコン（既定 true）。右クリックのメニューは左に、タッチの選択の丸のバーは上に出す。false で文字だけ。 */
+  contextMenuIcons?: boolean;
   /** Ctrl+ヘッダで行/列を飛び飛び複数選択（既定 true）。false で Ctrl+クリックは単一選択に戻る。 */
   disjointSelect?: boolean;
   allowInsertRows?: boolean;
@@ -453,6 +459,8 @@ export interface MenuItem {
   disabled?: boolean | ((range: SelectionRange, ctx: MenuContext) => boolean);
   hidden?: boolean | ((range: SelectionRange, ctx: MenuContext) => boolean);
   danger?: boolean; separator?: boolean; key?: string; submenu?: Array<string | MenuItem>;
+  /** アイコン。SVG の文字列（'<svg …>'・色は currentColor 推奨）か、絵文字などの1文字。省くと key が組込キーならその絵・無ければ空き。 */
+  icon?: string;
 }
 
 /** Undo/Redo 履歴。複数グリッドで共有すると Undo タイムラインが繋がる。 */
@@ -703,6 +711,8 @@ export declare class TssGrid {
    *  1文字ずつ: そのまま合えば残す → 半角にして合えば半角で残す → 合わなければ落とす。`allowChars` が無い列は text をそのまま返す。桁数（maxLength）は切らない。
    *  例 `input.addEventListener('input', () => { input.value = TssGrid.allowCharsFilter(col, input.value); })` */
   static allowCharsFilter(col: ColumnDef | null | undefined, text: any): string;
+  /** メニューのアイコン（組込キー → SVG 文字列）。差し替え・追加は `TssGrid.MENU_ICONS.copy = '<svg …>'`。 */
+  static MENU_ICONS: Record<string, string>;
 
   /** HTML エスケープ（`&` `<` `>` `"` `'`）。`format` で HTML/属性を組む時などに（属性値も安全）。 */
   static esc(s: any): string;

@@ -107,7 +107,7 @@
     <tr><th>CSV出力／入力</th><td class="me pt">✅ 出力 / ❌ 入力<span class="sub">出力はコア。入力は貼付で代替／CSVファイルは PapaParse 併用（サンプル）</span></td><td class="ok">✅ / ⚠️<span class="sub">出力native/入力import</span></td><td class="ok">✅ / ✅</td><td class="ok">✅ / ⚠️</td><td class="ok">✅ / ✅</td><td class="ok">✅ / ✅</td></tr>
     <tr><th>ピボット／集計</th><td class="me pt">⚠️ 合計の行<span class="sub">tss-sum / tss-totals（合計・累計）。ピボットは無し</span></td><td class="pt">⚠️<span class="sub">グループ+集計行</span></td><td class="pt">⚠️</td><td class="yen">💲 Enterprise</td><td class="no">❌</td><td class="ok">✅</td></tr>
     <tr><th>グラフ</th><td class="me pt">⚠️ セル内の小さなグラフ<span class="sub">tss-bar / tss-sparkline / tss-heatmap</span></td><td class="no">❌</td><td class="no">❌</td><td class="yen">💲 Enterprise</td><td class="no">❌</td><td class="ok">✅</td></tr>
-    <tr><th>モバイル／タッチ操作</th><td class="me ok">✅ 対応<span class="sub">指で範囲選択（四辺の丸）・長押しメニュー・iPad でも開く自前の一覧</span></td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
+    <tr><th>モバイル／タッチ操作</th><td class="me ok">✅ 対応<span class="sub">指で範囲選択（左上・右下の角の丸・タップでフィル等のメニュー）・長押しメニュー・iPad でも開く自前の一覧</span></td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td><td class="pt">⚠️</td><td class="ok">✅</td></tr>
   </tbody>
 </table>
 </div>
@@ -121,7 +121,7 @@
   <li><b>条件付き書式</b> → <b>対応済み</b>（<code>cellClass</code> で値/行を見てクラス付与＋編集で即追従。見た目は業務側CSS）。Excel風の「ルール設定UI」は将来。</li>
   <li><b>行固定 frozen rows</b> → <b>対応済み</b>（<code>frozenRows</code>。列固定 <code>frozenCols</code> と併用で四隅固定）。</li>
   <li><b>xlsx 入出力（SpreadJS が完全）</b> → CSV出力は対応済み。xlsx は<b>外部ライブラリ連携</b>を想定（本体非搭載の方針）。</li>
-  <li><b>モバイル／タッチ（AG Grid / SpreadJS）</b> → <b>対応済み</b>。選択枠の四辺の丸を指で引いて範囲選択（<code>touchSelect</code>・端の丸の出し分け <code>touchSelectEdge</code>）、長押しで右クリックメニュー、iPad でも確実に開く自前の選択一覧。スマホ向けの「1件ずつカードで入力」は将来候補。</li>
+  <li><b>モバイル／タッチ（AG Grid / SpreadJS）</b> → <b>対応済み</b>。選択の左上・右下の角の丸を指で引いて範囲選択（丸をタップでコピー・フィル等のメニュー）（<code>touchSelect</code>・端の丸の出し分け <code>touchSelectEdge</code>）、長押しで右クリックメニュー、iPad でも確実に開く自前の選択一覧。スマホ向けの「1件ずつカードで入力」は将来候補。</li>
   <li><b>数式（Handsontable / SpreadJS）</b> → Excel の数式エンジンは<b>あえて非搭載の方針</b>。「Excelを再現」ではなく「入力業務を軽く確実に」に集中。業務でよく使う計算は、行の計算列（<code>tss-formula</code>）・合計の行（<code>tss-sum</code> / <code>tss-totals</code>）・累計（<code>tss-running</code>）のプラグインで。</li>
 </ul>
 
