@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+<title>やりたいことから探す — TssGrid</title>
+<meta name="description" content="TssGrid の逆引き。「合計の行を出したい」「誤りのセルを赤くしたい」など、やりたいことから使う機能と最小のコード（JS / React）を探せます。">
+<link rel="canonical" href="https://tssgrid.threestarsoftware.co.jp/recipes.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TssGrid">
+<meta property="og:title" content="やりたいことから探す — TssGrid">
+<meta property="og:description" content="やりたいことから、使う機能と最小のコード（JS / React）を探せる逆引き。">
+<meta property="og:url" content="https://tssgrid.threestarsoftware.co.jp/recipes.html">
+<meta property="og:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://tssgrid.threestarsoftware.co.jp/assets/og.png">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .rc-wrap { max-width: 880px; margin: 0 auto; padding: 26px 22px 80px; }
+  .rc-wrap h1 { font-size: 28px; margin: 4px 0 6px; }
+  .rc-lead { color: var(--ink-2); font-size: 14.5px; line-height: 1.8; margin: 0 0 18px; }
+  /* 検索と表示の切替（上に貼り付く） */
+  .rc-bar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 0 12px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .rc-search { flex: 1 1 260px; position: relative; }
+  .rc-search input { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 10px 40px 10px 14px; border: 1.5px solid var(--line); border-radius: 10px; outline: none; background: var(--bg); color: var(--ink); }
+  .rc-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-l); }
+  .rc-search kbd { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font: 12px var(--mono); color: var(--ink-3); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; background: var(--bg-2); }
+  .rc-fw { display: inline-flex; border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .rc-fw button { font: inherit; font-size: 13px; padding: 8px 14px; border: 0; background: var(--bg); color: var(--ink-2); cursor: pointer; }
+  .rc-fw button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 700; }
+  .rc-count { width: 100%; font-size: 12.5px; color: var(--ink-3); }
+  /* よく探される言葉 */
+  .rc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+  .rc-chips button { font: inherit; font-size: 12.5px; padding: 4px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg-2); color: var(--ink-2); cursor: pointer; }
+  .rc-chips button:hover { border-color: var(--accent); color: var(--accent); }
+  /* 1項目 */
+  .rc-item { border: 1px solid var(--line); border-radius: var(--radius); margin: 16px 0; background: var(--bg); scroll-margin-top: 120px; }
+  .rc-item:target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-l); }
+  .rc-item > summary { list-style: none; cursor: pointer; padding: 14px 18px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .rc-item > summary::-webkit-details-marker { display: none; }
+  .rc-item > summary::before { content: '▸'; color: var(--ink-3); width: 12px; flex: none; transition: transform .15s; }
+  .rc-item[open] > summary::before { transform: rotate(90deg); }
+  .rc-q { font-size: 16.5px; font-weight: 700; color: var(--ink); flex: 1 1 260px; }
+  .rc-a { font-size: 13px; color: var(--ink-2); flex: 1 1 100%; padding-left: 22px; }
+  .rc-a code, .rc-body code { background: var(--bg-3); color: #1d4e7a; padding: 1px 6px; border-radius: 4px; font: .9em var(--mono); }
+  .rc-tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--bg-3); color: var(--ink-2); white-space: nowrap; }
+  .rc-tag.plugin { background: #fff3cd; color: #8a5a00; }
+  .rc-body { padding: 0 18px 16px 40px; }
+  .rc-body p, .rc-body li { font-size: 14px; line-height: 1.8; color: var(--ink-2); }
+  .rc-body ul { padding-left: 1.2em; margin: 8px 0; }
+  .rc-code { position: relative; margin: 10px 0; }
+  .rc-code pre { margin: 0; background: var(--code-bg); color: var(--code-fg); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--mono); }
+  .rc-body .rc-code pre code { background: none; color: inherit; padding: 0; border-radius: 0; font: inherit; }
+  .rc-code .rc-copy { position: absolute; top: 8px; right: 8px; font: 12px var(--sans); padding: 3px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #e6edf3; cursor: pointer; }
+  .rc-code .rc-copy:hover { background: rgba(255,255,255,.18); }
+  .rc-codelabel { font-size: 12px; color: var(--ink-3); margin: 12px 0 -4px; }
+  .rc-links { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 13px; }
+  .rc-links span { color: var(--ink-3); }
+  .rc-links a { color: var(--accent); }
+  .rc-links .rc-self { margin-left: auto; color: var(--ink-3); }
+  .rc-empty { padding: 30px 0; text-align: center; color: var(--ink-2); font-size: 14px; line-height: 1.9; }
+  .rc-empty a { color: var(--accent); }
+  .rc-note { background: var(--accent-l); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--ink-2); line-height: 1.8; margin: 8px 0 0; }
+  @media (max-width: 600px) {
+    .rc-wrap { padding: 18px 16px 60px; }
+    .rc-wrap h1 { font-size: 23px; }
+    .rc-body { padding: 0 14px 14px 14px; }
+    .rc-a { padding-left: 0; }
+    .rc-search kbd { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./"><img class="logo" src="favicon.svg" width="28" height="28" alt="">TssGrid <span class="tag">MIT</span></a>
+    <button class="nav-toggle" aria-label="メニュー">≡</button>
+    <nav class="nav">
+      <a href="./#features">機能</a>
+      <a href="./#demo">デモ</a>
+      <a href="recipes.html">逆引き</a>
+      <a href="docs.html">ガイド</a>
+      <a href="api.html">API</a>
+      <a href="articles/">記事</a>
+      <a class="gh" href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="rc-wrap">
+  <h1>やりたいことから探す</h1>
+  <p class="rc-lead">「合計を出したい」「行を消したい」のように、<b>やりたいこと</b>を入れてください。使う物と、そのまま貼れる最小のコードが出ます。
+    「プラグイン」の印が付いた物は、<code>import</code>（または <code>&lt;script&gt;</code>）を1行足すだけで使えます。</p>
+
+  <div class="rc-bar">
+    <label class="rc-search"><input id="q" type="search" placeholder="例: 合計　行を消す　赤く　プルダウン" autocomplete="off" aria-label="やりたいことを入れる"><kbd>/</kbd></label>
+    <div class="rc-fw" role="group" aria-label="コードの書き方">
+      <button type="button" data-fw="react" aria-pressed="true">React</button>
+      <button type="button" data-fw="vue" aria-pressed="false">Vue</button>
+      <button type="button" data-fw="js" aria-pressed="false">JavaScript</button>
+    </div>
+    <div class="rc-count" id="count"></div>
+  </div>
+  <div class="rc-chips" id="chips"></div>
+  <p class="rc-note" id="vuenote" hidden><b>Vue で書く時の決まりごと</b>: TssGrid のオプションはそのまま属性に書く（<code>invalid-mode="keep"</code>）。
+    <code>true</code>・数・配列・関数は <code>:</code> を付ける（<code>:row-delete="true"</code>）。イベントは <code>@after-change</code>。
+    表の本体は <code>ref="g"</code> を付けて <code>g.value.grid()</code>（<code>onMounted</code> ではもうできている）。
+    後から変えて効くのは <code>:data</code>・<code>:columns</code>・<code>:read-only</code>（配列は中身を直すのでなく、配列ごと差し替える）。</p>
+
+  <div id="list"></div>
+  <div class="rc-empty" id="empty" hidden>
+    見つかりませんでした。別の言い方でも試してみてください（例: 「合計」→「集計」「小計」）。<br>
+    名前で探すなら <a href="api.html">API</a>、通して読むなら <a href="docs.html">ガイド</a>、動く物を見るなら <a href="examples/">サンプル集</a> へ。
+  </div>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div class="f-brand">TssGrid</div>
+    <nav class="f-links">
+      <a href="recipes.html">逆引き</a>
+      <a href="docs.html">ガイド</a>
+      <a href="api.html">API</a>
+      <a href="articles/">記事</a>
+      <a href="https://github.com/threestarsoftware/TssGrid" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.threestarsoftware.co.jp/" target="_blank" rel="noopener">運営会社</a>
+    </nav>
+    <div class="copy">MIT License ・ © <span id="year">2026</span> 株式会社スリースターソフトウェア（ThreeStarSoftware）</div>
+  </div>
+</footer>
+
+<script src="assets/site.js"></script>
+<script>
+/* 逆引きの項目。1項目＝やりたいこと(q)・答えの1行(a)・言い換え(words)・印(tags)・コード(react/js)・補足(notes)・行き先(links)。
+   words は検索だけに使う（ひらがな・カタカナ・全角半角・大文字小文字は区別しない）。 */
+const PKG = '@threestarsoftware/tssgrid';
+const R = [
+{
+  id: 'sum-row', q: '合計の行を出したい（小計・消費税・合計）',
+  a: '同梱プラグイン <code>tss-sum</code>。明細の下に、金額の列がそろった合計の表を作る。',
+  words: '合計 集計 小計 総計 税 消費税 税込 フッター フッタ 合計行 sum total footer 請求書 見積 金額',
+  tags: ['プラグイン'],
+  react: `import { useEffect, useRef } from 'react';
+import { TssGrid } from '${PKG}';
+import { TssGridReact } from '${PKG}/react';
+import TssMerge from '${PKG}/plugins/tss-merge.js';
+import TssSum from '${PKG}/plugins/tss-sum.js';
+import '${PKG}/tssgrid.css';
+
+const columns = [
+  { data: 'item', title: '品名', width: 160 },
+  { data: 'qty', title: '数量', type: 'number', width: 70 },
+  { data: 'price', title: '単価', type: 'number', width: 90 },
+  { data: 'amount', title: '金額', type: 'number', width: 100, readOnly: true },
+];
+
+export function Meisai({ data }) {
+  const ref = useRef(null);      // ref.current = 明細の grid
+  const sumEl = useRef(null);    // 合計の表を置く所
+  useEffect(() => {
+    const sum = TssSum.attach(ref.current, sumEl.current, {
+      TssGrid, TssMerge,          // import で使う時は渡す
+      rows: [
+        { label: '合計', of: r => Number(r[3]) || 0 },   // r[3] = 4列目（金額）
+      ],
+    });
+    return () => sum.detach();
+  }, []);
+  return (
+    <>
+      <TssGridReact ref={ref} columns={columns} data={data} />
+      <div ref={sumEl} />
+    </>
+  );
+}`,
+  vue: `<script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { TssGrid } from '${PKG}';
+import { TssGridVue } from '${PKG}/vue';
+import TssMerge from '${PKG}/plugins/tss-merge.js';
+import TssSum from '${PKG}/plugins/tss-sum.js';
+import '${PKG}/tssgrid.css';
+
+defineProps({ data: Array });
+const columns = [
+  { data: 'item', title: '品名', width: 160 },
+  { data: 'qty', title: '数量', type: 'number', width: 70 },
+  { data: 'price', title: '単価', type: 'number', width: 90 },
+  { data: 'amount', title: '金額', type: 'number', width: 100, readOnly: true },
+];
+const g = ref(null);       // g.value.grid() = 明細の grid
+const sumEl = ref(null);   // 合計の表を置く所
+let sum;
+onMounted(() => {          // ここでは表はもうできている
+  sum = TssSum.attach(g.value.grid(), sumEl.value, {
+    TssGrid, TssMerge,      // import で使う時は渡す
+    rows: [
+      { label: '合計', of: r => Number(r[3]) || 0 },   // r[3] = 4列目（金額）
+    ],
+  });
+});
+onBeforeUnmount(() => sum?.detach());
+<\/script>
+
+<template>
+  <TssGridVue ref="g" :columns="columns" :data="data" />
+  <div ref="sumEl"></div>
+</template>`,
+  js: `<script src="tssgrid.js"><\/script>
+<script src="plugins/tss-merge.js"><\/script>
+<script src="plugins/tss-sum.js"><\/script>
+
+<div id="grid"></div>
+<div id="sum"></div>
+<script>
+  const grid = new TssGrid(document.getElementById('grid'), { columns, data });
+  TssSum.attach(grid, document.getElementById('sum'), {
+    rows: [
+      { label: '小計', of: r => Number(r[3]) || 0 },
+      { label: '消費税（10%）', of: r => Number(r[3]) || 0, after: s => Math.floor(s * 0.1) },
+      { label: '合計', total: v => v[0] + v[1] },   // 上の行の値から
+    ],
+  });
+<\/script>`,
+  notes: [
+    '<code>of(r)</code> の <code>r</code> は<b>列の順の配列</b>（オブジェクトの行でも <code>r[列番号]</code>）。',
+    '合計は<b>最後の列</b>に出る。ほかの列に出すなら <code>valueCol: 3</code>。',
+    '条件付きの合計（税率ごと等）は <code>when: r =&gt; r[4] === \'10%\'</code>。編集・行の追加削除・並べ替え・<code>data</code> の差し替えで自動で計算し直す。',
+    '合計を表でなく数字だけ欲しい時は、下の「列の合計・平均を表の外に出したい」。',
+  ],
+  links: [['動く例: 請求書', 'examples/invoice.html'], ['動く例: 見積', 'examples/quote.html'], ['ガイド: 条件付き合計（tss-sum）', 'docs.html']],
+},
+{
+  id: 'totals', q: '列の合計・平均を表の外に出したい',
+  a: '同梱プラグイン <code>tss-totals</code>。計算だけして、結果を好きな所（見出しの横・ボタンの横など）に出す。',
+  words: '合計 平均 件数 最大 最小 集計 sum avg count min max totals 数字だけ',
+  tags: ['プラグイン'],
+  react: `import { useMemo, useState } from 'react';
+import { TssGridReact } from '${PKG}/react';
+import TssTotals from '${PKG}/plugins/tss-totals.js';
+
+export function List({ columns, data }) {
+  const [total, setTotal] = useState(0);
+  const plugins = useMemo(() => [
+    TssTotals({ columns: { amount: 'sum' }, onTotals: t => setTotal(t.amount) }),
+  ], []);
+  return (
+    <>
+      <TssGridReact columns={columns} data={data} plugins={plugins} />
+      <p>合計 {Number(total).toLocaleString()} 円</p>
+    </>
+  );
+}`,
+  vue: `<script setup>
+import { ref } from 'vue';
+import { TssGridVue } from '${PKG}/vue';
+import TssTotals from '${PKG}/plugins/tss-totals.js';
+
+defineProps({ columns: Array, data: Array });
+const total = ref(0);
+const plugins = [
+  TssTotals({ columns: { amount: 'sum' }, onTotals: t => { total.value = t.amount; } }),
+];
+<\/script>
+
+<template>
+  <TssGridVue :columns="columns" :data="data" :plugins="plugins" />
+  <p>合計 {{ Number(total).toLocaleString() }} 円</p>
+</template>`,
+  js: `<script src="plugins/tss-totals.js"><\/script>
+<script>
+  new TssGrid(el, {
+    columns, data,
+    plugins: [ TssTotals({
+      columns: { amount: 'sum', price: 'avg' },     // data キー → sum / avg / count / min / max
+      onTotals: t => { document.getElementById('total').textContent = t.amount; },
+    }) ],
+  });
+<\/script>`,
+  notes: ['<code>plugins</code> は作る時の値（React では <code>useMemo</code> で1回だけ作る）。', '今の値は <code>grid.getPlugin(\'totals\').getTotals()</code> でも取れる。'],
+  links: [['動く例: 派生列＋合計', 'examples/formula.html']],
+},
+{
+  id: 'row-menu', q: '右クリックで行を足す・消す',
+  a: '<b>何も書かなくても出る</b>（<code>contextMenu</code> は既定で ON）。項目を絞るなら <code>contextMenu</code> に配列。',
+  words: '右クリック メニュー コンテキストメニュー 行 追加 挿入 足す 増やす 削除 消す 列 contextmenu insert delete remove row',
+  tags: ['オプション'],
+  react: `<TssGridReact
+  columns={columns} data={data}
+  contextMenu={[
+    'row_above', 'row_below', 'remove_row',   // 上に行を挿入・下に行を挿入・行を削除
+    '---------',                              // 区切り線
+    'copy', 'paste',
+  ]}
+  allowInsertCols={false} allowDeleteCols={false}   // 列は足させない
+/>`,
+  vue: `<template>
+  <TssGridVue ref="g" :columns="columns" :data="data"
+    :context-menu="['row_above', 'row_below', 'remove_row', '---------', 'copy', 'paste']"
+    :allow-insert-cols="false" :allow-delete-cols="false" />
+</template>
+
+<script setup>
+// ボタンなどから（g.value.grid() = grid 本体）
+function addRow() { const grid = g.value.grid(); grid.insertRow(grid.getSelection().r1, 'below'); }
+<\/script>`,
+  js: `new TssGrid(el, {
+  columns, data,
+  contextMenu: ['row_above', 'row_below', 'remove_row', '---------', 'copy', 'paste'],
+  allowInsertCols: false, allowDeleteCols: false,
+});
+
+// ボタンなどから
+grid.insertRow(grid.getSelection().r1, 'below');   // 選んでいる行の下に1行
+grid.deleteRows(2, 4);                              // 3〜5行目を消す`,
+  notes: ['足す・消すは <code>Ctrl+Z</code> で戻せる。', '自分の項目も足せる: <code>{ name: \'行を複製\', callback({ range }) { … } }</code>。', 'スマホは長押しで同じメニュー。'],
+  links: [['ガイド: 右クリックメニュー', 'docs.html'], ['API: contextMenu', 'api.html#options'], ['動く例: 行の操作', 'examples/rows.html']],
+},
+{
+  id: 'row-delete', q: '行ごとに 🗑 ボタンを付けて消したい',
+  a: '<code>rowDelete: true</code>。右端に 🗑 の列が出て、1クリックでその行を消す。',
+  words: 'ゴミ箱 削除ボタン 行削除 消す ボタン trash delete rowdelete',
+  tags: ['オプション'],
+  react: `<TssGridReact columns={columns} data={data} rowDelete />`,
+  vue: `<!-- true・数・配列は : を付けて書く（row-delete だけだと空の文字になる） -->
+<TssGridVue :columns="columns" :data="data" :row-delete="true" />`,
+  js: `new TssGrid(el, { columns, data, rowDelete: true });`,
+  notes: ['確認は出さない（<code>Ctrl+Z</code> で戻せる）。最後の1行は消さずに中身を空にする。', '🗑 の列は <code>getRows()</code> などには入らない。'],
+  links: [['動く例: 行の削除', 'examples/row-delete.html'], ['API: rowDelete', 'api.html#options']],
+},
+{
+  id: 'invalid-red', q: '誤りのセルを赤くしたい（入力チェック）',
+  a: '列に <code>validator</code>、表に <code>invalidMode: \'keep\'</code>。入れた値は残してセルを赤くし、かざすと理由が出る。',
+  words: '赤 赤く エラー 誤り 間違い 入力チェック チェック 検証 バリデーション バリデータ 必須 validator validation invalid',
+  tags: ['列の設定', 'オプション'],
+  react: `const columns = [
+  { data: 'qty', title: '数量',
+    // OK なら true、だめなら理由の文字（空はOK）
+    validator: v => v === '' || /^\\d+$/.test(v) || '数字で入力してください' },
+];
+
+<TssGridReact columns={columns} data={data} invalidMode="keep" />`,
+  vue: `<script setup>
+const columns = [
+  { data: 'qty', title: '数量',
+    // OK なら true、だめなら理由の文字（空はOK）
+    validator: v => v === '' || /^\\d+$/.test(v) || '数字で入力してください' },
+];
+<\/script>
+
+<template>
+  <TssGridVue :columns="columns" :data="data" invalid-mode="keep" />
+</template>`,
+  js: `new TssGrid(el, {
+  columns: [
+    { data: 'qty', title: '数量',
+      validator: v => v === '' || /^\\d+$/.test(v) || '数字で入力してください' },
+  ],
+  data,
+  invalidMode: 'keep',   // 既定 'revert' は「元の値に戻す」
+});`,
+  notes: ['入力・貼り付け・フィルのどれでも同じチェックが効く。', '直すと赤は消える。', '<code>type: \'number\'</code>・<code>\'date\'</code> は型のチェックが先に効く。'],
+  links: [['動く例: 入力チェック', 'examples/validation.html'], ['動く例: メッセージの一元管理', 'examples/messages.html'], ['API: validator', 'api.html#columns']],
+},
+{
+  id: 'validate-all', q: '保存の前にまとめてチェックしたい・サーバーの誤りを出したい',
+  a: '<code>grid.validateAll()</code> で全部のセルを調べて赤くする。サーバーから返った誤りは <code>grid.setInvalid([...])</code>。',
+  words: '保存 保存前 一括 まとめて チェック 検証 サーバー エラー 誤り 赤 validateall setinvalid getinvalidcells',
+  tags: ['メソッド'],
+  react: `const ref = useRef(null);
+
+function onSave() {
+  const errs = ref.current.validateAll();   // 触っていないセルも調べて赤く
+  if (errs.length) { alert(errs[0].message); return; }
+  save(ref.current.getRows());
+}
+
+// サーバーが返した誤り
+ref.current.setInvalid([{ r: 0, c: 'qty', message: '在庫が足りません' }]);
+
+<TssGridReact ref={ref} columns={columns} data={data} invalidMode="keep" />`,
+  vue: `<script setup>
+import { ref } from 'vue';
+const g = ref(null);
+
+function onSave() {
+  const grid = g.value.grid();
+  const errs = grid.validateAll();   // 触っていないセルも調べて赤く
+  if (errs.length) { alert(errs[0].message); return; }
+  save(grid.getRows());
+}
+// サーバーが返した誤り
+// g.value.grid().setInvalid([{ r: 0, c: 'qty', message: '在庫が足りません' }]);
+<\/script>
+
+<template>
+  <TssGridVue ref="g" :columns="columns" :data="data" invalid-mode="keep" />
+  <button @click="onSave">保存</button>
+</template>`,
+  js: `document.getElementById('save').onclick = () => {
+  const errs = grid.validateAll();
+  if (errs.length) { alert(errs[0].message); return; }
+  save(grid.getRows());
+};
+grid.setInvalid([{ r: 0, c: 'qty', message: '在庫が足りません' }]);
+grid.clearInvalid();   // 全部消す`,
+  notes: ['空の行（<code>minSpareRows</code>）を誤りにしないよう、validator は「空なら true」と書く。'],
+  links: [['動く例: 入力チェック', 'examples/validation.html'], ['API: メソッド', 'api.html#methods']],
+},
+{
+  id: 'dropdown', q: 'プルダウンから選ばせたい',
+  a: '列に <code>type: \'dropdown\'</code> と <code>options</code>。',
+  words: 'プルダウン ドロップダウン 選択 リスト セレクト 一覧から選ぶ コード 名前 dropdown select options',
+  tags: ['列の設定'],
+  react: `const columns = [
+  { data: 'status', title: '状態', type: 'dropdown', options: ['未着手', '進行中', '完了'] },
+  // 保存はコード・表示は名前
+  { data: 'dept', title: '部署', type: 'dropdown',
+    options: [{ value: 'D01', label: '営業' }, { value: 'D02', label: '開発' }] },
+];
+<TssGridReact columns={columns} data={data} />`,
+  vue: `<script setup>
+const columns = [
+  { data: 'status', title: '状態', type: 'dropdown', options: ['未着手', '進行中', '完了'] },
+  // 保存はコード・表示は名前
+  { data: 'dept', title: '部署', type: 'dropdown',
+    options: [{ value: 'D01', label: '営業' }, { value: 'D02', label: '開発' }] },
+];
+<\/script>
+
+<template>
+  <TssGridVue :columns="columns" :data="data" />
+</template>`,
+  js: `columns: [
+  { data: 'status', title: '状態', type: 'dropdown', options: ['未着手', '進行中', '完了'] },
+]`,
+  notes: ['空の選択肢は自動で先頭に付く（<code>options</code> に <code>\'\'</code> を入れない）。', '行ごとに選択肢を変えるなら <code>options</code> を関数に。', '打って絞り込みたいなら <code>tss-autocomplete</code>、2段・3段なら <code>tss-cascade</code>。'],
+  links: [['動く例: 連動プルダウン', 'examples/dependent-dropdown.html'], ['動く例: 多段プルダウン', 'examples/cascade-dropdown.html'], ['動く例: 打って絞る', 'examples/autocomplete.html']],
+},
+{
+  id: 'calendar', q: 'カレンダーで日付を選ばせたい（休日も出したい）',
+  a: 'ふつうは列に <code>type: \'date\'</code>。会社の休日を色付けしたいなら同梱プラグイン <code>tss-calendar</code>。',
+  words: 'カレンダー 日付 日にち 休日 祝日 土日 ピッカー date calendar picker',
+  tags: ['列の設定', 'プラグイン'],
+  react: `import TssCalendar from '${PKG}/plugins/tss-calendar.js';
+import '${PKG}/plugins/tss-calendar.css';
+
+const cal = TssCalendar({ holidays: { '2026-01-01': '元日' } });   // 1回だけ作る
+const columns = [
+  { data: 'day', title: '日付', type: 'date', editor: cal, format: 'yyyy/mm/dd' },
+];
+<TssGridReact columns={columns} data={data} />`,
+  vue: `<script setup>
+import TssCalendar from '${PKG}/plugins/tss-calendar.js';
+import '${PKG}/plugins/tss-calendar.css';
+
+const cal = TssCalendar({ holidays: { '2026-01-01': '元日' } });
+const columns = [
+  { data: 'day', title: '日付', type: 'date', editor: cal, format: 'yyyy/mm/dd' },
+];
+<\/script>
+
+<template>
+  <TssGridVue :columns="columns" :data="data" />
+</template>`,
+  js: `<link rel="stylesheet" href="plugins/tss-calendar.css">
+<script src="plugins/tss-calendar.js"><\/script>
+<script>
+  const cal = TssCalendar({ holidays: { '2026-01-01': '元日' } });
+  new TssGrid(el, { columns: [{ data: 'day', type: 'date', editor: cal, format: 'yyyy/mm/dd' }], data });
+<\/script>`,
+  notes: ['保存の値はいつも <code>2026-01-05</code> の形。セルに <code>1/5</code> と打っても入る。'],
+  links: [['動く例: カレンダー', 'examples/calendar.html'], ['動く例: 期間', 'examples/calendar-range.html']],
+},
+{
+  id: 'readonly', q: '一部のセル・列を入力できなくしたい',
+  a: '列に <code>readOnly: true</code>（行ごとに変えるなら関数）。表全体は <code>readOnly</code>。',
+  words: '読み取り専用 編集不可 入力不可 ロック 変えられない 灰色 readonly lock',
+  tags: ['列の設定', 'オプション'],
+  react: `const columns = [
+  { data: 'code', title: 'コード', readOnly: true },
+  // 行ごとに: 承認済みの行だけ変えられない
+  { data: 'memo', title: 'メモ', readOnly: (value, { r }) => rows[r]?.state === 'approved' },
+];
+<TssGridReact columns={columns} data={data} readOnly={locked} />   {/* 表全体（後から変えても効く） */}`,
+  vue: `<script setup>
+const props = defineProps({ data: Array, locked: Boolean });
+const columns = [
+  { data: 'code', title: 'コード', readOnly: true },
+  // 行ごとに: 承認済みの行だけ変えられない
+  { data: 'memo', title: 'メモ', readOnly: (value, { r }) => props.data[r]?.state === 'approved' },
+];
+<\/script>
+
+<template>
+  <!-- 表全体（後から変えても効く） -->
+  <TssGridVue :columns="columns" :data="data" :read-only="locked" />
+</template>`,
+  js: `columns: [
+  { data: 'code', title: 'コード', readOnly: true },
+],
+// 表全体
+grid.setReadOnly(true);`,
+  notes: ['読み取り専用のセルは灰色。貼り付け・フィル・Delete でも変わらない。'],
+  links: [['ガイド: 読み取り専用', 'docs.html'], ['API: readOnly', 'api.html#columns']],
+},
+{
+  id: 'after-change', q: '値が変わった時に保存・計算したい',
+  a: '<code>onAfterChange(changes, source)</code>。入力・貼り付け・フィル・Delete・Undo のどれでも呼ばれる。',
+  words: '変更 変わった 編集 イベント 保存 自動保存 再計算 計算 onchange change afterchange',
+  tags: ['イベント'],
+  react: `<TssGridReact
+  columns={columns} data={data}
+  onAfterChange={(changes, source) => {
+    // changes = [{ r, c, oldValue, newValue }]、source = 'edit' | 'paste' | 'fill' | 'delete' | 'undo' | 'redo'
+    setDirty(true);
+  }}
+/>`,
+  vue: `<script setup>
+import { ref } from 'vue';
+const dirty = ref(false);
+// changes = [{ r, c, oldValue, newValue }]、source = 'edit' | 'paste' | 'fill' | 'delete' | 'undo' | 'redo'
+function onChange(changes, source) { dirty.value = true; }
+<\/script>
+
+<template>
+  <TssGridVue :columns="columns" :data="data" @after-change="onChange" />
+</template>`,
+  js: `new TssGrid(el, {
+  columns, data,
+  onAfterChange(changes, source) {
+    console.log(changes, source);
+  },
+});`,
+  notes: ['確定の前に値を直す・止めるなら <code>onBeforeChange</code>（<code>return false</code> で取り消し）。', '行の中で掛け算などの計算列なら <code>tss-formula</code>。', 'React のインライン関数でも、いつも最新の関数が呼ばれる。'],
+  links: [['動く例: 計算列', 'examples/formula.html'], ['API: イベント', 'api.html#events']],
+},
+{
+  id: 'get-rows', q: '表の値を取り出したい（保存・送信）',
+  a: '<code>grid.getRows()</code>（オブジェクトの配列）か <code>grid.getData()</code>（配列の配列）。',
+  words: '取り出す 取得 値 データ 保存 送信 json 配列 getrows getdata 出力',
+  tags: ['メソッド'],
+  react: `const ref = useRef(null);
+// ref.current が grid 本体
+const rows = ref.current.getRows();   // [{ item: 'りんご', qty: '3' }, ...]
+<TssGridReact ref={ref} columns={columns} data={data} />`,
+  vue: `<script setup>
+import { ref } from 'vue';
+const g = ref(null);
+// g.value.grid() が grid 本体
+function onSave() {
+  const rows = g.value.grid().getRows();   // [{ item: 'りんご', qty: '3' }, ...]
+}
+<\/script>
+
+<template>
+  <TssGridVue ref="g" :columns="columns" :data="data" />
+</template>`,
+  js: `const rows = grid.getRows();
+fetch('/api/save', { method: 'POST', body: JSON.stringify(rows) });`,
+  notes: ['セルの値はいつも<b>文字</b>（数字の列も <code>\'3\'</code>）。数に直すのは <code>Number(v)</code>。', '直した所だけ欲しいなら <code>trackChanges: true</code> と <code>getChangedRows()</code>。', 'CSV は <code>grid.toCSV()</code>。'],
+  links: [['動く例: データの入出力', 'examples/data-io.html'], ['API: メソッド', 'api.html#methods']],
+},
+{
+  id: 'sort-filter', q: '見出しをクリックして並べ替え・絞り込みしたい',
+  a: '同梱プラグイン <code>tss-sort</code>（▲▼）と <code>tss-filter</code>（漏斗・Excel 風の絞り込み）。',
+  words: '並べ替え ソート 昇順 降順 絞り込み フィルタ フィルター 検索 見出し ヘッダ sort filter',
+  tags: ['プラグイン'],
+  react: `import { useMemo } from 'react';
+import TssSort from '${PKG}/plugins/tss-sort.js';
+import TssFilter from '${PKG}/plugins/tss-filter.js';
+import '${PKG}/plugins/tss-sort.css';
+import '${PKG}/plugins/tss-filter.css';
+
+const plugins = useMemo(() => [TssSort.plugin(), TssFilter.plugin()], []);
+<TssGridReact columns={columns} data={data} plugins={plugins} />`,
+  vue: `<script setup>
+import TssSort from '${PKG}/plugins/tss-sort.js';
+import TssFilter from '${PKG}/plugins/tss-filter.js';
+import '${PKG}/plugins/tss-sort.css';
+import '${PKG}/plugins/tss-filter.css';
+
+const plugins = [TssSort.plugin(), TssFilter.plugin()];
+<\/script>
+
+<template>
+  <TssGridVue :columns="columns" :data="data" :plugins="plugins" />
+</template>`,
+  js: `<link rel="stylesheet" href="plugins/tss-sort.css">
+<link rel="stylesheet" href="plugins/tss-filter.css">
+<script src="plugins/tss-sort.js"><\/script>
+<script src="plugins/tss-filter.js"><\/script>
+<script>
+  new TssGrid(el, { columns, data, plugins: [TssSort.plugin(), TssFilter.plugin()] });
+<\/script>`,
+  notes: ['対象の列を絞る: <code>TssSort.plugin({ columns: [\'date\'] })</code>。', 'ボタンなどから: <code>grid.sortBy(\'date\', \'desc\')</code>・<code>grid.filter(…)</code>。'],
+  links: [['動く例: 並べ替え＋絞り込み', 'examples/sort-filter.html'], ['動く例: 絞り込みの画面', 'examples/filter-ui.html']],
+},
+{
+  id: 'input-bg', q: '入力できるセルに色を付けたい',
+  a: 'CSS 変数 <code>--tg-input-bg</code> を1行。読み取り専用でないセルがその色になる。',
+  words: '色 背景 背景色 入力欄 入れる所 クリーム 黄色 目立たせる css テーマ input',
+  tags: ['CSS'],
+  react: `/* App.css など（どこか1か所） */
+:root { --tg-input-bg: #fff3cd; }`,
+  vue: `<!-- App.vue など（どこか1か所・scoped を付けない） -->
+<style>
+:root { --tg-input-bg: #fff3cd; }
+</style>`,
+  js: `<style>
+  :root { --tg-input-bg: #fff3cd; }
+</style>`,
+  notes: ['選択中・読み取り専用・誤り（赤）・<code>cellClass</code> の色が優先。', 'チェック・ラジオの列は塗らない（列ごとに <code>inputBg: true / false</code>）。'],
+  links: [['動く例: テーマ', 'examples/theme.html'], ['ガイド: テーマ / 見た目', 'docs.html']],
+},
+];
+
+const CHIPS = ['合計', '行を消す', '行を足す', '赤く', '保存', 'プルダウン', 'カレンダー', '入力できなく', '並べ替え'];
+
+// ---- 検索: ひらがな/カタカナ・全角/半角・大文字/小文字を同じに。スペース区切りは全部含む（AND）
+const norm = s => String(s).normalize('NFKC').toLowerCase()
+  .replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60))
+  .replace(/<[^>]+>/g, ' ');
+R.forEach(x => { x._hay = norm([x.q, x.a, x.words, x.tags.join(' '), (x.notes || []).join(' ')].join(' ')); x._title = norm(x.q + ' ' + x.words); });
+
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+const FWLABEL = { react: 'React（公式アダプタ）', vue: 'Vue 3（公式アダプタ）', js: 'JavaScript（&lt;script&gt; で読む）' };
+let fw = 'react';
+try { const v = localStorage.getItem('tg-recipes-fw'); if (FWLABEL[v]) fw = v; } catch (_) {}
+
+function itemHTML(x) {
+  const tags = x.tags.map(t => '<span class="rc-tag' + (t === 'プラグイン' ? ' plugin' : '') + '">' + esc(t) + '</span>').join('');
+  const code = x[fw] || x.js;
+  const notes = (x.notes || []).map(n => '<li>' + n + '</li>').join('');
+  const links = (x.links || []).map(([t, h]) => '<a href="' + esc(h) + '">' + esc(t) + '</a>').join('');
+  return '<details class="rc-item" id="' + x.id + '"><summary><span class="rc-q">' + esc(x.q) + '</span>' + tags +
+    '<span class="rc-a">' + x.a + '</span></summary><div class="rc-body">' +
+    '<div class="rc-codelabel">' + FWLABEL[fw] + '</div>' +
+    '<div class="rc-code"><button type="button" class="rc-copy">コピー</button><pre><code>' + esc(code) + '</code></pre></div>' +
+    (notes ? '<ul>' + notes + '</ul>' : '') +
+    '<div class="rc-links"><span>関連</span>' + links + '<a class="rc-self" href="#' + x.id + '">この項目へのリンク</a></div>' +
+    '</div></details>';
+}
+
+const $list = document.getElementById('list'), $q = document.getElementById('q'), $count = document.getElementById('count'), $empty = document.getElementById('empty');
+function render() {
+  const open = new Set([...document.querySelectorAll('.rc-item[open]')].map(d => d.id));
+  const terms = norm($q.value).split(/\s+/).filter(Boolean);
+  // 「行を消す」のような言い方は、てにをは・「したい」で切って全部含めば当たりにする（行＋消す）
+  const hit = (x, t) => x._hay.includes(t) || (() => { const p = t.replace(/(したい|たい|する|して)$/, '').split(/[をがにではへとの]/).filter(s => s.length > 0); return p.length > 1 && p.every(s => x._hay.includes(s)); })();
+  let hits = R.filter(x => terms.every(t => hit(x, t)));
+  // 題名・言い換えに当たった物を先に
+  if (terms.length) hits = hits.map((x, i) => [x, terms.filter(t => x._title.includes(t) || hit({ _hay: x._title }, t)).length, i]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).map(a => a[0]);
+  $list.innerHTML = hits.map(itemHTML).join('');
+  hits.forEach((x, i) => { const d = document.getElementById(x.id); if (open.has(x.id) || (terms.length && i === 0) || location.hash === '#' + x.id) d.open = true; });
+  document.getElementById('vuenote').hidden = fw !== 'vue';
+  $count.textContent = terms.length ? hits.length + ' 件' : '全 ' + R.length + ' 件';
+  $empty.hidden = hits.length > 0;
+}
+
+$q.addEventListener('input', () => { render(); try { history.replaceState(null, '', $q.value ? '?q=' + encodeURIComponent($q.value) : location.pathname); } catch (_) {} });
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement !== $q && !/input|textarea/i.test(document.activeElement.tagName)) { e.preventDefault(); $q.focus(); $q.select(); }
+  if (e.key === 'Escape' && document.activeElement === $q) { $q.value = ''; render(); }
+});
+document.querySelectorAll('.rc-fw button').forEach(b => {
+  b.setAttribute('aria-pressed', b.dataset.fw === fw ? 'true' : 'false');
+  b.addEventListener('click', () => {
+    fw = b.dataset.fw; try { localStorage.setItem('tg-recipes-fw', fw); } catch (_) {}
+    document.querySelectorAll('.rc-fw button').forEach(o => o.setAttribute('aria-pressed', o === b ? 'true' : 'false'));
+    render();
+  });
+});
+$list.addEventListener('click', e => {
+  const b = e.target.closest('.rc-copy'); if (!b) return;
+  const text = b.nextElementSibling.textContent;
+  const done = () => { b.textContent = 'コピーしました'; setTimeout(() => { b.textContent = 'コピー'; }, 1500); };
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => {});
+});
+document.getElementById('chips').innerHTML = CHIPS.map(c => '<button type="button">' + esc(c) + '</button>').join('');
+document.getElementById('chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $q.value = b.textContent; $q.dispatchEvent(new Event('input')); $q.focus(); });
+
+const q0 = new URLSearchParams(location.search).get('q'); if (q0) $q.value = q0;
+render();
+if (location.hash) { const t = document.querySelector(location.hash); if (t) t.scrollIntoView(); }
+</script>
+</body>
+</html>
