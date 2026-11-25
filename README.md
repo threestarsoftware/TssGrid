@@ -1038,6 +1038,15 @@ onAfterChange: (changes) => {
 | ② 作る色 | 選択中・hover・アイコン・読み取り専用の灰色・**表の外に開く小窓**（カレンダー・プルダウン・フィルタ等） | `--tg-selhdr-bg` `--tg-sel-bg` `--tg-header-accent` `--tg-pop-bg` … |
 | ③ 部品 | 表本体と同梱プラグイン。② の変数だけを見る（固定の色を持たない） | |
 
+**入れる所に色を付ける**: `--tg-input-bg` を指定すると、読み取り専用でないセルの背景がその色になります（既定は未指定＝`--tg-cell-bg`）。「クリーム色＝ここに入れる」を全部の表で揃える時に、テーマか `:root` に1行。
+
+```css
+:root { --tg-input-bg: #fff3cd; }
+```
+
+- 選択中・編集中・読み取り専用・検証 NG・`cellClass`/`rowClass`/`cellStyle` の色は、これより優先されます（セルの背景を変数にしただけで、強さの順番は今までと同じ）。
+- 塗らない所: チェック・ラジオの列（行を選ぶ列。`columns[c].inputBg: true` で塗る・ほかの列も `inputBg: false` で外せる）、カーソルの無い表（`cursor: false`＝打てない。見せるだけの表も）。
+
 **同梱テーマ**（`themes/`）: `light`（既定に近い・自分のテーマを作る時のひな形）/ `navy` / `black` / `green` / `wine`（臙脂）/ `dark`。ファイルは ① の色を数行書いただけなので、**コピーして色を変えれば自社のテーマ**になります。
 
 ```html
@@ -1121,7 +1130,7 @@ new TssGrid(el, { columns: [{ data: 'id', hidden: true }, …] });   // 列定�
 | `resizeCols` / `resizeRows` | `boolean` | `true` | 列幅/行高のリサイズ可否（全体）。`false` でグリップを出さない |
 | `cursor` | `boolean` | `true` | 選択カーソル（青の選択枠/範囲/セルハイライト/フィルハンドル）を表示するか。`false` で**表示専用グリッド向けに非表示**＋セルカーソルも既定に（内部の選択は保持＝コピーは可）。合計表・サマリ等に。`readOnly:true` と併用すると読み取り専用の灰色を付けず普通の色で表示（見せるだけの表）。隠れた入力欄は Tab や iPhone のキーボードの ＜ ＞ の順に入れない（タッチでは編集していない間 `disabled`） |
 | `columns[c].width` | `number` | — | 列ごとの初期幅(px)。**列定義に同居するので並べ替え・コピペで幅が一緒に動く**（`colWidths` より壊れにくい）。実行時リサイズ・明示 `colWidths` があればそちらが優先 |
-| `columns[c].flex` | `boolean\|number` | — | **この列で表の幅を吸収**（置き場の幅に合わせて伸び縮み）。`width` が出発点・`minWidth`〜`maxWidth` の範囲で、縮めて最小に達したらそこからは横スクロール。置き場の幅が変わると自動で配り直す。数値は flex 列が複数の時の配分の重み。flex 列がある表では `stretchH` より優先。例 `{ data:'reason', width:90, flex:true, minWidth:60, maxWidth:90 }` |
+| `columns[c].flex` | `boolean\|number` | — | **この列で表の幅を吸収**（置き場の幅に合わせて伸び縮み）。`width` が出発点・`minWidth`〜`maxWidth` の範囲で、縮めて最小に達したらそこからは横スクロール。置き場の幅が変わると自動で配り直す。数値は flex 列が複数の時の配分の重み。flex 列がある表では `stretchH` より優先（flex 列が全部 `maxWidth` に当たって余った幅は、`stretchH` があれば flex でない列に回す）。例 `{ data:'reason', width:90, flex:true, minWidth:60, maxWidth:90 }` |
 | `columns[c].minWidth` / `maxWidth` | `number` | — | 列の最小／最大の幅(px)。flex の伸び縮み・ドラッグ・自動調整・`setColWidth` で効く |
 | `columns[c].resizable` | `boolean` | `true` | 列ごとの幅ロック。`false` でその列だけリサイズ禁止 |
 | `stretchH` | `'none'\|'last'\|'all'` | `'none'` | 列を枠幅まで伸ばす。`'last'`=余りを最終列へ / `'all'`=全列で配分（`width` 指定時に効く・隠し列は対象外）。決めた列で伸び縮みさせたい時は列の `flex` |

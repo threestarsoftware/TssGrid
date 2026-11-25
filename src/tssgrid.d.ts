@@ -86,7 +86,8 @@ export interface ColumnDef {
   /** 列ごとの初期幅(px)。列定義に同居＝並べ替え/コピペで幅が追従。 */
   width?: number;
   /** この列で表の幅を吸収する（置き場の幅に合わせて伸び縮み）。`width` が出発点で、`minWidth`〜`maxWidth` の範囲。
-   *  縮めて最小に達したらそこからは横スクロール。数値は配分の重み（flex 列が複数の時）。flex 列がある表では stretchH より優先。 */
+   *  縮めて最小に達したらそこからは横スクロール。数値は配分の重み（flex 列が複数の時）。flex 列がある表では stretchH より優先。
+   *  flex 列が全部 maxWidth に当たって余った幅は、stretchH があれば flex でない列に回す（'last'=最後の列／'all'=均等）。 */
   flex?: boolean | number;
   /** 列の最小幅(px)。flex の伸び縮み・ドラッグ・自動調整で効く。 */
   minWidth?: number;
@@ -155,6 +156,9 @@ export interface ColumnDef {
   /** false＝スマホ・タブレットで、選んだセルが全部この列の時は選択の丸を出さない（丸のメニュー・フィル■も出ない）。タップで選ぶ・長押しメニューはそのまま。
    *  ほかの列にまたがる選択では出す。PC には影響しない。読み取ってコピーしたい列は付けずにおく。 */
   touchSelect?: boolean;
+  /** 入れる所の色（CSS 変数 `--tg-input-bg`）をこの列に塗るか。既定はチェック・ラジオの列（行を選ぶ列）だけ塗らない。
+   *  false＝塗らない／true＝チェックの列でも塗る。読み取り専用のセルはどちらでも読み取り専用の色。 */
+  inputBg?: boolean;
   /** TssFilter: 1つのセルに複数の値がある列（「Java, Python, Vue」）。「値を選択」の一覧を分けた値で並べ、チェックした値のどれかを含む行を残す（OR）。
    *  文字列/正規表現で分ける（分けた値の前後の空白は取る）か、`(value, row) => 配列`。部分一致・前方一致はセルの文字全体に対して。 */
   filterSplit?: string | RegExp | ((value: any, row: any[]) => any[]);

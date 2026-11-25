@@ -1983,6 +1983,7 @@
         if (this._isHidden(c)) cls.push('tg-hidden');   // 非表示列
         if (this.colType(c) === 'dropdown') cls.push('tg-dropdown');  // ▾ キャレット表示用
         if (this.colType(c) === 'number') cls.push('tg-num');  // 数値は右寄せ
+        if (!this._inputBgCol(c)) cls.push('tg-no-input-bg');   // --tg-input-bg（入れる所の色）を塗らない列（チェック・ラジオ／inputBg:false）
         if (_tcD && _tcD[c]) cls.push('tg-changed');   // 変更の追跡: 保存していない直し
         if (this._isReadOnly(r, c)) cls.push('tg-readonly');  // 読み取り専用（淡色＋カーソル既定）
         if (this.colCfg(c).wordWrap) cls.push('tg-wrap-cell');  // 列単位の折り返し
@@ -2211,6 +2212,8 @@
       }
     }
     // ヘッダに全選択チェックを出す列か（checkbox 列・headerCheckbox:false でない・radio でない＝1つしか選べない列に全選択は無い）
+    // 入れる所の色（--tg-input-bg）を塗る列か: columns[c].inputBg があればそれ、無ければチェック・ラジオの列（行を選ぶ列＝入力欄ではない）以外
+    _inputBgCol(c) { const v = this.colCfg(c).inputBg; return v != null ? !!v : this.colType(c) !== 'checkbox'; }
     _hasHeadCb(c) { const cfg = this.colCfg(c); return this.colType(c) === 'checkbox' && cfg.headerCheckbox !== false && !cfg.radio; }
     // radio 列（checkbox 列の radio:true）: 行 r にチェックが入ったら、ほかの行のチェックを外す（同じ changes に積む＝Undo 一発で戻る）。
     // フィルタで隠れている行は表に無い（r で書けない）ので直接外す（その分は Undo・onAfterChange に出ない）。
@@ -2284,6 +2287,16 @@
             rem -= used;
             if (next.length === act.length) break;
             act = next;
+          }
+          // flex 列が全部 maxWidth に当たって余った幅は stretchH へ（flex でない見えている列に 'last'=最後の列／'all'=均等）。
+          // 以前は捨てていた＝width:'100%' の枠の右に余りが空いた（jimu の休暇申請: 理由 flex・maxWidth 90 ＋ stretchH:'last'）
+          if (rem >= 1 && this.stretchH && this.stretchH !== 'none') {
+            const rest = vis.filter(c => !this.colCfg(c).flex), ex = Math.floor(rem);
+            if (rest.length) {
+              const last = rest[rest.length - 1];
+              if (this.stretchH === 'last') widths[last] += ex;
+              else { const add = Math.floor(ex / rest.length); for (const c of rest) widths[c] += add; widths[last] += ex - add * rest.length; }
+            }
           }
           tableW = base + widths.reduce((a, b) => a + b, 0);
         }

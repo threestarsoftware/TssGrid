@@ -197,7 +197,11 @@
 .tssgrid.tg-head-wrap .tg-table thead th { white-space: normal; line-height: 1.3; padding-top: 3px; padding-bottom: 3px; overflow-wrap: anywhere; }
 /* ヘッダはクリックで行/列選択（角は全選択） */
 .tssgrid .tg-table thead th[data-c], .tssgrid .tg-table th.rowhead[data-r], .tssgrid .tg-table th.corner { cursor: pointer; }
-.tssgrid .tg-table td { background: var(--tg-cell-bg); color: var(--tg-cell-fg); cursor: cell; scroll-margin-top: var(--tg-thead-h, 0px); }   /* キーボード移動の scrollIntoView が sticky ヘッダ下に潜らないよう、ヘッダ高ぶん余白を確保（--tg-thead-h は buildTable が設定） */
+.tssgrid .tg-table td { background: var(--tg-input-bg, var(--tg-cell-bg)); color: var(--tg-cell-fg); cursor: cell; scroll-margin-top: var(--tg-thead-h, 0px); }   /* キーボード移動の scrollIntoView が sticky ヘッダ下に潜らないよう、ヘッダ高ぶん余白を確保（--tg-thead-h は buildTable が設定） */
+/* --tg-input-bg＝入れる所（読み取り専用でないセル）の背景。既定は未指定＝--tg-cell-bg（見た目は変わらない）。
+   上の1行の背景を変数にしただけ（セレクタは足していない）＝選択(.sel)・読み取り専用・検証NG・cellClass/rowClass/cellStyle の色は今までどおりこれより勝つ。
+   塗らない所は変数を白に戻すだけ: チェック・ラジオの列（columns[c].inputBg で上書き）・カーソルの無い表（打てない＝見せるだけの表も） */
+.tssgrid .tg-table td.tg-no-input-bg, .tssgrid.tg-no-cursor .tg-table td { --tg-input-bg: var(--tg-cell-bg); }
 /* 表示専用（cursor:false）: セルのカーソルを既定に（選択枠・ハイライトは JS 側で非表示） */
 .tssgrid.tg-no-cursor .tg-table td { cursor: default; }
 /* 見せるだけの表（cursor:false＋readOnly:true）: 読み取り専用の灰色を普通の色に（変数だけ差し替え＝cellClass/cellStyle の色付けは従来どおり効く） */
