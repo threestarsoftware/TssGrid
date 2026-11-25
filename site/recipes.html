@@ -332,6 +332,44 @@ grid.deleteRows(2, 4);                              // 3〜5行目を消す`,
   links: [['動く例: 行の削除', 'examples/row-delete.html'], ['API: rowDelete', 'api.html#options']],
 },
 {
+  id: 'row-reorder', q: '行をドラッグで並べ替えたい',
+  a: '<code>rowReorder: true</code>。行番号の所に つまみ ⠿ が出て、掴んで上下に動かせる。',
+  words: '行 ドラッグ 並べ替え 並び替え 順番 入れ替え 移動 動かす 上下 つまみ drag reorder move row 行の移動',
+  tags: ['オプション'],
+  react: `<TssGridReact
+  columns={columns} data={data}
+  rowReorder
+  onAfterRowMove={(from, to, count) => {
+    // from = 元の先頭の行、to = 新しい先頭の行、count = 動かした行数
+    setOrder(ref.current.getRows().map(r => r.id));
+  }}
+  ref={ref}
+/>`,
+  vue: `<template>
+  <TssGridVue ref="g" :columns="columns" :data="data" :row-reorder="true" @after-row-move="onMove" />
+</template>
+
+<script setup>
+import { ref } from 'vue';
+const g = ref(null);
+// from = 元の先頭の行、to = 新しい先頭の行、count = 動かした行数
+function onMove(from, to, count) {
+  const ids = g.value.grid().getRows().map(r => r.id);   // 新しい順
+}
+<\/script>`,
+  js: `new TssGrid(el, {
+  columns, data,
+  rowReorder: true,
+  onAfterRowMove: (from, to, count) => { console.log(grid.getRows()); },
+});
+
+// ボタンなどから
+grid.moveRow(3, 0);        // 4行目を先頭へ
+grid.moveRows(2, 4, 0);    // 3〜5行目をまとめて先頭へ`,
+  notes: ['何行かまとめて動かす時は、行番号の所で範囲を選んでから、選んだ中の つまみ を掴む。', '<code>Ctrl+Z</code> で戻せる。値・読み取り専用・隠した項目も行と一緒に動く。', '下の空き行（<code>minSpareRows</code>）と一緒に使うと、空き行が途中に動くことがある。', '見出しクリックの並べ替え（<code>tss-sort</code>）とは別物。こちらは手で順番を決める。'],
+  links: [['動く例: 行の移動', 'examples/row-reorder.html'], ['API: rowReorder', 'api.html#options']],
+},
+{
   id: 'invalid-red', q: '誤りのセルを赤くしたい（入力チェック）',
   a: '列に <code>validator</code>、表に <code>invalidMode: \'keep\'</code>。入れた値は残してセルを赤くし、かざすと理由が出る。',
   words: '赤 赤く エラー 誤り 間違い 入力チェック チェック 検証 バリデーション バリデータ 必須 validator validation invalid',
@@ -600,6 +638,53 @@ const plugins = [TssSort.plugin(), TssFilter.plugin()];
   links: [['動く例: 並べ替え＋絞り込み', 'examples/sort-filter.html'], ['動く例: 絞り込みの画面', 'examples/filter-ui.html']],
 },
 {
+  id: 'col-flex', q: '列の幅を、置き場の幅に合わせて伸び縮みさせたい',
+  a: '伸び縮みさせる列に <code>flex: true</code>（<code>minWidth</code>〜<code>maxWidth</code> の間で）。余りを最後の列や全部の列に配るだけなら <code>stretchH</code>。',
+  words: '列幅 列の幅 幅 伸ばす 縮める 伸び縮み 余り 余白 右に空く 画面幅 横幅 いっぱい 100% 自動 スマホ レスポンシブ flex stretch stretchh width minwidth maxwidth',
+  tags: ['列の設定', 'オプション'],
+  react: `const columns = [
+  { data: 'date', title: '日付', width: 90 },
+  // この列が置き場の幅を吸う（60〜240 の間で伸び縮み）
+  { data: 'memo', title: 'メモ', width: 160, flex: true, minWidth: 60, maxWidth: 240 },
+  { data: 'state', title: '状態', width: 80 },
+];
+<TssGridReact columns={columns} data={data} />
+
+// 余りを配るだけなら（width を付けた表で）
+<TssGridReact columns={columns} data={data} width="100%" stretchH="last" />   {/* 'all' = 全部の列に均等 */}`,
+  vue: `<script setup>
+const columns = [
+  { data: 'date', title: '日付', width: 90 },
+  // この列が置き場の幅を吸う（60〜240 の間で伸び縮み）
+  { data: 'memo', title: 'メモ', width: 160, flex: true, minWidth: 60, maxWidth: 240 },
+  { data: 'state', title: '状態', width: 80 },
+];
+<\/script>
+
+<template>
+  <TssGridVue :columns="columns" :data="data" />
+  <!-- 余りを配るだけなら: <TssGridVue ... width="100%" stretch-h="last" /> -->
+</template>`,
+  js: `new TssGrid(el, {
+  columns: [
+    { data: 'date', title: '日付', width: 90 },
+    { data: 'memo', title: 'メモ', width: 160, flex: true, minWidth: 60, maxWidth: 240 },
+    { data: 'state', title: '状態', width: 80 },
+  ],
+  data,
+});
+
+// 余りを配るだけなら
+new TssGrid(el, { columns, data, width: '100%', stretchH: 'last' });`,
+  notes: [
+    '<code>flex</code> は<b>縮みもする</b>（スマホで横スクロールを出したくない時に）。<code>minWidth</code> まで縮めても入らなければ横スクロール。置き場の幅が変わると自動で合わせ直す。',
+    '<code>stretchH</code> は<b>伸ばすだけ</b>で、表に <code>width</code> が要る（<code>\'last\'</code>＝最後の列・<code>\'all\'</code>＝全部の列）。',
+    '両方ある時は <code>flex</code> が先。<code>flex</code> の列が全部 <code>maxWidth</code> に当たって余った分は <code>stretchH</code> の列へ。',
+    '<code>flex</code> の列が何本もある時は、数で配る割合: <code>flex: 2</code>。',
+  ],
+  links: [['動く例: 列の幅', 'examples/column-size.html'], ['API: 列の設定', 'api.html#columns'], ['API: stretchH', 'api.html#options']],
+},
+{
   id: 'input-bg', q: '入力できるセルに色を付けたい',
   a: 'CSS 変数 <code>--tg-input-bg</code> を1行。読み取り専用でないセルがその色になる。',
   words: '色 背景 背景色 入力欄 入れる所 クリーム 黄色 目立たせる css テーマ input',
@@ -618,7 +703,7 @@ const plugins = [TssSort.plugin(), TssFilter.plugin()];
 },
 ];
 
-const CHIPS = ['合計', '行を消す', '行を足す', '赤く', '保存', 'プルダウン', 'カレンダー', '入力できなく', '並べ替え'];
+const CHIPS = ['合計', '行を消す', '行を足す', '行を動かす', '赤く', '保存', 'プルダウン', 'カレンダー', '入力できなく', '並べ替え', '列の幅'];
 
 // ---- 検索: ひらがな/カタカナ・全角/半角・大文字/小文字を同じに。スペース区切りは全部含む（AND）
 const norm = s => String(s).normalize('NFKC').toLowerCase()
