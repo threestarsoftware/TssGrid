@@ -145,7 +145,7 @@
 
 .tssgrid { position: relative; }   /* つまみの層（.tg-handles）の置き場の基準 */
 /* つまみの層（フィル■・タッチの選択の丸）: スクロールする枠の外＝表の端で外へはみ出しても枠にスクロールバーが出ない。層自体は場所を取らず、つまみだけ触れる */
-.tssgrid .tg-handles { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; pointer-events: none; }
+.tssgrid .tg-handles { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; pointer-events: none; contain: layout; }   /* contain:layout＝中身のはみ出しは「見た目だけ」扱い＝表の外側の overflow:auto の箱にスクロールバーを出させない（右下の角の■・丸が数px外へ出る） */
 .tssgrid .tg-handles > * { pointer-events: auto; }
 .tssgrid .tg-wrap {
   position: relative; display: inline-block; vertical-align: top;   /* inline-block の下に付く文字のベースライン余白（数px）を出さない＝表を縦に並べても隙間が出ない */
