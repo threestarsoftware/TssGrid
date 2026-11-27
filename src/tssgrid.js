@@ -69,6 +69,8 @@
       this.COLS = this.headers.length;
       // データ取り込み: 配列(string[][]) と オブジェクト配列(object[]) を自動判別。
       // オブジェクト時は columns[c].data をキーに 2次元へ展開し、元オブジェクトは _src に保持（非表示フィールド維持）。
+      // 0件の時に空の行を1行補うか（既定 true＝今まで）。false＝見出しだけ（見るだけの一覧で中身の無い行を出さない）。minRows/minSpareRows は別で効く
+      this.emptyRow = opts.emptyRow !== false;
       this._ingest(opts.data);   // → this.data(2D) / this._src / this.ROWS / this._objectMode
       this.history = opts.history || new HistoryManager();
       this.showDump = !!opts.showDump;
@@ -366,7 +368,7 @@
         this.data = rows.map(o => this._objToRow(o));
       } else {
         this._src = null;
-        this.data = (rows.length ? rows : [new Array(this.COLS).fill('')]).map(r => r.slice());
+        this.data = (rows.length || !this.emptyRow ? rows : [new Array(this.COLS).fill('')]).map(r => r.slice());
       }
       this.ROWS = this.data.length;
     }
@@ -461,6 +463,8 @@
     appendRows(rows, opts = {}) {
       if (!Array.isArray(rows) || !rows.length) return;
       const n0 = this.ROWS;
+      // 0件（emptyRow:false の data:[]）から最初にオブジェクトを足す時は、オブジェクトの表として持つ（隠しフィールドを落とさない）
+      if (!n0 && !this._src && rows[0] && !Array.isArray(rows[0]) && typeof rows[0] === 'object') { this._src = []; this._objectMode = true; }
       for (const src of rows) {
         const srcIsObj = src && !Array.isArray(src) && typeof src === 'object';
         const srcObj = srcIsObj ? Object.assign({}, src) : {};
@@ -2371,6 +2375,11 @@
     placeRect(elem, r0, c0, r1, c1) {
       const L = this._colLefts, T = this._rowTops;
       let left, top, w, h;
+      if (!this.ROWS) {   // 0件: place() と同じく見出しの中に収める（行が無い＝セルの実測ができない）
+        const A = this._cellRectModel(0, Math.min(c0, c1)), B = this._cellRectModel(0, Math.max(c0, c1));
+        elem.style.left = A.left + 'px'; elem.style.top = '0px'; elem.style.width = (B.left + B.width - A.left) + 'px'; elem.style.height = Math.min(A.height, this._theadH || 0) + 'px';
+        return;
+      }
       // 列/行/全選択(_headerSel)時は、角セルの結合アンカー解決で枠が範囲外へ膨らむのを避け、
       // 列左/行上の累積で「実列/行ピッタリ」にクランプ（非固定領域のみ。固定行列が絡む場合は従来へフォールバック）。
       if (this._headerSel && L && T && r0 >= this.frozenRows && c0 >= this.frozenCols) {
@@ -2447,6 +2456,7 @@
       elem.style.clipPath = (cl || ct) ? ('inset(' + ct + 'px 0 0 ' + cl + 'px)') : '';
     }
     rectRange() {
+      if (!this.ROWS) return { r0: 0, r1: -1, c0: Math.min(this.active.c, this.extent.c), c1: Math.max(this.active.c, this.extent.c) };   // 0件（emptyRow:false・フィルタで全部隠れた）＝行の範囲は空（for (r0..r1) が回らない）
       return {
         r0: Math.min(this.active.r, this.extent.r), r1: Math.max(this.active.r, this.extent.r),
         c0: Math.min(this.active.c, this.extent.c), c1: Math.max(this.active.c, this.extent.c),
@@ -2523,6 +2533,7 @@
     // 見えている所（固定の部分の内側〜枠の内寸）から角が外れたら隠す（枠で切れない層なので、自分で隠す）。
     _placeHandles() {
       if (!this.handles) return;
+      if (!this.ROWS) { this.fillhandle.style.display = 'none'; this.selhTL.style.display = 'none'; this.selhBR.style.display = 'none'; return; }   // 0件＝引ける角が無い
       const { r0, r1, c0, c1 } = this.rectRange(), w = this.wrap;
       const bx = w.offsetLeft + w.clientLeft - w.scrollLeft, by = w.offsetTop + w.clientTop - w.scrollTop;   // 表の座標 → 層の座標
       const sTop = w.scrollTop, sLeft = w.scrollLeft, vBottom = sTop + w.clientHeight, vRight = sLeft + w.clientWidth;
@@ -3783,7 +3794,7 @@
 
     // ---- コピペ ----
     copy(cut) {
-      if (!this.copyPaste) return;
+      if (!this.copyPaste || !this.ROWS) return;
       const sel = this.rectRange(); let buf = [];
       // 飛び飛び選択(Ctrl+ヘッダ)は「選んだ列×全行」または「選んだ行×全列」＝きれいな長方形になり Excel にそのまま貼れる。
       const djCol = this._headerSel === 'col' && this._selCols && this._selCols.size > 1;

@@ -340,6 +340,9 @@ export interface TssGridOptions {
    *  true にすると autocomplete='new-password' に切り替えて確実に止める（副作用として環境により鍵アイコンや生成PW提案が出る場合あり＝opt-in）。
    *  周囲に自前のラベル付き `<input>`（フォーム塊）を並べる埋め込み画面で有効。 */
   suppressAutofill?: boolean;
+  /** データが0件の時に空の行を1行出すか。既定 true（今までどおり）。false＝見出しだけにして行を出さない（見るだけの一覧で中身の無い行を出さない）。
+   *  setData([]) で0件にした時も同じ。minRows / minSpareRows を指定した時はそちらが効く（false でもその行数は出す）。 */
+  emptyRow?: boolean;
   minSpareRows?: number;
   autoWrapRow?: boolean;
   autoWrapCol?: boolean;

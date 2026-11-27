@@ -1157,6 +1157,7 @@ new TssGrid(el, { columns: [{ data: 'id', hidden: true }, …] });   // 列定�
 | `columns[c].align` / `valign` | `string` | — | 列既定の整列（→ [整列](#整列--セル単位の読み取り専用実行時)） |
 | `columns[c].editor` | `object \| ()=>object` | — | カスタム編集UI（→ [カスタムエディタ](#カスタムエディタ)）。`editor.inline:true` で**打鍵の1文字目・IME 直打ちを殺さない**サジェスト型に（→ [`editor.inline`](#editorinline-打鍵ime-直打ちを殺さないエディタサジェスト向け)） |
 | `copyPaste` | `boolean` | `true` | `false` でコピー/カット/ペーストを無効化 |
+| `emptyRow` | `boolean` | `true` | データが0件の時に空の行を1行出す。`false`＝見出しだけにして行を出さない（見るだけの一覧向け・`setData([])` でも同じ）。`minRows`/`minSpareRows` を指定した時はそちらの行数を出す |
 | `minSpareRows` | `number` | `0` | 末尾に常に確保する空行数（Excel風に下へ打ち足せる） |
 | `autoWrapRow` / `autoWrapCol` | `boolean` | `false` | Tab で行末→次行頭 / Enter で列末→次列頭に折り返し |
 | `minRows` / `maxRows` | `number` | — | 行数の下限/上限（min は初期パディング、削除の床。max は天井＝挿入・`minSpareRows` の空行・フィルハンドルの自動追加すべてを打ち止める） |

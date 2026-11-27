@@ -88,7 +88,7 @@
 <h1>API リファレンス</h1>
 <p class="lead">公開API（オプション・イベント・メソッド）の一覧。<b><code>src/tssgrid.d.ts</code> を正本に自動生成</b>しています。使い方・サンプルは <a href="docs.html">ドキュメント（ガイド）</a> をどうぞ。</p>
 <h2 id="options">グリッド オプション</h2>
-<p>86 項目（<code>new TssGrid(el, options)</code>）。</p>
+<p>87 項目（<code>new TssGrid(el, options)</code>）。</p>
 <table>
 <thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
 <tbody>
@@ -174,6 +174,8 @@ getRows/getData/toCSV・列インデックス・列選択/リサイズ/reorder �
 通常は name + autocomplete='off' で抑止するが、Chrome は loyalty/payment 系で 'off' を無視することがある。
 true にすると autocomplete='new-password' に切り替えて確実に止める（副作用として環境により鍵アイコンや生成PW提案が出る場合あり＝opt-in）。
 周囲に自前のラベル付き `&lt;input&gt;`（フォーム塊）を並べる埋め込み画面で有効。</td></tr>
+<tr><td><code>emptyRow</code></td><td><code class="ty">boolean</code></td><td>データが0件の時に空の行を1行出すか。既定 true（今までどおり）。false＝見出しだけにして行を出さない（見るだけの一覧で中身の無い行を出さない）。
+setData([]) で0件にした時も同じ。minRows / minSpareRows を指定した時はそちらが効く（false でもその行数は出す）。</td></tr>
 <tr><td><code>minSpareRows</code></td><td><code class="ty">number</code></td><td></td></tr>
 <tr><td><code>autoWrapRow</code></td><td><code class="ty">boolean</code></td><td></td></tr>
 <tr><td><code>autoWrapCol</code></td><td><code class="ty">boolean</code></td><td></td></tr>
