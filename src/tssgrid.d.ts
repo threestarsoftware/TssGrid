@@ -106,6 +106,14 @@ export interface ColumnDef {
   validator?: (value: any, cell: CellCoord) => ValidatorResult;
   /** カスタム編集UI（薄いオブジェクト契約 or それを返す関数）。 */
   editor?: EditorDef | (() => EditorDef);
+  /** `type:'date'` の列の細かさ。`'day'`（既定）＝値 `'YYYY-MM-DD'`／`'month'`＝年月・値 `'YYYY-MM'`／`'year'`＝年・値 `'YYYY'`。
+   *  打てる形: 年月 `2026/01`・`2026/1`・`202601`・`2026年1月`（日付を貼っても年月に）／年 `2026`・`2026年`・`2026年度`。全角も可。
+   *  表示は `format`（`'yyyy/mm'`・`'yyyy年m月'`・`'yyyy年度'`）。Ctrl+; は今月・今年。TssCalendar を `editor` にすると月の一覧・年の一覧で開く。 */
+  unit?: 'day' | 'month' | 'year';
+  /** 年度の始まりの月（1〜12・既定 1＝暦の年）。`unit:'month'`/`'year'` の列で効く。値は変わらず、「今」の数え方とカレンダーの並びが変わる:
+   *  年の列＝Ctrl+; とカレンダーの「今年」が年度（4 なら 2027年2月＝`2026`）／年月の列＝カレンダーが「2026年度」の 4月〜3月で並ぶ。
+   *  年度は**始まりの年**で数える（2026年度＝2026年4月〜2027年3月）。 */
+  fiscalStart?: number;
   /** 入力の正規化（保存値へ変換）。 */
   parse?: (input: string, cell: CellCoord) => any;
   /** 表示の整形（保存値→表示）。文字列 or 宣言的 CellFormat or 関数。

@@ -2,6 +2,9 @@
  *  休日カレンダーを JSON で渡せる（勤怠・シフト等向け）。CSS は tss-calendar.css をクラス/変数で自由に。
  *  使い方（グリッド）: columns: [{ type:'date', editor: TssCalendar({ holidays }) }]
  *  使い方（単体）   : TssCalendar({holidays}).openAt(anchorEl, isoValue, onPick)
+ *  年月・年         : 列に type:'date', unit:'month'（値 'YYYY-MM'）/ unit:'year'（値 'YYYY'）を書くと、その列では月の一覧・年の一覧で開く。
+ *                     fiscalStart:4 で年度（月の一覧は 4月〜3月・年の一覧と「今」は年度で数える）。
+ *                     表の外は TssCalendar({ unit:'month', fiscalStart:4 }).openAt(...)。表の date 列では列の指定が決める。
  *
  *  opts.inline: 「キー派は打つ／マウス派はクリック」の型（**既定 true**）。
  *    本体の共有 input に乗るので **日付をそのまま直打ちでき（1文字目も落ちない）・IME 直打ちも効く**。
@@ -92,6 +95,14 @@
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function fmtSlash(isoStr) { return String(isoStr).replace(/-/g, '/'); }                 // 'YYYY-MM-DD' → 'YYYY/MM/DD'（range の既定表示）
   function parseLoose(s) { var m = /^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/.exec(String(s || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; } // slash/dash どちらも
+  // 年月・年（unit:'month' | 'year'）: 月は通し番号 n＝年×12＋(月−1)、年はそのままの数で持つ。
+  function mKey(n) { return Math.floor(n / 12) + '-' + pad(n % 12 + 1); }   // 通し番号 → 'YYYY-MM'
+  function parseUnit(s, u) {   // 値（'2026-01'・'2026'。緩く '2026/1'・'2026-01-15' も）→ 月は通し番号・年は数。読めなければ null
+    var m = /^(\d{4})(?:[-/.](\d{1,2}))?/.exec(String(s == null ? '' : s).trim()); if (!m) return null;
+    if (u === 'year') return +m[1];
+    return m[2] && +m[2] >= 1 && +m[2] <= 12 ? +m[1] * 12 + (+m[2] - 1) : null;
+  }
+  function normFs(v) { return (v | 0) === v && v >= 1 && v <= 12 ? v : 1; }
 
   function TssCalendar(opts) {
     opts = opts || {};
@@ -109,6 +120,57 @@
     var yrHi = opts.yearMax || (maxD ? maxD.getFullYear() : ty + 12);
     var pop = null, view = null, sel = null, focus = null, ref = null, done = false, outside = null, ictx = null;
     var inline = opts.inline !== false;   // true=共有 input に乗る（直打ち可・矢印は本体に返す）／false=従来のフォーカス奪取型
+    // 細かさ（unit）と年度の始まり（fiscalStart）。表の date 列で開いた時は列の指定（ctx.unit / ctx.fiscalStart）が決める＝セルの読み方と食い違わない。
+    var optUnit = opts.unit === 'month' || opts.unit === 'year' ? opts.unit : 'day', optFs = normFs(opts.fiscalStart);
+    var U = optUnit, FS = optFs, warned = false;
+    var vy = 0, selN = null, focN = null;   // 年月・年: 表示中の年（年月＝その年度・年＝その年を含む10年）・選んである値・キーの位置
+    function fyN(n) { var y = Math.floor(n / 12), m1 = n % 12 + 1; return m1 >= FS ? y : y - 1; }   // 月の通し番号 → 年度（FS=1 なら暦の年）
+    function todayN() { var t = new Date(), n = t.getFullYear() * 12 + t.getMonth(); return U === 'month' ? n : fyN(n); }   // 今月 / 今年（年度）
+    function nKey(n) { return U === 'year' ? String(n) : mKey(n); }
+    function uDisabled(n) {   // min / max は年月なら 'YYYY-MM'・年なら 'YYYY'（日まで書いてあっても読める）
+      var lo = opts.min ? parseUnit(opts.min, U) : null, hi = opts.max ? parseUnit(opts.max, U) : null;
+      return (lo != null && n < lo) || (hi != null && n > hi);
+    }
+    function yLabel(y) { return y + (FS !== 1 ? '年度' : '年'); }
+    function renderMonth() {
+      var tN = new Date().getFullYear() * 12 + new Date().getMonth();
+      var lo = Math.min(yrLo, vy), hi = Math.max(yrHi, vy), yrSel = '<select class="tss-cal-sel-yr" aria-label="' + (FS !== 1 ? '年度' : '年') + '">';
+      for (var yy = lo; yy <= hi; yy++) yrSel += '<option value="' + yy + '"' + (yy === vy ? ' selected' : '') + '>' + yLabel(yy) + '</option>';
+      yrSel += '</select>';
+      var html = '<div class="tss-cal-head">'
+        + '<button type="button" class="tss-cal-nav" data-nav="-1" aria-label="前の年">‹</button>'
+        + '<span class="tss-cal-sels">' + yrSel + '</span>'
+        + '<button type="button" class="tss-cal-nav" data-nav="1" aria-label="次の年">›</button></div>'
+        + '<div class="tss-cal-grid tss-cal-grid-u">';
+      for (var i = 0; i < 12; i++) {   // 3列×4行＝1行が四半期（4月始まりなら 4〜6月・7〜9月・…・1〜3月）
+        var n = vy * 12 + (FS - 1) + i, cls = 'tss-cal-day tss-cal-mon';
+        if (n === tN) cls += ' tss-cal-today';
+        if (n === selN) cls += ' tss-cal-sel';
+        if (n === focN) cls += ' tss-cal-focus';
+        if (uDisabled(n)) cls += ' tss-cal-disabled';
+        html += '<div class="' + cls + '" data-v="' + mKey(n) + '" title="' + Math.floor(n / 12) + '年' + (n % 12 + 1) + '月">' + (n % 12 + 1) + '月</div>';
+      }
+      pop.innerHTML = html + '</div>';
+    }
+    function renderYear() {
+      var start = Math.floor(vy / 10) * 10 - 1, tY = todayN();   // 10年（2020〜2029）＋前後1年（薄く・押せる）
+      var html = '<div class="tss-cal-head">'
+        + '<button type="button" class="tss-cal-nav" data-nav="-1" aria-label="前の10年">‹</button>'
+        + '<span class="tss-cal-title">' + (start + 1) + '〜' + yLabel(start + 10) + '</span>'
+        + '<button type="button" class="tss-cal-nav" data-nav="1" aria-label="次の10年">›</button></div>'
+        + '<div class="tss-cal-grid tss-cal-grid-u">';
+      for (var i = 0; i < 12; i++) {
+        var y = start + i, cls = 'tss-cal-day tss-cal-yr';
+        if (i === 0 || i === 11) cls += ' tss-cal-other';
+        if (y === tY) cls += ' tss-cal-today';
+        if (y === selN) cls += ' tss-cal-sel';
+        if (y === focN) cls += ' tss-cal-focus';
+        if (uDisabled(y)) cls += ' tss-cal-disabled';
+        html += '<div class="' + cls + '" data-v="' + y + '">' + y + '</div>';
+      }
+      pop.innerHTML = html + '</div>';
+    }
+    function setFocusN(n) { focN = n; vy = U === 'month' ? fyN(n) : n; }
 
     // ── 範囲選択（range）: 連続した日を1回の編集で選ぶ（休暇申請の開始〜終了 等）───────────
     //   range:true で「範囲も選べる」行になる（行ごとに切替えたい時は range:(ctx)=>boolean）。未指定は常に単日＝従来動作。
@@ -145,6 +207,8 @@
     }
     var placer = null;   // 小窓の置き場所（tssPlace）
     function render() {
+      if (U === 'month') return renderMonth();
+      if (U === 'year') return renderYear();
       var y = view.getFullYear(), m = view.getMonth();
       var start = new Date(y, m, 1).getDay(), today = new Date();
       // 年・月はプルダウンで直接選べる（年送りが遅い問題の解消）。年範囲は min/max or 今日±12（view も内包）
@@ -193,19 +257,32 @@
       // 「範囲で選ぶ」トグル: ネイティブ checkbox の toggle/フォーカスには頼らず click で反転（フォーカス不動＝inline でも閉じない）。
       if (e.target.closest && e.target.closest('.tss-cal-toggle')) { e.preventDefault(); setRangeActive(!rangeActive); return; }
       var nav = e.target.getAttribute && e.target.getAttribute('data-nav');
+      if (nav && U !== 'day') { vy += (+nav) * (U === 'year' ? 10 : 1); render(); return; }   // 年月＝1年・年＝10年送る
       if (nav) { view = new Date(view.getFullYear(), view.getMonth() + (+nav), 1); render(); return; }
+      var dv = e.target.getAttribute && e.target.getAttribute('data-v');
+      if (dv) { var nv = parseUnit(dv, U); if (nv != null && !uDisabled(nv)) pickVal(nKey(nv)); return; }
       var dd = e.target.getAttribute && e.target.getAttribute('data-d');
       if (dd) { var d = parseISO(dd); if (!disabled(d)) pick(d); }
     }
     function onChange(e) {
       var t = e.target;
-      if (t.classList && t.classList.contains('tss-cal-sel-yr')) { view = new Date(+t.value, view.getMonth(), 1); render(); }
+      if (t.classList && t.classList.contains('tss-cal-sel-yr') && U === 'month') { vy = +t.value; render(); }
+      else if (t.classList && t.classList.contains('tss-cal-sel-yr')) { view = new Date(+t.value, view.getMonth(), 1); render(); }
       else if (t.classList && t.classList.contains('tss-cal-sel-mon')) { view = new Date(view.getFullYear(), +t.value, 1); render(); }
       // 年/月を選んだ後は共有 input にフォーカスを戻す（select は render で作り直され、残すと焦点が宙に浮く）。
       if (ictx && ictx.inline && ictx.input) { try { ictx.input.focus(); } catch (err) {} }
     }
     function onKey(e) {
       if (e.target && e.target.tagName === 'SELECT') return;   // 年/月プルダウン操作中は日移動しない
+      if (U !== 'day') {   // 年月: ←→ 1か月・↑↓ 3か月（1行＝四半期）・PageUp/Down 1年／年: ←→ 1年・↑↓ 3年・PageUp/Down 10年
+        if (focN == null) focN = selN != null ? selN : todayN();
+        var key = e.key;
+        if (key === 'Escape') { e.preventDefault(); cancel(); return; }
+        if (key === 'Enter') { e.preventDefault(); if (!uDisabled(focN)) pickVal(nKey(focN)); return; }
+        var st = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -3, ArrowDown: 3, PageUp: U === 'year' ? -10 : -12, PageDown: U === 'year' ? 10 : 12 }[key];
+        if (st != null) { e.preventDefault(); setFocusN(focN + st); render(); }
+        return;
+      }
       if (!focus) focus = sel ? new Date(sel) : new Date(view);
       var k = e.key;
       if (k === 'Escape') { e.preventDefault(); cancel(); return; }
@@ -234,6 +311,14 @@
       teardown();   // 既に開いていれば先に片付ける（前の pop 除去＋outside リスナ解除・open-while-open の取り残し防止）
       done = false; rc = rangeCfg || null; rangeStart = null; hoverEnd = null; ictx = ctx || null;
       rangeActive = rc ? (isRangeValue(value) || !!rc.def) : false;   // 既存値が範囲 or rangeDefault なら ON で開く
+      // 細かさ: 表の date 列は列が決める（ctx.unit）。単体（openAt）・date でない列は TssCalendar の指定。
+      if (ctx && ctx.unit) {
+        U = ctx.unit; FS = normFs(ctx.fiscalStart);
+        if (!warned && ((opts.unit != null && optUnit !== U) || (opts.fiscalStart != null && optFs !== FS))) {
+          warned = true; try { console.warn('[TssCalendar] 表の date 列では、列の unit / fiscalStart（' + U + ' / ' + FS + '）で開きます。TssCalendar の指定とは違います＝列の方に書いてください'); } catch (e) { /* noop */ }
+        }
+      } else { U = optUnit; FS = optFs; }
+      if (U !== 'day') { rc = null; rangeActive = false; selN = parseUnit(value, U); focN = selN != null ? selN : todayN(); setFocusN(focN); }   // 年月・年は範囲選択なし
       sel = parseISO(value);
       // range の既存値（'YYYY/MM/DD～…' 等）は parseISO では取れない＝先頭日を緩く読んで月を合わせる。
       var initD = sel || (rc ? parseLoose(value) : null);
@@ -268,6 +353,7 @@
       }
       done = true; var f = ref.pick; teardown(); f(iso(d));   // トグル OFF／range 無しの行＝単日1クリック（ISO）
     }
+    function pickVal(k) { if (done) return; done = true; var f = ref.pick; teardown(); f(k); }   // 年月 'YYYY-MM'・年 'YYYY'
     function cancel() { if (done) return; done = true; var f = ref.cancel; teardown(); if (f) f(); }   // range 途中の取消も値は変えない（ref.cancel）
 
     return {
@@ -287,6 +373,11 @@
       // 矢印/Enter/Esc は本体に返す＝onKeyDown は持たない（キー派は打つ・マウス派はクリック）。
       onInput: inline ? function (v, ctx) {
         if (!pop) return;
+        if (U !== 'day') {   // 年月・年も本体の読み方で（'2026/1'・'202601'・'2026年度' 等）
+          var n = null; try { n = parseUnit(ctx.parseCell ? ctx.parseCell(v) : v, U); } catch (e) { n = null; }
+          if (n == null) return;
+          selN = n; setFocusN(n); render(); return;
+        }
         var d = null;
         // ★ 解釈は本体に訊く（ctx.parseCell＝セルの確定と同じ読み方）。ここで自前パーサを使うと
         //    「セルは受け付けるのにカレンダーは動かない」食い違いになる（col.parse を書かない列＝format だけの

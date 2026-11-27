@@ -1,4 +1,4 @@
-// TssCalendar — 休日対応カレンダー（TssGrid カスタムエディタ／単体ピッカーとしても）。保存値は 'YYYY-MM-DD'。
+// TssCalendar — 休日対応カレンダー（TssGrid カスタムエディタ／単体ピッカーとしても）。保存値は 'YYYY-MM-DD'（年月 'YYYY-MM'・年 'YYYY'）。
 import { EditorDef } from '../src/tssgrid';
 
 export = TssCalendar;
@@ -18,9 +18,14 @@ declare namespace TssCalendar {
     weekLabels?: string[];
     /** 月見出し（既定 `y年(m+1)月`）。 */
     monthLabel?: (year: number, month: number) => string;
-    /** 選択可能範囲（'YYYY-MM-DD'）。 */
+    /** 選択可能範囲。日 'YYYY-MM-DD'・年月 'YYYY-MM'・年 'YYYY'（unit に合わせて書く）。 */
     min?: string;
     max?: string;
+    /** 細かさ。'day'（既定）＝日の一覧／'month'＝年の切り替え＋1〜12月の一覧・値 'YYYY-MM'／'year'＝10年の一覧・値 'YYYY'。
+     *  **表の `type:'date'` の列では列の `unit` が決める**（ここは表の外の `openAt` と、date でない列のため）。 */
+    unit?: 'day' | 'month' | 'year';
+    /** 年度の始まりの月（1〜12・既定 1）。'month' は「2026年度」の 4月〜3月で並べ、'year' は「今年」を年度で数える。表の date 列では列の `fiscalStart` が決める。 */
+    fiscalStart?: number;
     /** 年プルダウンの範囲。 */
     yearMin?: number;
     yearMax?: number;
@@ -56,7 +61,7 @@ declare namespace TssCalendar {
 
   /** グリッドの `editor` として使えるほか、単体で `openAt` を呼べる。 */
   interface Editor extends EditorDef {
-    /** アンカー要素の下に開き、日付選択で `onPick(iso)` を呼ぶ（単体ピッカー用）。 */
+    /** アンカー要素の下に開き、日付選択で `onPick(iso)` を呼ぶ（単体ピッカー用）。unit:'month' は 'YYYY-MM'・'year' は 'YYYY'。 */
     openAt(anchorEl: Element, isoValue: string, onPick: (iso: string) => void, onCancel?: () => void): void;
   }
 }

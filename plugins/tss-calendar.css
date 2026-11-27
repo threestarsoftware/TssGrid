@@ -51,4 +51,8 @@
 .tss-cal-day.tss-cal-range-start { border-radius: 6px 0 0 6px; }
 .tss-cal-day.tss-cal-range-end { border-radius: 0 6px 6px 0; }
 .tss-cal-day.tss-cal-range-start.tss-cal-range-end { border-radius: 6px; }   /* 開始=終端（1日だけ選択中） */
+/* 年月・年の一覧（unit:'month' | 'year'）: 3列×4行（年月は1行＝四半期）。幅は日の一覧と同じ。 */
+.tss-cal-grid.tss-cal-grid-u { grid-template-columns: repeat(3, 1fr); width: 236px; gap: 4px; }
+.tss-cal-grid-u .tss-cal-day { padding: 12px 0; }
+.tss-cal-head .tss-cal-title { flex: 1; text-align: center; }
 .tss-cal-day.tss-cal-disabled { color: var(--cal-muted); background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,.04) 4px, rgba(0,0,0,.04) 8px); cursor: not-allowed; }

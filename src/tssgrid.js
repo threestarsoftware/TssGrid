@@ -98,6 +98,7 @@
       //           入力はグルーピングや前後綴り混じりでも parse で正規化（'1,234.50'→'1234.5'）。非数値は拒否。編集時は素の数値を表示。
       //           全角数字・符号は既定で半角化（'１２３'→'123'）。zenkaku:false で無効化。
       //   date:   format に**文字列パターン**を渡すと宣言的に表示（'yyyy/mm/dd' / 'yyyy年m月d日'）。トークン yyyy/yy/mm/m/dd/d。parse は組込。
+      //           unit: 'day'(既定) | 'month'（値 'yyyy-mm'）| 'year'（値 'yyyy'）。fiscalStart: 1〜12＝年度の始まりの月（month/year・今日の値とカレンダーが年度で数える）。
       //   options: dropdown の選択肢。string[] または {value,label}[]（保存値=value・表示=label＝内部コードと表示名を分離）。
       //            クリア用の空オプションは自動で先頭に付く＝'' を入れない。getData/getRows は value で返る。
       //   allowEmpty: dropdown で空(クリア)を許すか（既定 true）。false＝空オプションを出さず空値も検証で弾く＝ラジオ的な必須選択
@@ -1183,18 +1184,38 @@
     static _pad2(n) { return String(n).padStart(2, '0'); }
     // 列の既定見出し（Excel 風 A,B,…,Z,AA）。列挿入時の新規見出しに使う。
     static _colLabel(n) { let s = ''; n = n | 0; do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0); return s; }
-    // 入力文字列 → 'yyyy-mm-dd'（不正は null）。yyyymmdd / yyyy-mm-dd / yyyy/mm/dd / yyyy.mm.dd を許容。
-    static _parseDate(s) {
-      s = TssGrid.zen2han(String(s).trim());   // IME ON の全角（２０２６／０１／０１ 等）も半角化して受理
+    // 入力文字列 → 保存値（不正は null）。unit（列の unit）で持つ細かさが変わる:
+    //   'day'（既定） → 'yyyy-mm-dd'。yyyymmdd / yyyy-mm-dd / yyyy/mm/dd / yyyy.mm.dd / yyyy年m月d日。
+    //   'month'      → 'yyyy-mm'。   yyyymm / yyyy-m / yyyy/m / yyyy.m / yyyy年m月（日まであれば日は捨てる＝日付の貼り付けも受ける）。
+    //   'year'       → 'yyyy'。      yyyy / yyyy年 / yyyy年度（年度の列も値は始まりの年）。
+    //   全角（IME ON の ２０２６／０１ 等）も半角化して受理。年・月・日の字は区切りとして読む＝表示の形（format）のまま確定しても通る。
+    static _parseDate(s, unit) {
+      s = TssGrid.zen2han(String(s).trim());
       if (s === '') return null;
+      s = s.replace(/\s+/g, '').replace(/年度$/, '').replace(/[年月]/g, '/').replace(/日$/, '').replace(/\/$/, '');
+      if (unit === 'year') return /^\d{4}$/.test(s) ? s : null;
       let y, m, d;
-      const sep = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(s);
-      if (sep) { y = +sep[1]; m = +sep[2]; d = +sep[3]; }
+      const ymd = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(s);
+      if (ymd) { y = +ymd[1]; m = +ymd[2]; d = +ymd[3]; }
       else if (/^\d{8}$/.test(s)) { y = +s.slice(0, 4); m = +s.slice(4, 6); d = +s.slice(6, 8); }
+      else if (unit === 'month') {
+        const ym = /^(\d{4})[-/.](\d{1,2})$/.exec(s) || /^(\d{4})(\d{2})$/.exec(s);
+        if (!ym) return null;
+        y = +ym[1]; m = +ym[2];
+        return m >= 1 && m <= 12 ? y + '-' + TssGrid._pad2(m) : null;
+      }
       else return null;
       const iso = y + '-' + TssGrid._pad2(m) + '-' + TssGrid._pad2(d);
-      return TssGrid._isISODate(iso) ? iso : null;
+      if (!TssGrid._isISODate(iso)) return null;
+      return unit === 'month' ? iso.slice(0, 7) : iso;
     }
+    // 日付の列の細かさ（columns[c].unit）: 'day'（既定）| 'month' | 'year'。date 型でない列は null。
+    _dateUnit(c) { const cfg = this.colCfg(c); if ((cfg.type || 'text') !== 'date') return null; return cfg.unit === 'month' || cfg.unit === 'year' ? cfg.unit : 'day'; }
+    // 年度の始まりの月（columns[c].fiscalStart・1〜12・既定 1＝暦の年）。年度は始まりの年で数える（4月始まりなら 2027年2月＝2026年度）。
+    _fiscalStart(c) { const v = this.colCfg(c).fiscalStart; return (v | 0) === v && v >= 1 && v <= 12 ? v : 1; }
+    static _fiscalYear(d, fs) { return d.getMonth() + 1 >= (fs || 1) ? d.getFullYear() : d.getFullYear() - 1; }
+    // エディタに渡す日付の列の情報（カレンダー等が列と同じ細かさ・年度で開く）。date 型でない列は空。
+    _dateCtx(c) { const u = this._dateUnit(c); return u ? { unit: u, fiscalStart: this._fiscalStart(c) } : {}; }
     // 入力文字列 → 24時間制 'HH:MM' / 'HH:MM:SS'（不正は null）。24h と 12h(AM/PM) の両方を受理。
     static _parseTime(s) {
       // IME ON の全角（９：３０ 等）も半角化して受理
@@ -1279,15 +1300,16 @@
       const body = int + (frac ? '.' + frac : '');
       return (n < 0 ? '-' : '') + (cfg.prefix || '') + body + (cfg.suffix || '');
     }
-    // CellFormat: 保存 ISO 'yyyy-mm-dd' をパターン表示。トークン: yyyy/yy/mm/m/dd/d（パターン文字は数字に置換＝衝突しない）。
+    // CellFormat: 保存値 'yyyy-mm-dd' / 'yyyy-mm' / 'yyyy' をパターン表示。トークン: yyyy/yy/mm/m/dd/d（パターン文字は数字に置換＝衝突しない）。
+    //   値に無い部分（年月の値の日・年の値の月日）のトークンは置き換えない（'yyyy年度' の様に要る分だけ書く）。
     static _applyDatePattern(iso, pattern) {
-      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
-      if (!m) return iso;   // ISO でなければそのまま（誤用時の保険）
+      const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(String(iso));
+      if (!m) return iso;   // 形が違えばそのまま（誤用時の保険）
       const y = m[1], mo = m[2], d = m[3];
-      return String(pattern)
-        .replace(/yyyy/g, y).replace(/yy/g, y.slice(2))
-        .replace(/mm/g, mo).replace(/m/g, String(+mo))
-        .replace(/dd/g, d).replace(/d/g, String(+d));
+      let out = String(pattern).replace(/yyyy/g, y).replace(/yy/g, y.slice(2));
+      if (mo) out = out.replace(/mm/g, mo).replace(/m/g, String(+mo));
+      if (d) out = out.replace(/dd/g, d).replace(/d/g, String(+d));
+      return out;
     }
     // 1セルの型強制 / 検証。{ ok, value, message } を返す。入力→保存値の正規化(parse)もここで。
     // 入力文字列 → 保存値。解釈できなければ null（＝この列はその文字を受け付けない）。
@@ -1300,7 +1322,7 @@
         let p; try { p = cfg.parse(v, { r, c }); } catch (_) { p = null; }
         return (p == null || p === false) ? null : String(p);
       }
-      if (t === 'date') return TssGrid._parseDate(v);     // parse を書かない列は型ごとの組込パーサに落ちる
+      if (t === 'date') return TssGrid._parseDate(v, this._dateUnit(c));     // parse を書かない列は型ごとの組込パーサに落ちる（unit で細かさが変わる）
       if (t === 'time') return TssGrid._parseTime(v);
       if (t === 'number') return TssGrid._parseNumber(v, cfg);
       return v;
@@ -1577,7 +1599,10 @@
       const cfg = this.colCfg(c), t = cfg.type;
       // カスタム editor を付けた列は、そのエディタが入力/表示を握る＝ネイティブ picker を重ねない
       // （重ねるとブラウザのロケールで AM/PM 等が出て、セル表示と食い違う）。picker:false を書き忘れても破綻しない。
-      if ((t === 'date' || t === 'time') && cfg.picker !== false && !cfg.format && typeof cfg.parse !== 'function' && !cfg.hour12 && !cfg.editor) return t;
+      if ((t === 'date' || t === 'time') && cfg.picker !== false && !cfg.format && typeof cfg.parse !== 'function' && !cfg.hour12 && !cfg.editor) {
+        if (t === 'date') { const u = this._dateUnit(c); return u === 'month' ? 'month' : u === 'year' ? null : 'date'; }   // 年月＝<input type="month">（値も 'yyyy-mm'）／年＝ブラウザに無い＝文字で打つ
+        return t;
+      }
       return null;
     }
     _usesTextEditor(c) {
@@ -2721,7 +2746,7 @@
       if (!ed || typeof ed.open !== 'function') return;
       const grid = this;
       const ctx = {
-        grid, r, c, inline: true,
+        grid, r, c, inline: true, ...this._dateCtx(c),   // date 列は unit / fiscalStart（列が決める＝カレンダーが同じ細かさで開く）
         value: this.data[r][c],
         td: this.cellEl(r, c),
         input: this.editor,                                     // 打鍵/IME が入る共有 input（読み取り・listen 用）
@@ -2779,9 +2804,9 @@
       if (value != null) this.editor.value = value;
       if (value != null && !this._imeOn) this._filterEditorChars();   // 打ち始めの1文字・F2 で入れた値も allowChars で絞る（変換中は触らない＝確定で絞る）
       this.editor.focus();
-      // setSelectionRange は text / textarea のみ（date/time/number input は例外を投げる）
+      // setSelectionRange は text / textarea のみ（date/month/time/number input は例外を投げる）
       const _t = this.editor.type;
-      if (caretEnd && _t !== 'date' && _t !== 'time' && _t !== 'number') { const l = this.editor.value.length; this.editor.setSelectionRange(l, l); }
+      if (caretEnd && (_t === 'text' || _t === 'textarea')) { const l = this.editor.value.length; this.editor.setSelectionRange(l, l); }
       if (this.editor === this._edMulti) this._growMultiEditor();   // multiline は編集開始時に内容ぶん伸ばす
       if (starting) this._openInlineEditor();   // inline エディタ列なら ed.open(ctx)（共有 input はそのまま＝打鍵/IME を維持）
       if (starting && this.onEditStart) { try { this.onEditStart({ r: this.active.r, c: this.active.c, value: this.editor.value }); } catch (_) {} }
@@ -2815,6 +2840,8 @@
       const ok = TssGrid.CELL_TYPES;
       (columns || []).forEach((cfg, c) => {
         const t = cfg && cfg.type;
+        if (cfg && cfg.unit != null && !(t === 'date' && ['day', 'month', 'year'].includes(cfg.unit))) { try { console.warn('[TssGrid] columns[' + c + '].unit="' + cfg.unit + '" は効きません（type:\'date\' の列で \'day\' / \'month\' / \'year\'）'); } catch (_) {} }
+        if (cfg && cfg.fiscalStart != null && !((cfg.fiscalStart | 0) === cfg.fiscalStart && cfg.fiscalStart >= 1 && cfg.fiscalStart <= 12 && t === 'date' && (cfg.unit === 'month' || cfg.unit === 'year'))) { try { console.warn('[TssGrid] columns[' + c + '].fiscalStart は type:\'date\'・unit:\'month\' か \'year\' の列に 1〜12 の数で書きます（それ以外は 1＝暦の年として扱います）'); } catch (_) {} }
         if (t == null || t === '' || ok.includes(t)) return;
         const hint = { numeric: 'number', num: 'number', int: 'number', integer: 'number', select: 'dropdown', list: 'dropdown', bool: 'checkbox', boolean: 'checkbox', check: 'checkbox', datetime: 'date', string: 'text' }[String(t).toLowerCase()];
         try { console.warn('[TssGrid] columns[' + c + '].type="' + t + '" は未知の型のため text として扱います（使える型: ' + ok.join(' / ') + '）' + (hint ? '。もしかして "' + hint + '"？' : '')); } catch (_) {}
@@ -3265,8 +3292,11 @@
         val = this.colType(c) === 'time' ? (p2(d.getHours()) + ':' + p2(d.getMinutes()))   // time 列は保存形式 HH:MM
                                          : this._fmtDateTime(d, this.nowFormat, true);
       } else {
-        val = this.colType(c) === 'date' ? (d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()))   // date 列は ISO 保存（表示は列 format）
-                                         : this._fmtDateTime(d, this.todayFormat, false);
+        const u = this._dateUnit(c);   // date 列は保存の形（表示は列 format）。年月＝今月・年＝今年（fiscalStart があれば今の年度）
+        val = u === 'year' ? String(TssGrid._fiscalYear(d, this._fiscalStart(c)))
+            : u === 'month' ? d.getFullYear() + '-' + p2(d.getMonth() + 1)
+            : u === 'day' ? (d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()))
+            : this._fmtDateTime(d, this.todayFormat, false);
       }
       this.setValue(r, c, val);
     }
@@ -4487,7 +4517,7 @@
       };
       const cancel = () => { if (done) return; finish(); this.setActive(r, c); if (this.onEditEnd) { try { this.onEditEnd({ r, c, oldValue: this.data[r][c], newValue: this.data[r][c], canceled: true }); } catch (_) {} } };
       this._customCancel = cancel;
-      try { ed.open({ grid: this, r, c, value: this.data[r][c], td: this.cellEl(r, c), commit, cancel }); } catch (_) { finish(); }
+      try { ed.open({ grid: this, r, c, value: this.data[r][c], td: this.cellEl(r, c), commit, cancel, ...this._dateCtx(c) }); } catch (_) { finish(); }
       if (this.onEditStart) { try { this.onEditStart({ r, c, value: this.data[r][c] }); } catch (_) {} }
     }
     _commitActive() {

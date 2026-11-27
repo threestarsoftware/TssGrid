@@ -261,6 +261,12 @@ flex 列が全部 maxWidth に当たって余った幅は、stretchH があれ�
 <tr><td><code>skipNav</code></td><td><code class="ty">boolean</code></td><td>矢印（←→）・Tab・Enter の左右の移動でこの列を飛ばす（クリックでは選べる）。左に固定した見出しの列（日・曜など）に。</td></tr>
 <tr><td><code>validator</code></td><td><code class="ty">(value: any, cell: CellCoord) =&gt; ValidatorResult</code></td><td>入力検証。編集/貼付/フィルの全経路に効く。</td></tr>
 <tr><td><code>editor</code></td><td><code class="ty">EditorDef | (() =&gt; EditorDef)</code></td><td>カスタム編集UI（薄いオブジェクト契約 or それを返す関数）。</td></tr>
+<tr><td><code>unit</code></td><td><code class="ty">'day' | 'month' | 'year'</code></td><td>`type:'date'` の列の細かさ。`'day'`（既定）＝値 `'YYYY-MM-DD'`／`'month'`＝年月・値 `'YYYY-MM'`／`'year'`＝年・値 `'YYYY'`。
+打てる形: 年月 `2026/01`・`2026/1`・`202601`・`2026年1月`（日付を貼っても年月に）／年 `2026`・`2026年`・`2026年度`。全角も可。
+表示は `format`（`'yyyy/mm'`・`'yyyy年m月'`・`'yyyy年度'`）。Ctrl+; は今月・今年。TssCalendar を `editor` にすると月の一覧・年の一覧で開く。</td></tr>
+<tr><td><code>fiscalStart</code></td><td><code class="ty">number</code></td><td>年度の始まりの月（1〜12・既定 1＝暦の年）。`unit:'month'`/`'year'` の列で効く。値は変わらず、「今」の数え方とカレンダーの並びが変わる:
+年の列＝Ctrl+; とカレンダーの「今年」が年度（4 なら 2027年2月＝`2026`）／年月の列＝カレンダーが「2026年度」の 4月〜3月で並ぶ。
+年度は**始まりの年**で数える（2026年度＝2026年4月〜2027年3月）。</td></tr>
 <tr><td><code>parse</code></td><td><code class="ty">(input: string, cell: CellCoord) =&gt; any</code></td><td>入力の正規化（保存値へ変換）。</td></tr>
 <tr><td><code>format</code></td><td><code class="ty">string | object | ((value: any, cell: CellCoord, row: any[]) =&gt; string)</code></td><td>表示の整形（保存値→表示）。文字列 or 宣言的 CellFormat or 関数。
 関数は `(value, { r, c }, row)`＝第3引数 `row` はその行の値配列（`grid.data[r]`・options と同形）。

@@ -852,7 +852,7 @@ pay.openAt(payEl, { value: rec.payName, code: rec.payCode }, r => { rec.payName 
 
 | 部品 | 呼び方 | 選んだ時 |
 |---|---|---|
-| TssCalendar / TssTime / TssDatetime | `openAt(要素, 今の値, onPick, onCancel?)` | `onPick('2026-11-19')`（値の文字） |
+| TssCalendar / TssTime / TssDatetime | `openAt(要素, 今の値, onPick, onCancel?)` | `onPick('2026-11-19')`（値の文字。`TssCalendar({ unit: 'month' })` は `'2026-11'`・`'year'` は `'2026'`） |
 | TssCascade / TssCombo | `openAt(要素, 今の値 または { value, code }, onPick, onCancel?)` | `onPick({ value, code, other })` |
 
 - **置き場所**：欄の下（入らなければ上、どちらにも入らなければ広いほう）。プルダウン類は、入らない時は高さを縮めて中をスクロールする＝欄に重ならない。カレンダーは形が決まっているので、上にも下にも入らない横向きのスマホでは欄に重なることがある。
@@ -1377,7 +1377,35 @@ columns: [
 - **非数値の扱いは `invalidMode`**: `'revert'`（既定＝黙って戻す）/ `'keep'`（**セルを赤くエラー**＋`onInvalid` でメッセージ）。両モードとも全角→半角は効く（→ 動く例: [`examples/number-input.html`](https://tssgrid.threestarsoftware.co.jp/examples/number-input.html)）。
 - **編集時は素の数値**を表示（Excel 流。`¥1,234` のセルを編集すると `1234`）。
 - 数値列は**右寄せ**（`td.tg-num`）。
-- **日付パターン**（`type:'date'` に**文字列**の `format`）: トークン `yyyy` `yy` `mm` `m` `dd` `d`。`parse` は組込のまま（`20260630` 等で入力可）。
+- **日付パターン**（`type:'date'` に**文字列**の `format`）: トークン `yyyy` `yy` `mm` `m` `dd` `d`。`parse` は組込のまま（`20260630`・`2026年6月30日` 等で入力可）。
+
+#### 年月・年・年度の列（`unit`・`fiscalStart`）
+
+`type:'date'` のまま `unit` で細かさを選べます。並べ替え・Ctrl+;・`format`・カレンダーは日付と同じ仕組みで動きます。
+
+```js
+const cal = TssCalendar();
+columns: [
+  { data: 'acquired', title: '取得年月', type: 'date', unit: 'month', format: 'yyyy/mm', editor: cal },
+  { data: 'grad',     title: '卒業年',   type: 'date', unit: 'year',  format: 'yyyy年',  editor: cal },
+  { data: 'fy',       title: '年度',     type: 'date', unit: 'year',  fiscalStart: 4, format: 'yyyy年度', editor: cal },
+  { data: 'ym',       title: '計上月',   type: 'date', unit: 'month', fiscalStart: 4, format: 'yyyy年m月', editor: cal },
+]
+```
+
+| `unit` | 値（`getData()`） | 打てる形 | カレンダー |
+|---|---|---|---|
+| `'day'`（既定） | `'2026-01-15'` | `2026/1/15`・`20260115`・`2026年1月15日` | 日の一覧 |
+| `'month'` | `'2026-01'` | `2026/01`・`2026/1`・`202601`・`2026年1月`（日付を貼っても年月に） | 年の切り替え＋1〜12月（3列×4行） |
+| `'year'` | `'2026'` | `2026`・`2026年`・`2026年度` | 10年の一覧（‹ › で10年ずつ） |
+
+- **`fiscalStart`（1〜12・既定 1）＝年度の始まりの月**。値はそのまま（年度の列も `2026`）で、「今」の数え方とカレンダーの並びが変わる:
+  - 年の列：Ctrl+; とカレンダーの「今年」が年度になる（4月始まりなら 2027年2月は `2026`・3月31日→4月1日で切り替わる）。
+  - 年月の列：カレンダーが「2026年度」の **4月〜3月** で並ぶ（1行＝四半期。3月を押すと `'2027-03'`）。
+  - 年度は**始まりの年**で数える（2026年度＝2026年4月〜2027年3月）。
+- **カレンダーは列に従う**：列に `editor: TssCalendar()` を付けるだけで、列の `unit`・`fiscalStart` で開く（カレンダー側に書かなくてよい・違う時は列が勝つ）。表の外は `TssCalendar({ unit: 'month', fiscalStart: 4 }).openAt(el, '2026-04', v => …)`。`min`/`max` は `'2025-06'`・`'2020'` の様に unit の形で。
+- `editor` も `format` も無い年月の列は、ブラウザ標準の `<input type="month">` で開く（年の列は標準の部品が無いので文字で打つ）。
+- 今のデータが手打ちの文字（`'2026/01'`）なら、読み込む時に `'2026-01'` に直して渡す（読み込んだ値は確定の読み方を通らないため）。
 - これらは内部で `parse`/`format` の上に薄く乗っているだけなので、関数版の `format`/`parse` を渡せば従来どおり完全カスタムにできます（関数が優先）。
 - **空のセルでは `format` を呼びません**（`'¥' + v` が空の行に `¥0` を出さないため）。**値を持たず行から計算して見せる列**（金額＝数量×単価 など）は `formatEmpty: true` を付けると空でも呼ばれます。
   ```js
