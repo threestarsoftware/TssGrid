@@ -255,6 +255,7 @@ flex 列が全部 maxWidth に当たって余った幅は、stretchH があれ�
 <tr><td><code>minWidth</code></td><td><code class="ty">number</code></td><td>列の最小幅(px)。flex の伸び縮み・ドラッグ・自動調整で効く。</td></tr>
 <tr><td><code>maxWidth</code></td><td><code class="ty">number</code></td><td>列の最大幅(px)。flex の伸び縮み・ドラッグ・自動調整で効く。</td></tr>
 <tr><td><code>resizable</code></td><td><code class="ty">boolean</code></td><td>false でこの列だけリサイズ禁止。</td></tr>
+<tr><td><code>headerClass</code></td><td><code class="ty">string</code></td><td>この列の見出し（th）に付けるクラス（空白区切りで複数可）。見出しの文字は変えない。例 `'tss-required'` ＋ CSS `.tss-required::after { content: ' *' }`。</td></tr>
 <tr><td><code>align</code></td><td><code class="ty">'left' | 'center' | 'right'</code></td><td>列既定の水平/垂直整列。</td></tr>
 <tr><td><code>valign</code></td><td><code class="ty">'top' | 'middle' | 'bottom'</code></td><td></td></tr>
 <tr><td><code>readOnly</code></td><td><code class="ty">boolean | ((value: any, cell: CellCoord) =&gt; boolean)</code></td><td>列単位の読み取り専用。関数でセル単位判定も可。</td></tr>

@@ -95,6 +95,8 @@ export interface ColumnDef {
   maxWidth?: number;
   /** false でこの列だけリサイズ禁止。 */
   resizable?: boolean;
+  /** この列の見出し（th）に付けるクラス（空白区切りで複数可）。見出しの文字は変えない。例 `'tss-required'` ＋ CSS `.tss-required::after { content: ' *' }`。 */
+  headerClass?: string;
   /** 列既定の水平/垂直整列。 */
   align?: 'left' | 'center' | 'right';
   valign?: 'top' | 'middle' | 'bottom';

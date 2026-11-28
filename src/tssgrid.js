@@ -114,6 +114,7 @@
       //         getData/コピペは無傷。エスケープを外す＝XSS責任は format/値の提供側（外部入力をそのまま埋めない）。表示用途は readOnly 推奨。
       //   cellClass: (value,{r,c,row,src}) => クラス文字列/配列。条件付き書式（見た目は業務側CSS）。全体版は opts.cellClass(r,c,value,row,src)。
       //             src=元レコード（オブジェクトデータ時。非表示フィールドも参照可＝休日区分など隠し列基準の色付けに）。
+      //   headerClass: 'xxx' で見出し（th）にクラスを付ける（見出しの文字は変えない）。
       //   ※ date は parse 既定で yyyymmdd / yyyy-mm-dd / yyyy/mm/dd を yyyy-mm-dd に正規化。
       //     parse/format を付けるか picker:false にするとテキスト入力（並び順を自分で決められる）。
       //     data: オブジェクト配列で渡す時の**バインド先キー**（例 {data:'品番'}）。getRows/getValue(r,'品番') で使う。
@@ -1955,6 +1956,7 @@
         const cls = [];
         if (c < this.frozenCols) { cls.push('tg-frozen'); if (c === this.frozenCols - 1) cls.push('tg-frozen-edge'); }
         if (this._isHidden(c)) cls.push('tg-hidden');
+        cls.push(...TssGrid._clsSafe(this.colCfg(c).headerClass));   // 列の headerClass＝見出し th に付けるクラス（見出しの文字は変えない＝CSV の見出し等に混ざらない）
         const a = cls.length ? ' class="' + cls.join(' ') + '"' : '';
         const grip = (this.resizeCols && this.colCfg(c).resizable !== false) ? '<div class="tg-colgrip"></div>' : '';
         let lbl = labels ? labels[c] : this.headers[c];
@@ -2787,12 +2789,14 @@
       this._roLast = { r, c, t: now };
       try { this.onReadOnly([{ r, c, value: value != null ? value : this.data[r][c] }], 'edit'); } catch (_) {}
     }
+    // クリックで開いた（openOnClick）編集で、まだ1文字も打っていない＝利用者には「セルを選んだだけ」
+    _clickOpenUntouched(ed) { return this.mode === 'edit' && !!this._editByClick && ed === this.editor && this.editor.value === this._editOpenValue; }
     toEdit(value, caretEnd) {
       if (this._isReadOnly(this.active.r, this.active.c)) { this._roAttempt(this.active.r, this.active.c, value); return; }  // 読み取り専用は編集モードに入らない（知らせだけ）
       const starting = this.mode !== 'edit';
       if (this._edInput.disabled) { this._edInput.disabled = false; this._edMulti.disabled = false; }
       this._editByClick = false;   // クリックで開いた印（openOnClick の所で立て直す）。キー/F2 で始めた編集は立たない
-      if (starting) this.clearCopyMarquee();   // 編集開始でコピー/カットのマーキー（点線）を消す（Excel 流）
+      if (starting && !this._keepMarquee) this.clearCopyMarquee();   // 編集開始でコピー/カットのマーキー（点線）を消す（Excel 流）。クリックで開いた時は残す（_beginEdit の quiet）
       this.mode = 'edit';
       this.editor.className = (this.editor === this._edMulti) ? 'tg-editor tg-editor-multi edit' : 'tg-editor edit';
       this.fillhandle.style.display = 'none';
@@ -3833,9 +3837,8 @@
       const cols = djCol ? this._visCols().filter(c => this._selCols.has(c))          // 選んだ可視列（昇順）
                          : this._visCols().filter(c => c >= sel.c0 && c <= sel.c1);   // 隠し列は除外
       const rowIdx = djRow ? [...this._selRows].sort((a, b) => a - b) : null;
-      if (rowIdx) { for (const r of rowIdx) { const row = []; for (const c of cols) row.push(this.data[r][c]); buf.push(row); } }
-      else { const r0 = djCol ? 0 : sel.r0, r1 = djCol ? this.ROWS - 1 : sel.r1;
-        for (let r = r0; r <= r1; r++) { const row = []; for (const c of cols) row.push(this.data[r][c]); buf.push(row); } }
+      const srcRows = rowIdx || (() => { const a = [], r0 = djCol ? 0 : sel.r0, r1 = djCol ? this.ROWS - 1 : sel.r1; for (let r = r0; r <= r1; r++) a.push(r); return a; })();
+      for (const r of srcRows) { const row = []; for (const c of cols) row.push(this.data[r][c]); buf.push(row); }
       // 「前」フック（cut は onBeforeCut / copy は onBeforeCopy）。false で中止 / 配列を返すと差替え。
       const info = { range: { ...sel }, cut: !!cut };
       const before = cut ? this.onBeforeCut : this.onBeforeCopy;
@@ -3843,7 +3846,8 @@
       sharedClip = buf;
       this._writeClip(TssGrid.toTSV(buf));
       // カットの消し込み対象を記録（paste時に消す）。飛び飛びは列/行の集合として保持。
-      this.pendingCut = !cut ? null : djCol ? { cols: cols.slice() } : djRow ? { rows: rowIdx.slice() } : { ...sel };
+      // rows/cols＝クリップボードの i 行目・j 列目がどのセルから来たか（貼り付けで「入ったセルの元だけ消す」ため。隠し列はコピーしない＝消さない）。
+      this.pendingCut = !cut ? null : Object.assign(djCol ? { cols: cols.slice() } : djRow ? { rows: rowIdx.slice() } : { ...sel }, { srcRows: srcRows, srcCols: cols.slice() });
       if (disjoint) this.copybox.style.display = 'none';          // 飛び飛びは単一枠で囲えない＝マーキー無し
       else { this.placeRect(this.copybox, sel.r0, sel.c0, sel.r1, sel.c1); this.copybox.style.display = 'block'; }
       if (this.onAfterCopy) { try { this.onAfterCopy(buf, info); } catch (_) {} }
@@ -3926,6 +3930,7 @@
       const selH = sel.r1 - sel.r0 + 1, selW = selCols.length;
       const repV = (!singleCell && tileH > 0 && selH >= tileH && selH % tileH === 0) ? (selH / tileH) : 1;   // 縦の繰り返し回数
       const repW = (!singleCell && tileW > 0 && selW >= tileW && selW % tileW === 0) ? (selW / tileW) : 1;   // 横の繰り返し回数
+      const placed = [];   // 貼り付けたセル { r, c, i, j, v }（i,j＝クリップボードの位置）。切り取りの元を消す時に使う
       if (repV > 1 || repW > 1) {
         const p0 = visAll.indexOf(this._snapVisCol(sel.c0));   // 選択左上の可視列（はみ出しは可視列をたどって継続）
         const totalCols = repW * tileW;
@@ -3935,7 +3940,7 @@
           const srcRow = g[i % tileH];
           for (let j = 0; j < totalCols; j++) {
             const c = visAll[p0 + j]; if (c == null) break;   // 右端を超えたらクリップ
-            const sv = srcRow[j % tileW]; this.setCell(r, c, sv != null ? sv : '', changes);
+            const sv = srcRow[j % tileW]; this.setCell(r, c, sv != null ? sv : '', changes); placed.push({ r, c, i: i % tileH, j: j % tileW, v: sv != null ? sv : '' });
             lastC = c; lastR = r;
           }
         }
@@ -3968,14 +3973,24 @@
         }
         let lastC = c0;
         for (let i = 0; i < g.length; i++) for (let j = 0; j < g[i].length; j++) {
-          const r = r0 + i, c = visAll[p0 + j]; if (r < this.ROWS && c != null) { this.setCell(r, c, g[i][j], changes); lastC = c; }
+          const r = r0 + i, c = visAll[p0 + j]; if (r < this.ROWS && c != null) { this.setCell(r, c, g[i][j], changes); placed.push({ r, c, i, j, v: g[i][j] }); lastC = c; }
         }
         after = { active: { r: r0, c: c0 }, extent: { r: Math.min(this.ROWS - 1, r0 + g.length - 1), c: lastC } };
       }
       if (this.pendingCut) { const cs = this.pendingCut;
-        if (cs.cols) { for (const c of cs.cols) for (let r = 0; r < this.ROWS; r++) this.setCell(r, c, '', changes); }         // 飛び飛び列カット
-        else if (cs.rows) { for (const r of cs.rows) for (let c = 0; c < this.COLS; c++) this.setCell(r, c, '', changes); }   // 飛び飛び行カット
-        else { for (let r = cs.r0; r <= cs.r1; r++) for (let c = cs.c0; c <= cs.c1; c++) this.setCell(r, c, '', changes); }   // 連続（従来）
+        // 切り取りの元は「貼れたセルの元」だけ消す。貼り付け先が読み取り専用・型や validator に合わず元に戻るセル（invalidMode 'revert'）の元は残す
+        // ＝値が黙って消えない。貼り付け先と重なる元（A1:A2 を A2 へ）も消さない（入れたばかりの値を消してしまうため）。
+        const hasRO = this._hasReadOnly(), rules = this._hasColRules() && !this._marksInvalid;
+        const landed = new Set(), dest = new Set();
+        for (const p of placed) {
+          if (hasRO && this._isReadOnly(p.r, p.c)) continue;
+          if (rules && !this._coerceCell(p.r, p.c, p.v).ok) continue;
+          landed.add(p.i + ',' + p.j); dest.add(p.r + ',' + p.c);
+        }
+        for (let i = 0; i < cs.srcRows.length; i++) for (let j = 0; j < cs.srcCols.length; j++) {
+          const r = cs.srcRows[i], c = cs.srcCols[j];
+          if (landed.has(i + ',' + j) && !dest.has(r + ',' + c) && r < this.ROWS) this.setCell(r, c, '', changes);
+        }
         this.pendingCut = null; this.copybox.style.display = 'none'; }
       if (this._coarse) this.copybox.style.display = 'none';   // タッチは Esc が無い＝貼り付けたら点線枠を消す（PCは Excel 流に Esc/編集まで残す）
       this.pushCmd(changes, before, after, 'paste');
@@ -4118,6 +4133,14 @@
         // allowChars: 編集中に合わない文字を落とす（日本語入力は変換中は触らず、確定で落とす＝Chrome は確定の input が変換中扱いで来るので compositionend でも）
         const chars = (e) => { if (!(e && e.isComposing) && !this._imeOn && this.mode === 'edit' && ed === this.editor) this._filterEditorChars(); };
         ed.addEventListener('input', chars);
+        // クリックで開いて、まだ打っていない入力欄の右クリックは表のメニュー（ほかの列のセルと同じ）。打ち始めたらブラウザのメニュー（文字の編集用）。
+        ed.addEventListener('contextmenu', (e) => {
+          if (!this.contextMenu || !this._clickOpenUntouched(ed)) return;
+          const td = this.activeTd(); if (!td) return;
+          if (this._openCtxMenu(td, e.clientX, e.clientY)) e.preventDefault();
+        });
+        // クリックで開いた編集（マーキーを残した）で打ち始めたら、ここでコピー/カットの点線を消す（Excel もセルに打つと切り取りが取り消される）
+        ed.addEventListener('input', () => { if (this.mode === 'edit' && ed === this.editor && (this.pendingCut || this.copybox.style.display !== 'none')) this.clearCopyMarquee(); });
         ed.addEventListener('compositionstart', () => { this._imeOn = true; });
         ed.addEventListener('compositionend', () => { this._imeOn = false; chars(null); });
         // 貼り付けの主経路＝ネイティブ paste イベント（clipboardData.getData）。Ctrl+V のジェスチャー内で
@@ -4132,7 +4155,8 @@
             // 複数セル（タブか改行を含む・末尾の改行だけは1セル）を貼ったら、編集を取り消して表へ貼る（nav の Ctrl+V と同じ）。
             // キー/F2/ダブルクリックで始めた編集・打ち始めた後は従来どおり入力欄へ（Excel の編集中の貼り付けと同じ）。
             const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
-            if (this._editByClick && ed === this.editor && this.editor.value === this._editOpenValue && /[\t\r\n]/.test(text.replace(/[\r\n]+$/, ''))) {
+            // 切り取りの途中（pendingCut）も表へ貼る＝入力欄に入れると元のセルが消えない（コピーの動きになる）。
+            if (this._clickOpenUntouched(ed) && (this.pendingCut || /[\t\r\n]/.test(text.replace(/[\r\n]+$/, '')))) {
               e.preventDefault();
               const r = this.active.r, c = this.active.c, v = this.data[r][c];
               if (this.onEditEnd) { try { this.onEditEnd({ r, c, oldValue: v, newValue: v, canceled: true }); } catch (_) {} }
@@ -4483,13 +4507,17 @@
     _beginEdit(r, c, quiet) {
       // 読み取り専用: F2・ダブルクリックは「変えようとした」＝知らせる。クリックで開く系（openOnClick）は移動しただけ＝quiet で黙る。
       if (this._isReadOnly(r, c)) { if (!quiet) this._roAttempt(r, c); return; }
-      this.clearCopyMarquee();   // 編集開始でコピー/カットのマーキー（点線）を消す（dropdown/checkbox/カスタム含む）
+      // 編集開始でコピー/カットのマーキー（点線）を消す（dropdown/checkbox/カスタム含む）。
+      // ただしクリックで開いた時（quiet＝openOnClick）は「セルを選んだだけ」＝残す（Excel もクリックだけでは切り取りを取り消さない）。
+      // 打ち始めたら消す（editor の input）。
+      if (!quiet) this.clearCopyMarquee();
       const _ed = this.colCfg(c).editor;
       if (_ed && !_ed.inline) { this._openCustomEditor(r, c); return; }   // カスタムエディタ（inline は共有 input の経路へ落として toEdit が open する）
       const t = this.colType(c);
       if (t === 'checkbox') { this._toggleCheckbox(r, c); return; }
       if (t === 'dropdown') { this._openSelect(); return; }
-      this.toEdit(this._editText(r, c), true);
+      this._keepMarquee = !!quiet;
+      try { this.toEdit(this._editText(r, c), true); } finally { this._keepMarquee = false; }
       // selectOnEdit: クリック/F2 の編集開始で中身を全選択＝打てば丸ごと置き換わる（時刻/日付ピッカー等）。
       // 列の selectOnEdit を最優先、無ければエディタ申告（editor.selectOnEdit）に従う。
       const _se = this.colCfg(c).selectOnEdit;

@@ -1133,6 +1133,7 @@ new TssGrid(el, { columns: [{ data: 'id', hidden: true }, …] });   // 列定�
 | `columns[c].flex` | `boolean\|number` | — | **この列で表の幅を吸収**（置き場の幅に合わせて伸び縮み）。`width` が出発点・`minWidth`〜`maxWidth` の範囲で、縮めて最小に達したらそこからは横スクロール。置き場の幅が変わると自動で配り直す。数値は flex 列が複数の時の配分の重み。flex 列がある表では `stretchH` より優先（flex 列が全部 `maxWidth` に当たって余った幅は、`stretchH` があれば flex でない列に回す）。例 `{ data:'reason', width:90, flex:true, minWidth:60, maxWidth:90 }` |
 | `columns[c].minWidth` / `maxWidth` | `number` | — | 列の最小／最大の幅(px)。flex の伸び縮み・ドラッグ・自動調整・`setColWidth` で効く |
 | `columns[c].resizable` | `boolean` | `true` | 列ごとの幅ロック。`false` でその列だけリサイズ禁止 |
+| `columns[c].headerClass` | `string` | — | この列の見出し（th）にクラスを付ける（空白区切りで複数可）。見出しの文字は変えない。例 `headerClass: 'tss-required'` ＋ `.tss-required::after { content: ' *' }` |
 | `stretchH` | `'none'\|'last'\|'all'` | `'none'` | 列を枠幅まで伸ばす。`'last'`=余りを最終列へ / `'all'`=全列で配分（`width` 指定時に効く・隠し列は対象外）。決めた列で伸び縮みさせたい時は列の `flex` |
 | `onColumnWidthsChange` | `(widths)=>void` | — | 実際に描く列幅が変わった時（ドラッグ・`setColWidth`・`stretchH`・`flex`・列の表示切替・行番号の列が桁で広がった時＝`grid.rowHeaderW`）。今の幅は `getColumnWidths()`（隠し列は 0） |
 | `headerWrap` | `boolean` | `false` | 長い見出しを列幅で折り返す（ヘッダ行が伸び、固定行もそれに合わせて下がる）。既定は1行で切る |
